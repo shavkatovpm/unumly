@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# unumly.uz
 
-## Getting Started
+Kunlik, haftalik, oylik va yillik rejalaringizni bir joyda tartibga soluvchi minimalist productivity ilovasi.
 
-First, run the development server:
+> **Hozirgi holat — Lokal rejim**
+> Ma'lumotlar brauzeringizning `localStorage`'iga saqlanadi. Ro'yxatdan o'tish, baza yoki internet ulanishi shart emas. Neon DB va Google OAuth keyinroq qo'shiladi.
+
+## Stack
+
+- **Next.js 16** (App Router) + React 19 + TypeScript
+- **Tailwind CSS v4** (warm-stone + soft emerald design tokens)
+- **Framer Motion** + custom CSS uchun ozgina nozik animatsiyalar
+- _(Yotgan rejim)_: Prisma 6 + Neon + Auth.js scaffolding mavjud, lekin hozir ishlatilmaydi
+
+## Boshlash
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+→ http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Tamom — boshqa hech narsa shart emas. "Boshlash" tugmasini bosing va rejalaringizni yozishni boshlang.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Komandalar
 
-## Learn More
+| Command | Tavsif |
+| --- | --- |
+| `npm run dev` | Dev server |
+| `npm run build` | Production build (prisma generate avtomatik) |
+| `npm run start` | Production server |
+| `npm run lint` | ESLint |
+| `npm run db:studio` | Prisma Studio (DB GUI) |
+| `npm run db:push` | Schema'ni DB ga tarqatish (migration yaratmasdan) |
+| `npm run db:migrate` | Migration yaratish va qo'llash |
+| `npm run db:deploy` | Production migration'larini qo'llash |
+| `npm run db:reset` | DB ni reset qilish (ehtiyot bo'ling) |
 
-To learn more about Next.js, take a look at the following resources:
+## Loyiha tuzilishi
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/
+├── app/
+│   ├── (app)/                 ← auth-gated routes
+│   │   ├── layout.tsx         ← header + auth check
+│   │   └── dashboard/
+│   ├── actions/               ← server actions (auth, plans)
+│   ├── api/auth/[...nextauth]/
+│   ├── globals.css            ← design tokens
+│   ├── layout.tsx             ← root layout
+│   └── page.tsx               ← landing
+├── components/
+│   ├── app/                   ← dashboard komponentlari
+│   ├── brand/                 ← wordmark va h.k.
+│   └── ui/                    ← button, ikonlar
+└── lib/
+    ├── auth.ts                ← NextAuth config
+    ├── dates.ts               ← sana yordamchilari
+    ├── prisma.ts              ← Prisma client singleton
+    └── utils.ts               ← cn() helper
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+prisma/
+└── schema.prisma              ← User + Plan modellari
+```
 
-## Deploy on Vercel
+## MVP doirasi
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Google bilan kirish
+- Reja CRUD (Kunlik / Haftalik / Oylik / Yillik)
+- Bajarildi belgilash
+- Tracking (qancha bajarilgan)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Keyingi bosqichlar (post-MVP)
+
+- Reja tafsilotlari (notes, due time, tags)
+- Drag-and-drop tartiblash
+- Finance moduli
+- Pomodoro / fokus rejimi
+- Telegram bot integratsiyasi

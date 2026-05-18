@@ -1,65 +1,78 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { Wordmark } from "@/components/brand/wordmark";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="relative flex min-h-screen flex-col">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 [background-image:radial-gradient(var(--border)_1px,transparent_1px)] [background-size:24px_24px] opacity-50 [mask-image:radial-gradient(ellipse_at_center,black_25%,transparent_75%)]"
+      />
+
+      <header className="px-6 py-6 sm:px-10">
+        <Wordmark className="text-base" />
+      </header>
+
+      <section className="flex flex-1 items-center justify-center px-6 sm:px-10">
+        <div className="w-full max-w-xl text-center">
+          <p className="rise-in mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 px-3 py-1 text-xs text-muted backdrop-blur-sm">
+            <span className="size-1 rounded-full bg-accent" />
+            Lokal rejim — ma'lumotlar shu brauzerda saqlanadi
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+          <h1
+            className="rise-in text-balance text-4xl font-medium leading-[1.1] tracking-[-0.03em] text-foreground sm:text-6xl"
+            style={{ animationDelay: "60ms" }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Rejalaringizni
+            <br />
+            tinchgina yuriting.
+          </h1>
+
+          <p
+            className="rise-in mx-auto mt-6 max-w-md text-balance text-[15px] leading-relaxed text-muted sm:text-base"
+            style={{ animationDelay: "140ms" }}
           >
-            Documentation
-          </a>
+            Kunlik, haftalik, oylik va yillik ishlaringizni bir joyda
+            tartibga soling. Ortiqcha hech narsa — faqat siz va rejalaringiz.
+          </p>
+
+          <div
+            className="rise-in mt-10 flex flex-col items-center gap-3"
+            style={{ animationDelay: "220ms" }}
+          >
+            <Link
+              href="/bugun"
+              className={buttonVariants({ variant: "accent", size: "lg" }) + " min-w-56"}
+            >
+              Boshlash
+              <ArrowRight className="size-4" />
+            </Link>
+            <p className="text-xs text-faint">
+              Ro'yxatdan o'tish shart emas — darhol foydalaning.
+            </p>
+          </div>
+
+          <ul
+            className="rise-in mx-auto mt-16 flex max-w-md items-center justify-between text-[11px] uppercase tracking-[0.18em] text-faint"
+            style={{ animationDelay: "320ms" }}
+          >
+            <li>Kun</li>
+            <li className="text-border">·</li>
+            <li>Hafta</li>
+            <li className="text-border">·</li>
+            <li>Oy</li>
+            <li className="text-border">·</li>
+            <li>Yil</li>
+          </ul>
         </div>
-      </main>
-    </div>
+      </section>
+
+      <footer className="px-6 py-6 text-center text-xs text-faint sm:px-10">
+        © {new Date().getFullYear()} unumly.uz
+      </footer>
+    </main>
   );
 }
