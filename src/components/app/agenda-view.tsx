@@ -129,7 +129,7 @@ function AgendaRow({
 
       <span
         className={cn(
-          "min-w-0 flex-1 truncate text-[13.5px]",
+          "min-w-0 flex-1 truncate text-[15px] sm:text-[13.5px]",
           visualDone && "text-faint line-through"
         )}
       >
@@ -272,10 +272,10 @@ export function AgendaView() {
   return (
     <div className="flex h-screen flex-col overflow-y-auto">
       {/* Header */}
-      <header className="flex h-12 items-center justify-between gap-2 border-b border-border pl-12 pr-3 md:pl-6 md:pr-6">
+      <header className="flex h-12 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
         <div className="flex min-w-0 items-center gap-2">
-          <h1 className="text-[13px] font-semibold tracking-[-0.01em]">Agenda</h1>
-          <span className="truncate text-[12px] text-faint">Yaqin kunlar</span>
+          <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Agenda</h1>
+          <span className="truncate text-[13px] text-faint sm:text-[12px]">Yaqin kunlar</span>
         </div>
         {total > 0 && (
           <p className="shrink-0 font-mono text-[11px] tabular-nums text-faint">
@@ -285,7 +285,7 @@ export function AgendaView() {
       </header>
 
       {/* Content */}
-      <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:pb-8">
         {/* Add task form */}
         <form
           onSubmit={submit}

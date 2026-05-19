@@ -116,7 +116,7 @@ export function TaskRow({
 
       <span
         className={cn(
-          "min-w-0 flex-1 truncate text-[13.5px] leading-snug",
+          "min-w-0 flex-1 truncate text-[15px] leading-snug sm:text-[13.5px]",
           done && "text-faint line-through decoration-faint/60"
         )}
       >

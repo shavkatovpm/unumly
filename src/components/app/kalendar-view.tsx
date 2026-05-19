@@ -80,7 +80,7 @@ export function KalendarView() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border pl-12 pr-3 md:pl-6 md:pr-6">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
         <div className="flex min-w-0 items-center gap-2 md:gap-3">
           <h1 className="hidden text-[13px] font-semibold tracking-[-0.01em] sm:block">Kalendar</h1>
 
@@ -149,7 +149,7 @@ export function KalendarView() {
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden p-2 sm:p-4">
+      <div className="flex-1 overflow-hidden p-2 pb-20 sm:p-4 md:pb-4">
         <div ref={scrollRef} className="h-full overflow-hidden">
           {view === "kun" && (
             <div className="h-full overflow-y-auto pr-1">

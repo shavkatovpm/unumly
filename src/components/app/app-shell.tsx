@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { usePlans } from "@/lib/plans-store";
 import { startOfDay, toDateInputValue } from "@/lib/dates";
 import { Sidebar } from "./sidebar";
+import { MobileBottomNav } from "./mobile-bottom-nav";
 
 const STORAGE_OPEN = "unumly:sidebar:open";
 
@@ -50,13 +51,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      {/* Hamburger toggle — fixed top-left, morphs between Menu and X */}
+      {/* Hamburger toggle — desktop only (mobile uses bottom tabs) */}
       <button
         type="button"
         onClick={() => toggle(!open)}
         aria-label={open ? "Sidebarni yopish" : "Sidebarni ochish"}
         title={open ? "Sidebarni yopish" : "Sidebarni ochish"}
-        className="fixed left-3 top-2.5 z-50 grid size-7 place-items-center rounded-md text-muted transition-colors hover:bg-hover hover:text-foreground"
+        className="fixed left-3 top-2.5 z-50 hidden size-7 place-items-center rounded-md text-muted transition-colors hover:bg-hover hover:text-foreground md:grid"
       >
         <Menu
           className={cn(
@@ -77,13 +78,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         className={cn(
           "relative flex-1 overflow-hidden transition-[padding] duration-300 ease-out",
           // Padding-left only on desktop when sidebar is collapsed (to leave space for hamburger).
-          // On mobile, hamburger floats so always leave a bit of room.
-          "pl-10 md:pl-0",
           !open && "md:pl-10"
         )}
       >
         {children}
       </main>
+
+      {/* Mobile bottom navigation */}
+      <MobileBottomNav todayCount={todayCount} />
     </div>
   );
 }

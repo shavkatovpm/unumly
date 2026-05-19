@@ -106,9 +106,9 @@ export function RejaView() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border pl-12 pr-3 md:pl-6 md:pr-6">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
         <div className="flex items-center gap-2 md:gap-3">
-          <h1 className="text-[13px] font-semibold tracking-[-0.01em]">Reja</h1>
+          <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Reja</h1>
           <ViewSwitcher value={view} onChange={setViewPersist} />
           <SortToggle value={sortOrder} onChange={setSortPersist} />
         </div>
@@ -319,7 +319,7 @@ function TabView(props: ViewProps) {
         onCategoryDelete={props.onCategoryDelete}
       />
 
-      <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto">
+      <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto pb-24 md:pb-0">
         {/* + Yangi reja qo'shish — tepada, lekin tab bardan biroz ajralib turadi */}
         <div className="mt-3 border-y border-border/40">
           {adding ? (
@@ -355,7 +355,7 @@ function TabView(props: ViewProps) {
           ) : (
             <button
               onClick={() => setAdding(true)}
-              className="flex w-full items-center gap-3 px-5 py-2 text-left text-[13px] text-faint hover:bg-hover/40 hover:text-muted"
+              className="flex w-full items-center gap-3 px-5 py-3 text-left text-[14.5px] text-faint hover:bg-hover/40 hover:text-muted sm:py-2 sm:text-[13px]"
             >
               <Plus className="size-3.5" />
               <span className="flex-1">Yangi reja qo&apos;shish</span>
@@ -617,7 +617,7 @@ function KanbanView(props: ViewProps) {
   }, [menuFor]);
 
   return (
-    <div className="flex-1 overflow-x-auto overflow-y-hidden">
+    <div className="flex-1 overflow-x-auto overflow-y-hidden pb-20 md:pb-0">
       <div
         className="grid h-full min-w-min"
         style={{
@@ -917,12 +917,12 @@ function IdeaRowLinear({
     <article
       className={cn(
         "group grid items-start gap-2 overflow-hidden border-b border-border/40 hover:bg-hover/40",
-        compact ? "grid-cols-[10px_14px_1fr_24px] px-3" : "grid-cols-[16px_16px_1fr_50px_24px] px-5",
+        compact ? "grid-cols-[10px_1fr_24px_14px] px-3" : "grid-cols-[16px_1fr_50px_24px_16px] px-5",
         isNew && !pendingDone && "drop-in"
       )}
       style={articleStyle}
     >
-      {/* Priority indicator (priority dot or stripe) */}
+      {/* Priority indicator — stripe (compact) or dot (non-compact) */}
       {compact ? (
         <span
           className={cn(
@@ -934,15 +934,6 @@ function IdeaRowLinear({
           )}
         />
       ) : (
-        <button onClick={handleToggle} className="mt-0.5">
-          <CheckBox visualDone={visualDone} color={color} />
-        </button>
-      )}
-      {compact ? (
-        <button onClick={handleToggle} className="mt-0.5">
-          <CheckBox visualDone={visualDone} color={color} small />
-        </button>
-      ) : (
         <span
           className={cn(
             "mt-1.5 size-1.5 rounded-full",
@@ -953,27 +944,34 @@ function IdeaRowLinear({
           )}
         />
       )}
+
       <button
         onClick={() => onOpen?.()}
         className={cn(
           "min-w-0 flex-1 cursor-pointer truncate text-left leading-snug",
-          compact ? "text-[12px]" : "text-[13px]",
+          compact ? "text-[13.5px] sm:text-[12px]" : "text-[14.5px] sm:text-[13px]",
           visualDone && "text-faint line-through"
         )}
       >
         {idea.title}
       </button>
+
       {!compact && (
         <span className="text-right font-mono text-[10.5px] tabular-nums text-faint">
           {formatRel(idea.createdAt)}
         </span>
       )}
+
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
         aria-label="O'chirish"
         className="grid size-5 shrink-0 place-items-center rounded text-faint opacity-0 transition-colors hover:bg-danger-soft hover:text-danger group-hover:opacity-100"
       >
         <Trash2 className="size-3" />
+      </button>
+
+      <button onClick={handleToggle} className="mt-0.5">
+        <CheckBox visualDone={visualDone} color={color} small={compact} />
       </button>
     </article>
   );
