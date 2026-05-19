@@ -438,7 +438,7 @@ export function BugunView() {
         <Plus className="size-6" strokeWidth={2.5} />
       </button>
 
-      {/* Mobile add-task bottom sheet */}
+      {/* Mobile add-task centered modal */}
       <AnimatePresence>
       {mobileSheet && (
         <>
@@ -448,28 +448,22 @@ export function BugunView() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={() => setMobileSheet(false)}
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px] md:hidden"
+            className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[3px] md:hidden"
           />
-          <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 32, stiffness: 320 }}
-            className="fixed inset-x-0 z-50 rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
-            style={{
-              bottom: "var(--kb-inset, 0px)",
-              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)",
-            }}
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center px-4 md:hidden"
+            style={{ paddingBottom: "var(--kb-inset, 0px)" }}
+            onClick={() => setMobileSheet(false)}
           >
-            <button
-              type="button"
-              onClick={() => setMobileSheet(false)}
-              aria-label="Yopish"
-              className="flex w-full items-center justify-center py-2.5"
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 4 }}
+              transition={{ type: "spring", damping: 28, stiffness: 360 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
             >
-              <span className="h-1 w-10 rounded-full bg-faint/60" />
-            </button>
-            <header className="flex items-center justify-between border-b border-border px-5 pb-3">
+            <header className="flex items-center justify-between border-b border-border px-5 py-3">
               <p className="text-[15px] font-semibold tracking-[-0.01em]">Yangi reja</p>
               <button
                 type="button"
@@ -537,7 +531,8 @@ export function BugunView() {
                 </button>
               </div>
             </form>
-          </motion.div>
+            </motion.div>
+          </div>
         </>
       )}
       </AnimatePresence>
