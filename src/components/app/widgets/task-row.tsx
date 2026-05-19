@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { Check, Clock } from "lucide-react";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -75,12 +76,14 @@ export function TaskRow({
   const visualDone = done || pendingDone;
 
   return (
-    <li
+    <motion.li
+      layout
+      transition={{ layout: { type: "spring", stiffness: 380, damping: 32 } }}
       onClick={() => onOpen?.(plan.id)}
       className={cn(
         "group flex items-center gap-3 overflow-hidden px-3 hover:bg-hover/60",
         visualDone && "bg-subtle/30",
-        isNew && "drop-in",
+        isNew && "task-pop",
         onOpen && "cursor-pointer"
       )}
       style={{
@@ -142,6 +145,6 @@ export function TaskRow({
           )}
         </span>
       </button>
-    </li>
+    </motion.li>
   );
 }

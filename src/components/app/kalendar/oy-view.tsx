@@ -73,7 +73,7 @@ export function OyView({
               type="button"
               onClick={() => onSelectDate(cell)}
               className={cn(
-                "group relative flex min-h-[100px] flex-col items-stretch border-l border-t p-1.5 text-left transition-colors first:border-l-0 hover:bg-hover/30",
+                "group relative flex min-h-[60px] flex-col items-stretch border-l border-t p-1 text-left transition-colors first:border-l-0 hover:bg-hover/30 sm:min-h-[100px] sm:p-1.5",
                 isToday ? "border-foreground/70" : "border-border",
                 !inMonth && "bg-subtle/40 text-faint"
               )}
@@ -101,7 +101,23 @@ export function OyView({
                 )}
               </div>
 
-              <ul className="mt-1 space-y-0.5">
+              {/* Mobile: just colored dots for tasks */}
+              {items.length > 0 && (
+                <div className="mt-1 flex flex-wrap items-center gap-0.5 sm:hidden">
+                  {items.slice(0, 5).map((p) => (
+                    <span
+                      key={p.id}
+                      className={cn(
+                        "size-1 rounded-full",
+                        p.status === "DONE" ? "bg-faint" : "bg-accent"
+                      )}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Desktop: task title previews */}
+              <ul className="mt-1 hidden space-y-0.5 sm:block">
                 {items.slice(0, 3).map((p) => {
                   const done = p.status === "DONE";
                   return (

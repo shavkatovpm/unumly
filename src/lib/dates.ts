@@ -131,14 +131,6 @@ export function isSameDay(a: Date, b: Date) {
   );
 }
 
-export function greeting(d = new Date()) {
-  const h = d.getHours();
-  if (h >= 5 && h < 12)  return "Xayrli tong";
-  if (h >= 12 && h < 17) return "Xayrli kun";
-  if (h >= 17 && h < 22) return "Xayrli kech";
-  return "Tinch tun";
-}
-
 export function formatTime(time: string | undefined) {
   if (!time) return "";
   return time;

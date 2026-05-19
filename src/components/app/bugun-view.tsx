@@ -10,11 +10,11 @@ import {
   Sun,
   Sunrise,
   Sunset,
+  X,
 } from "lucide-react";
 import { usePlans } from "@/lib/plans-store";
 import {
   formatUzDate,
-  greeting,
   occupiedTimeSlots,
   parseTimeToMinutes,
   startOfDay,
@@ -92,10 +92,21 @@ export function BugunView() {
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [mobileSheet, setMobileSheet] = useState(false);
   const detailPlan = detailId ? plans.find((p) => p.id === detailId) ?? null : null;
   const inputRef = useRef<HTMLInputElement>(null);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
   const timeBtnRef = useRef<HTMLButtonElement>(null);
+  const mobileTimeBtnRef = useRef<HTMLButtonElement>(null);
   const animationTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (mobileSheet) {
+      // Focus title input when sheet opens
+      const id = window.setTimeout(() => mobileInputRef.current?.focus(), 50);
+      return () => window.clearTimeout(id);
+    }
+  }, [mobileSheet]);
 
   useEffect(() => {
     return () => {
@@ -150,45 +161,26 @@ export function BugunView() {
 
       {/* Content */}
       <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:pb-8">
-        {/* Greeting block */}
-        <div className="rise-in grid grid-cols-[1fr_auto] items-center gap-4">
-          <div className="min-w-0">
-            <h2 className="text-[28px] font-semibold tracking-[-0.025em] text-foreground">
-              {now ? greeting(now) : "Xayrli kun"}
-            </h2>
-            <p className="mt-1.5 text-[13.5px] text-muted">
-              {total === 0
-                ? "Bo'sh varaq. Birinchi rejangizni yozing."
-                : done === total
-                ? `Hammasi bajarildi — ${total} ta reja. Kunni yopish vaqti.`
-                : `Bajarildi: ${done}/${total} · Qoldi: ${active.length} ta`}
-            </p>
-          </div>
-
+        {/* Greeting block — bitta tortburchak ichida, bir qatorda */}
+        <div className="rise-in flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:px-5 sm:py-3.5">
+          <h2 className="min-w-0 truncate text-[16px] font-semibold leading-tight tracking-[-0.02em] text-foreground sm:text-[18px]">
+            {total === 0 ? "Birinchi rejangizni yozing" : "Bugungi rejalar"}
+          </h2>
           {total > 0 && (
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="font-mono text-[20px] font-semibold tabular-nums leading-none">
+            <div className="flex shrink-0 items-center gap-2.5">
+              <div className="leading-none text-right">
+                <p className="font-mono text-[16px] font-semibold tabular-nums leading-none sm:text-[18px]">
                   {pct}%
                 </p>
                 <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-faint">
                   {done}/{total}
                 </p>
               </div>
-              <div className="relative grid size-12 place-items-center">
+              <div className="relative grid size-10 place-items-center">
                 <svg viewBox="0 0 36 36" className="-rotate-90">
+                  <circle cx="18" cy="18" r="15" fill="none" stroke="var(--subtle)" strokeWidth="3" />
                   <circle
-                    cx="18"
-                    cy="18"
-                    r="15"
-                    fill="none"
-                    stroke="var(--subtle)"
-                    strokeWidth="3"
-                  />
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="15"
+                    cx="18" cy="18" r="15"
                     fill="none"
                     stroke="var(--accent)"
                     strokeWidth="3"
@@ -198,20 +190,17 @@ export function BugunView() {
                   />
                 </svg>
                 {pct === 100 && (
-                  <Check
-                    className="absolute size-5 text-accent check-pop"
-                    strokeWidth={5}
-                  />
+                  <Check className="absolute size-4 text-accent check-pop" strokeWidth={5} />
                 )}
               </div>
             </div>
           )}
         </div>
 
-        {/* Add task */}
+        {/* Add task — desktop only (mobile uses FAB at bottom-right) */}
         <form
           onSubmit={submit}
-          className="rise-in mt-8 overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)] transition-colors focus-within:border-border-strong"
+          className="rise-in mt-8 hidden overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)] transition-colors focus-within:border-border-strong md:block"
           style={{ animationDelay: "60ms" }}
         >
           <div className="flex items-center gap-2 px-3 py-2">
@@ -248,7 +237,7 @@ export function BugunView() {
 
         <TimePickerPopover
           open={showTime}
-          triggerRef={timeBtnRef}
+          triggerRef={mobileSheet ? mobileTimeBtnRef : timeBtnRef}
           value={time}
           onChange={(v) => setTime(v)}
           onClear={() => setTime("")}
@@ -377,6 +366,98 @@ export function BugunView() {
         onUpdate={update}
         onRemove={askRemove}
       />
+
+      {/* Mobile FAB — bottom-right circular "+" button */}
+      <button
+        type="button"
+        onClick={() => setMobileSheet(true)}
+        aria-label="Yangi reja qo'shish"
+        className="fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-foreground text-background shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 md:hidden"
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
+      >
+        <Plus className="size-6" strokeWidth={2.5} />
+      </button>
+
+      {/* Mobile add-task bottom sheet */}
+      {mobileSheet && (
+        <>
+          <div
+            onClick={() => setMobileSheet(false)}
+            className="fade-in fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px] md:hidden"
+          />
+          <div
+            className="fade-in fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
+          >
+            <button
+              type="button"
+              onClick={() => setMobileSheet(false)}
+              aria-label="Yopish"
+              className="flex w-full items-center justify-center py-2.5"
+            >
+              <span className="h-1 w-10 rounded-full bg-faint/60" />
+            </button>
+            <header className="flex items-center justify-between border-b border-border px-5 pb-3">
+              <p className="text-[15px] font-semibold tracking-[-0.01em]">Yangi reja</p>
+              <button
+                type="button"
+                onClick={() => setMobileSheet(false)}
+                aria-label="Yopish"
+                className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            </header>
+            <form
+              onSubmit={(e) => {
+                submit(e);
+                setMobileSheet(false);
+              }}
+              className="space-y-3 px-5 py-4"
+            >
+              <input
+                ref={mobileInputRef}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Bugun nima qilmoqchisiz?"
+                className="w-full bg-transparent text-[17px] placeholder:text-faint focus:outline-none"
+              />
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  ref={mobileTimeBtnRef}
+                  type="button"
+                  onClick={() => setShowTime((v) => !v)}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-[13px] tabular-nums transition-colors",
+                    isTimePast
+                      ? "border-danger bg-danger-soft text-danger"
+                      : showTime
+                      ? "border-border-strong bg-subtle"
+                      : "text-muted hover:border-border-strong hover:text-foreground"
+                  )}
+                  title={isTimePast ? "O'tib ketgan vaqt" : undefined}
+                >
+                  <Clock className="size-3.5" />
+                  {time || "Vaqt"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={!title.trim() || isTimePast}
+                  className={cn(
+                    "rounded-md px-4 py-2 text-[13.5px] font-medium transition-opacity",
+                    !title.trim() || isTimePast
+                      ? "cursor-not-allowed bg-foreground/40 text-background"
+                      : "bg-foreground text-background hover:opacity-90"
+                  )}
+                >
+                  Qo&apos;shish
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
+      )}
+
       {confirmEl}
     </div>
   );

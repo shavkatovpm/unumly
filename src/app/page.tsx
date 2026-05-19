@@ -2,315 +2,120 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
-import { Wordmark } from "@/components/brand/wordmark";
+import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Variant = 1 | 2 | 3 | 4 | 5 | 6;
-
-const VARIANTS: { id: Variant; label: string }[] = [
-  { id: 1, label: "Notebook" },
-  { id: 2, label: "Poem" },
-  { id: 3, label: "Statement" },
-  { id: 4, label: "Manifesto" },
-  { id: 5, label: "Brand" },
-  { id: 6, label: "Question" },
-];
+const VERBS = ["Rejalang", "Boshqaring", "Bajaring"];
+const ROTATE_MS = 2200;
 
 export default function HomePage() {
-  const [variant, setVariant] = useState<Variant>(3);
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(
+      () => setIdx((v) => (v + 1) % VERBS.length),
+      ROTATE_MS
+    );
+    return () => window.clearInterval(id);
+  }, []);
 
   return (
     <main className="relative flex min-h-screen flex-col">
-      <div className="fixed right-4 top-4 z-50 flex items-center gap-0.5 rounded-md border border-border bg-surface/80 p-0.5 shadow-sm backdrop-blur">
-        {VARIANTS.map((v) => (
-          <button
-            key={v.id}
-            type="button"
-            onClick={() => setVariant(v.id)}
-            title={v.label}
-            className={cn(
-              "rounded-[5px] px-2 py-1 text-[11px] font-medium transition-colors",
-              variant === v.id
-                ? "bg-foreground text-background"
-                : "text-muted hover:bg-hover hover:text-foreground"
-            )}
+      <section className="flex flex-1 flex-col items-center justify-center px-5 py-8">
+        <div className="rise-in w-full max-w-sm rounded-2xl border border-dashed border-border-strong bg-transparent px-4 py-10 text-center sm:px-8 sm:py-12">
+          <h1 className="text-balance text-[16.5px] font-medium leading-snug tracking-[-0.01em] sm:text-[20px]">
+            Kunlik ishlarni rejalashtirish ilovasi
+          </h1>
+
+          <div
+            className="rise-in mt-7 flex items-baseline justify-center gap-1.5 sm:mt-9 sm:gap-2"
+            style={{ animationDelay: "140ms" }}
           >
-            V{v.id}
-          </button>
-        ))}
-      </div>
+            <span className="text-[52px] font-medium leading-none tracking-[-0.05em] text-foreground sm:text-[76px]">
+              unumly
+            </span>
+            <span
+              aria-hidden
+              className="relative inline-block size-1.5 -translate-y-1 rounded-full bg-accent sm:size-2.5"
+            >
+              <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />
+            </span>
+          </div>
 
-      {variant === 1 && <V1Notebook />}
-      {variant === 2 && <V2Poem />}
-      {variant === 3 && <V3Statement />}
-      {variant === 4 && <V4Manifesto />}
-      {variant === 5 && <V5Brand />}
-      {variant === 6 && <V6Question />}
+          <div className="rise-in mt-5 sm:mt-7" style={{ animationDelay: "220ms" }}>
+            <RotatingVerb idx={idx} />
+          </div>
 
-      <footer className="px-6 py-6 text-center text-[10.5px] tracking-[0.15em] uppercase text-faint sm:px-10">
+          <div className="rise-in mt-8 sm:mt-10" style={{ animationDelay: "320ms" }}>
+            <CtaStack />
+          </div>
+        </div>
+
+        <p
+          className="rise-in mt-5 text-center font-mono text-[10.5px] uppercase tracking-[0.22em] text-faint sm:mt-6 sm:text-[11px]"
+          style={{ animationDelay: "60ms" }}
+        >
+          Vaqtingizni unumli boshqaring
+        </p>
+      </section>
+
+      <footer className="px-6 pb-5 pt-3 text-center text-[10px] uppercase tracking-[0.15em] text-faint sm:pb-6 sm:text-[10.5px]">
         © {new Date().getFullYear()} unumly.uz
       </footer>
     </main>
   );
 }
 
-/* ─── V1 — Notebook (margin lines, like a journal) ─────────── */
-function V1Notebook() {
+function RotatingVerb({ idx }: { idx: number }) {
   return (
-    <>
-      <header className="px-6 py-6 sm:px-10">
-        <Wordmark className="text-base" />
-      </header>
-
-      <section className="relative flex flex-1 items-center px-6 sm:px-10">
-        {/* Faint horizontal lines like ruled paper */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_bottom,transparent_31px,var(--border)_31px,var(--border)_32px,transparent_32px)] [background-size:100%_32px] opacity-30"
-        />
-        {/* Red margin line on the left */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-12 w-px bg-danger/30 sm:left-20"
-        />
-
-        <div className="relative ml-6 max-w-2xl pl-6 sm:ml-14 sm:pl-8">
-          <p className="rise-in font-mono text-[10.5px] uppercase tracking-[0.2em] text-faint">
-            Bugun · {new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long" })}
-          </p>
-          <h1
-            className="rise-in mt-3 font-serif text-balance text-4xl font-medium leading-[1.1] tracking-[-0.02em] sm:text-5xl"
-            style={{ animationDelay: "60ms" }}
-          >
-            Bir kunlik daftar.
-            <br />
-            <span className="italic text-faint">Hammasi shu yerda.</span>
-          </h1>
-          <Link
-            href="/bugun"
-            className="rise-in mt-10 inline-flex items-center gap-2 text-[14px] font-medium underline decoration-foreground/40 underline-offset-[6px] hover:decoration-foreground"
-            style={{ animationDelay: "140ms" }}
-          >
-            Daftarni ochish
-            <ArrowRight className="size-4" />
-          </Link>
-        </div>
-      </section>
-    </>
-  );
-}
-
-/* ─── V2 — Poem (stacked phrases) ────────────────────────── */
-function V2Poem() {
-  const lines = [
-    "Ertalab —",
-    "ro'yxat tuzdik.",
-    "",
-    "Tushlikda —",
-    "uchtasini bajardik.",
-    "",
-    "Kechqurun —",
-    "yana bittasini.",
-  ];
-
-  return (
-    <section className="flex flex-1 flex-col justify-between px-6 py-10 sm:px-12 sm:py-14">
-      <Wordmark className="text-base" />
-
-      <div className="mx-auto w-full max-w-md py-12">
-        {lines.map((l, i) => (
+    <div className="relative h-[52px] sm:h-[76px]" aria-live="polite" aria-atomic>
+      {VERBS.map((verb, i) => {
+        const isCurrent = i === idx;
+        const isPrev = i === (idx - 1 + VERBS.length) % VERBS.length;
+        return (
           <p
-            key={i}
+            key={verb}
             className={cn(
-              l ? "rise-in text-[22px] leading-[1.4] tracking-[-0.01em] sm:text-[26px]" : "h-3",
-              i % 3 === 0 ? "text-faint" : "text-foreground"
+              "absolute inset-0 flex items-center justify-center whitespace-nowrap text-[52px] font-medium leading-none tracking-[-0.05em] text-muted transition-all duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)] sm:text-[76px]",
+              isCurrent && "translate-y-0 opacity-100 blur-0",
+              !isCurrent && isPrev && "-translate-y-2 opacity-0 blur-[2px]",
+              !isCurrent && !isPrev && "translate-y-2 opacity-0 blur-[2px]"
             )}
-            style={l ? { animationDelay: `${i * 80}ms` } : undefined}
+            aria-hidden={!isCurrent}
           >
-            {l}
+            {verb}
           </p>
-        ))}
-
-        <Link
-          href="/bugun"
-          className="rise-in mt-10 inline-flex items-center gap-2 text-[14px] font-medium"
-          style={{ animationDelay: `${lines.length * 80 + 200}ms` }}
-        >
-          <span className="border-b border-foreground pb-0.5">Yozishni boshlash</span>
-          <ArrowRight className="size-4" />
-        </Link>
-      </div>
-
-      <div />
-    </section>
+        );
+      })}
+    </div>
   );
 }
 
-/* ─── V3 — Big Statement (kept from previous) ────────────── */
-function V3Statement() {
+function CtaStack() {
   return (
-    <section className="flex flex-1 flex-col justify-between px-6 py-10 sm:px-10 sm:py-14">
-      <Wordmark className="text-base" />
-
-      <div className="flex flex-1 items-center">
-        <h1 className="rise-in text-balance text-[clamp(2.5rem,9vw,7rem)] font-medium leading-[0.95] tracking-[-0.04em]">
-          Nima qilish kerakligini bilasiz.
-          <br />
-          <span className="text-faint">Faqat boshlang.</span>
-        </h1>
-      </div>
-
-      <div
-        className="rise-in flex flex-wrap items-end justify-between gap-4"
-        style={{ animationDelay: "120ms" }}
+    <div className="flex flex-col items-center gap-3.5 sm:gap-4">
+      <Link
+        href="/bugun"
+        className="inline-flex items-center gap-2 rounded-md bg-foreground px-6 py-2.5 text-[14px] font-medium text-background transition-opacity hover:opacity-90 sm:px-7 sm:py-3 sm:text-[15px]"
       >
-        <p className="max-w-sm text-[13px] text-muted">
-          Rejalaringizni saqlash, kuzatish va bajarish uchun bitta minimal app.
-        </p>
+        Boshlash
+        <ArrowUpRight className="size-4" />
+      </Link>
+      <div className="flex items-center gap-5 sm:gap-6">
         <Link
-          href="/bugun"
-          className="group inline-flex items-center gap-2 text-[15px] font-medium text-foreground"
+          href="/haqida"
+          className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-faint transition-colors hover:text-foreground sm:text-[11px]"
         >
-          <span className="border-b border-foreground/40 pb-1 transition-colors group-hover:border-foreground">
-            Boshlash
-          </span>
-          <ArrowUpRight className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          Haqida
+        </Link>
+        <span aria-hidden className="h-3 w-px bg-border" />
+        <Link
+          href="/blog"
+          className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-faint transition-colors hover:text-foreground sm:text-[11px]"
+        >
+          Blog
         </Link>
       </div>
-    </section>
-  );
-}
-
-/* ─── V4 — Numbered Manifesto ────────────────────────────── */
-function V4Manifesto() {
-  const principles = [
-    { n: "01", title: "Hech qanday ro'yxatdan o'tish.",      hint: "Brauzeringizning o'zida ishlaydi." },
-    { n: "02", title: "Hech qanday ortiqcha tugma.",         hint: "Faqat asosiy harakatlar." },
-    { n: "03", title: "Kun, hafta, oy, yil — bir joyda.",    hint: "Vaqt ko'lamini o'zgartirib turing." },
-    { n: "04", title: "Ma'lumotlar sizniki.",                hint: "Lokal saqlash, eksport mumkin." },
-  ];
-
-  return (
-    <section className="flex flex-1 flex-col px-6 py-10 sm:px-10 sm:py-14">
-      <header className="mb-12 flex items-baseline justify-between border-b border-border pb-4">
-        <Wordmark className="text-base" />
-        <p className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-faint">
-          Manifest · 4
-        </p>
-      </header>
-
-      <div className="grid flex-1 grid-cols-1 gap-y-8 md:grid-cols-2 md:gap-x-16">
-        {principles.map((p, i) => (
-          <div
-            key={p.n}
-            className="rise-in"
-            style={{ animationDelay: `${i * 80}ms` }}
-          >
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
-              {p.n}
-            </p>
-            <h2 className="mt-2 text-balance text-[22px] font-medium leading-[1.2] tracking-[-0.01em] sm:text-[26px]">
-              {p.title}
-            </h2>
-            <p className="mt-1.5 text-[13px] text-muted">{p.hint}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-12 flex items-center justify-end border-t border-border pt-6">
-        <Link
-          href="/bugun"
-          className="inline-flex items-center gap-2 rounded-md bg-foreground px-4 py-2 text-[13px] font-medium text-background transition-opacity hover:opacity-90"
-        >
-          Boshlash
-          <ArrowRight className="size-3.5" />
-        </Link>
-      </div>
-    </section>
-  );
-}
-
-/* ─── V5 — Brand-forward (massive wordmark) ──────────────── */
-function V5Brand() {
-  return (
-    <section className="flex flex-1 flex-col items-center justify-center px-6 sm:px-10">
-      <div className="text-center">
-        <div className="rise-in flex items-baseline justify-center gap-2">
-          <span className="text-[clamp(4rem,16vw,12rem)] font-medium leading-none tracking-[-0.05em] text-foreground">
-            unumly
-          </span>
-          <span
-            aria-hidden
-            className="relative inline-block size-3 -translate-y-2 rounded-full bg-accent sm:size-5"
-          >
-            <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />
-          </span>
-        </div>
-        <p
-          className="rise-in mt-6 max-w-md font-mono text-[11.5px] uppercase tracking-[0.25em] text-muted"
-          style={{ animationDelay: "140ms" }}
-        >
-          rejalar uchun · lokal · o&apos;zbekcha
-        </p>
-        <Link
-          href="/bugun"
-          className="rise-in mt-12 inline-flex items-center gap-2 text-[14px] font-medium"
-          style={{ animationDelay: "240ms" }}
-        >
-          <span className="border-b border-foreground pb-1">Ochish</span>
-          <ArrowRight className="size-4" />
-        </Link>
-      </div>
-    </section>
-  );
-}
-
-/* ─── V6 — Conversational question ───────────────────────── */
-function V6Question() {
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => {
-    setNow(new Date());
-    const id = window.setInterval(() => setNow(new Date()), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  const greeting = (() => {
-    if (!now) return "Salom";
-    const h = now.getHours();
-    if (h < 5)  return "Tinch tun";
-    if (h < 12) return "Xayrli tong";
-    if (h < 17) return "Xayrli kun";
-    if (h < 22) return "Xayrli kech";
-    return "Tinch tun";
-  })();
-
-  return (
-    <section className="flex flex-1 flex-col px-6 py-10 sm:px-10 sm:py-14">
-      <Wordmark className="text-base" />
-
-      <div className="flex flex-1 items-center">
-        <div className="w-full max-w-2xl">
-          <p className="rise-in text-[15px] text-faint">{greeting}.</p>
-          <h1
-            className="rise-in mt-2 text-balance text-4xl font-medium leading-[1.1] tracking-[-0.03em] sm:text-6xl"
-            style={{ animationDelay: "80ms" }}
-          >
-            Bugun nima qilmoqchisiz?
-          </h1>
-
-          <Link
-            href="/bugun"
-            className="rise-in mt-10 inline-flex w-full max-w-md items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-border-strong"
-            style={{ animationDelay: "200ms" }}
-          >
-            <span className="font-mono text-[13px] text-faint">Birinchi rejani yozing…</span>
-            <span className="ml-3 inline-flex size-7 items-center justify-center rounded-md bg-foreground text-background">
-              <ArrowRight className="size-3.5" />
-            </span>
-          </Link>
-        </div>
-      </div>
-    </section>
+    </div>
   );
 }

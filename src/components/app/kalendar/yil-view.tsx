@@ -54,8 +54,8 @@ export function YilView({
   }, [countsByDate, year]);
 
   return (
-    <div className="overflow-y-auto p-1">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="h-full overflow-y-auto p-1">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
         {UZ_MONTHS.map((label, monthIdx) => {
           const monthDate = new Date(year, monthIdx, 1);
           const grid = getCalendarGrid(monthDate);
@@ -69,17 +69,17 @@ export function YilView({
               type="button"
               onClick={() => onSelectMonth(monthDate)}
               className={cn(
-                "group rounded-lg border bg-surface p-3 text-left shadow-[0_1px_0_var(--border)] transition-all hover:shadow-sm",
+                "group rounded-lg border bg-surface p-2 text-left shadow-[0_1px_0_var(--border)] transition-all hover:shadow-sm sm:p-3",
                 isCurrentMonth
                   ? "border-foreground/70"
                   : "border-border hover:border-border-strong"
               )}
             >
-              <header className="mb-2 flex items-baseline justify-between">
-                <h3 className="text-[12.5px] font-semibold tracking-tight">
+              <header className="mb-1.5 flex items-baseline justify-between sm:mb-2">
+                <h3 className="text-[11.5px] font-semibold tracking-tight sm:text-[12.5px]">
                   {label}
                 </h3>
-                <span className="font-mono text-[10px] tabular-nums text-faint">
+                <span className="font-mono text-[9.5px] tabular-nums text-faint sm:text-[10px]">
                   {meta.done}/{meta.total}
                 </span>
               </header>

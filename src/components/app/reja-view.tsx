@@ -918,7 +918,7 @@ function IdeaRowLinear({
       className={cn(
         "group grid items-start gap-2 overflow-hidden border-b border-border/40 hover:bg-hover/40",
         compact ? "grid-cols-[10px_1fr_24px_14px] px-3" : "grid-cols-[16px_1fr_50px_24px_16px] px-5",
-        isNew && !pendingDone && "drop-in"
+        isNew && !pendingDone && "task-pop"
       )}
       style={articleStyle}
     >

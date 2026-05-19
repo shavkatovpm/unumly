@@ -54,10 +54,12 @@ function writeJSON(key: string, value: unknown) {
 export function Sidebar({
   todayCount,
   open = true,
+  hasMounted = true,
   onCloseRequested,
 }: {
   todayCount: number;
   open?: boolean;
+  hasMounted?: boolean;
   onCloseRequested?: () => void;
 }) {
   const pathname = usePathname();
@@ -108,7 +110,7 @@ export function Sidebar({
   return (
     <>
       {/* Mobile backdrop — closes sidebar when tapped */}
-      {open && (
+      {open && hasMounted && (
         <div
           aria-hidden
           onClick={() => onCloseRequested?.()}
@@ -117,7 +119,8 @@ export function Sidebar({
       )}
       <div
         className={cn(
-          "group/sidebar relative h-screen shrink-0 transition-[width] duration-300 ease-out",
+          "group/sidebar relative h-screen shrink-0",
+          hasMounted && "transition-[width] duration-300 ease-out",
           // Desktop: pushes content when open. Mobile: zero-width (sidebar is overlay).
           "w-0",
           open ? "md:w-[240px]" : "md:w-0"
@@ -125,7 +128,8 @@ export function Sidebar({
       >
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-40 flex w-[240px] flex-col overflow-hidden border-r border-border bg-subtle/40 transition-transform duration-300 ease-out md:absolute",
+            "fixed inset-y-0 left-0 z-40 flex w-[240px] flex-col overflow-hidden border-r border-border bg-subtle/40 md:absolute",
+            hasMounted && "transition-transform duration-300 ease-out",
             open ? "translate-x-0" : "-translate-x-full"
           )}
         >

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { usePlans } from "@/lib/plans-store";
 import type { CalendarView } from "@/lib/calendar-view-store";
 import {
@@ -81,29 +81,17 @@ export function KalendarView() {
     <div className="flex h-screen flex-col overflow-hidden">
       {/* Header */}
       <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
-        <div className="flex min-w-0 items-center gap-2 md:gap-3">
+        <div className="flex min-w-0 items-center gap-1.5 md:gap-3">
           <h1 className="hidden text-[13px] font-semibold tracking-[-0.01em] sm:block">Kalendar</h1>
 
-          {view === "kun" && (
-            <button
-              type="button"
-              onClick={() => setView("oy")}
-              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted transition-colors hover:bg-hover hover:text-foreground"
-              aria-label="Oyga qaytish"
-            >
-              <ArrowLeft className="size-3" />
-              Oy
-            </button>
-          )}
-
-          <div className="flex items-center gap-0.5">
+          <div className="flex min-w-0 items-center gap-0.5">
             <button
               type="button"
               onClick={() => shift(-1)}
               aria-label="Oldingi"
-              className="grid size-6 place-items-center rounded text-muted transition-colors hover:bg-hover hover:text-foreground"
+              className="grid size-8 place-items-center rounded text-muted transition-colors hover:bg-hover hover:text-foreground sm:size-6"
             >
-              <ChevronLeft className="size-3.5" />
+              <ChevronLeft className="size-4 sm:size-3.5" />
             </button>
             <button
               type="button"
@@ -111,13 +99,11 @@ export function KalendarView() {
               disabled={isToday}
               title={isToday ? undefined : "Bugunga qaytish"}
               className={cn(
-                "flex items-center gap-1.5 rounded px-2 py-0.5 text-[12.5px] font-medium transition-colors",
-                isToday
-                  ? "text-accent"
-                  : "text-foreground hover:bg-hover"
+                "flex min-w-0 items-center gap-1.5 rounded px-2 py-0.5 text-[13.5px] font-medium transition-colors sm:text-[12.5px]",
+                isToday ? "text-accent" : "text-foreground hover:bg-hover"
               )}
             >
-              <span>{headingFor(view, selected)}</span>
+              <span className="truncate">{headingFor(view, selected)}</span>
               {isToday && view === "kun" && (
                 <span className="font-mono text-[10px] uppercase tracking-wider text-faint">
                   bugun
@@ -128,9 +114,9 @@ export function KalendarView() {
               type="button"
               onClick={() => shift(1)}
               aria-label="Keyingi"
-              className="grid size-6 place-items-center rounded text-muted transition-colors hover:bg-hover hover:text-foreground"
+              className="grid size-8 place-items-center rounded text-muted transition-colors hover:bg-hover hover:text-foreground sm:size-6"
             >
-              <ChevronRight className="size-3.5" />
+              <ChevronRight className="size-4 sm:size-3.5" />
             </button>
           </div>
 
@@ -138,7 +124,7 @@ export function KalendarView() {
             <button
               type="button"
               onClick={() => setSelected(today)}
-              className="rounded-md px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-faint transition-colors hover:bg-hover hover:text-foreground"
+              className="hidden rounded-md px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-faint transition-colors hover:bg-hover hover:text-foreground sm:block"
             >
               Bugun
             </button>

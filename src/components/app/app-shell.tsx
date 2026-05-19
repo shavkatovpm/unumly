@@ -10,6 +10,16 @@ import { MobileBottomNav } from "./mobile-bottom-nav";
 
 const STORAGE_OPEN = "unumly:sidebar:open";
 
+function readInitialOpen(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.matchMedia("(max-width: 767px)").matches) return false;
+  try {
+    return window.localStorage.getItem(STORAGE_OPEN) !== "0";
+  } catch {
+    return true;
+  }
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { plans } = usePlans();
   const todayIso = useMemo(() => toDateInputValue(startOfDay()), []);
@@ -21,20 +31,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     [plans, todayIso]
   );
 
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(readInitialOpen);
+  const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const isMobile = window.matchMedia("(max-width: 767px)").matches;
-    if (isMobile) {
-      setOpen(false);
-      return;
-    }
-    try {
-      const v = window.localStorage.getItem(STORAGE_OPEN);
-      if (v === "0") setOpen(false);
-    } catch {
-      /* ignore */
-    }
+    setHasMounted(true);
   }, []);
 
   function toggle(next: boolean) {
@@ -73,10 +73,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
       </button>
 
-      <Sidebar todayCount={todayCount} open={open} onCloseRequested={() => toggle(false)} />
+      <Sidebar
+        todayCount={todayCount}
+        open={open}
+        hasMounted={hasMounted}
+        onCloseRequested={() => toggle(false)}
+      />
       <main
         className={cn(
-          "relative flex-1 overflow-hidden transition-[padding] duration-300 ease-out",
+          "relative flex-1 overflow-hidden",
+          hasMounted && "transition-[padding] duration-300 ease-out",
           // Padding-left only on desktop when sidebar is collapsed (to leave space for hamburger).
           !open && "md:pl-10"
         )}

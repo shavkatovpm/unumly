@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { Calendar as CalendarIcon, Check, ChevronDown, Clock, Plus, X } from "lucide-react";
 import { usePlans } from "@/lib/plans-store";
 import type { Plan } from "@/lib/types";
@@ -36,11 +37,13 @@ function AgendaRow({
   onToggle,
   onRemove,
   onOpen,
+  isNew = false,
 }: {
   plan: Plan;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
   onOpen: (id: string) => void;
+  isNew?: boolean;
 }) {
   const done = plan.status === "DONE";
   const [pendingDone, setPendingDone] = useState(false);
@@ -87,11 +90,14 @@ function AgendaRow({
   const priorityDot = plan.priority ? PRIORITY_DOT[plan.priority] : "bg-faint/40";
 
   return (
-    <li
+    <motion.li
+      layout
+      transition={{ layout: { type: "spring", stiffness: 380, damping: 32 } }}
       onClick={() => onOpen(plan.id)}
       className={cn(
         "group flex cursor-pointer items-center gap-3 overflow-hidden border-b border-border/70 px-3 last:border-b-0 hover:bg-hover/60",
-        visualDone && "bg-subtle/30"
+        visualDone && "bg-subtle/30",
+        isNew && "task-pop"
       )}
       style={{
         maxHeight: pendingDone ? 0 : 64,
@@ -155,7 +161,7 @@ function AgendaRow({
           )}
         </span>
       </button>
-    </li>
+    </motion.li>
   );
 }
 
@@ -204,31 +210,53 @@ export function AgendaView() {
   const [time, setTime] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
   const [showTime, setShowTime] = useState(false);
+  const [mobileSheet, setMobileSheet] = useState(false);
+  const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
+  const animationTimerRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
   const timeBtnRef = useRef<HTMLButtonElement>(null);
+  const mobileTimeBtnRef = useRef<HTMLButtonElement>(null);
   const calendarWrapRef = useRef<HTMLDivElement>(null);
+  const mobileCalendarWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (animationTimerRef.current) window.clearTimeout(animationTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!showCalendar) return;
     function onClick(e: MouseEvent) {
-      if (!calendarWrapRef.current?.contains(e.target as Node)) {
-        setShowCalendar(false);
-      }
+      if (calendarWrapRef.current?.contains(e.target as Node)) return;
+      if (mobileCalendarWrapRef.current?.contains(e.target as Node)) return;
+      setShowCalendar(false);
     }
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, [showCalendar]);
 
+  useEffect(() => {
+    if (mobileSheet) {
+      const id = window.setTimeout(() => mobileInputRef.current?.focus(), 50);
+      return () => window.clearTimeout(id);
+    }
+  }, [mobileSheet]);
+
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const t = title.trim();
     if (!t) return;
-    create({
+    const newId = create({
       title: t,
       scope: "DAILY",
       scheduledFor: toDateInputValue(date),
       time: time || undefined,
     });
+    setJustCreatedId(newId);
+    if (animationTimerRef.current) window.clearTimeout(animationTimerRef.current);
+    animationTimerRef.current = window.setTimeout(() => setJustCreatedId(null), 500);
     setTitle("");
     setTime("");
     setShowTime(false);
@@ -286,10 +314,10 @@ export function AgendaView() {
 
       {/* Content */}
       <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:pb-8">
-        {/* Add task form */}
+        {/* Add task form — desktop only (mobile uses FAB) */}
         <form
           onSubmit={submit}
-          className="rise-in overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)] transition-colors focus-within:border-border-strong"
+          className="rise-in hidden overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)] transition-colors focus-within:border-border-strong md:block"
         >
           <div className="flex items-center gap-2 px-3 py-2">
             <Plus className="size-3.5 text-faint" />
@@ -366,7 +394,7 @@ export function AgendaView() {
 
         <TimePickerPopover
           open={showTime}
-          triggerRef={timeBtnRef}
+          triggerRef={mobileSheet ? mobileTimeBtnRef : timeBtnRef}
           value={time}
           onChange={(v) => setTime(v)}
           onClear={() => setTime("")}
@@ -406,6 +434,7 @@ export function AgendaView() {
                     onToggle={toggleStatus}
                     onRemove={askRemove}
                     onOpen={setDetailId}
+                    isNew={p.id === justCreatedId}
                   />
                 );
                 return (
@@ -494,6 +523,144 @@ export function AgendaView() {
         onUpdate={update}
         onRemove={askRemove}
       />
+
+      {/* Mobile FAB — bottom-right circular "+" button */}
+      <button
+        type="button"
+        onClick={() => setMobileSheet(true)}
+        aria-label="Yangi reja qo'shish"
+        className="fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-foreground text-background shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 md:hidden"
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
+      >
+        <Plus className="size-6" strokeWidth={2.5} />
+      </button>
+
+      {/* Mobile add-task bottom sheet */}
+      {mobileSheet && (
+        <>
+          <div
+            onClick={() => {
+              setMobileSheet(false);
+              setShowCalendar(false);
+              setShowTime(false);
+            }}
+            className="fade-in fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px] md:hidden"
+          />
+          <div
+            className="fade-in fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
+          >
+            <button
+              type="button"
+              onClick={() => setMobileSheet(false)}
+              aria-label="Yopish"
+              className="flex w-full items-center justify-center py-2.5"
+            >
+              <span className="h-1 w-10 rounded-full bg-faint/60" />
+            </button>
+            <header className="flex items-center justify-between border-b border-border px-5 pb-3">
+              <p className="text-[15px] font-semibold tracking-[-0.01em]">Yangi reja</p>
+              <button
+                type="button"
+                onClick={() => setMobileSheet(false)}
+                aria-label="Yopish"
+                className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            </header>
+            <form
+              onSubmit={(e) => {
+                submit(e);
+                setMobileSheet(false);
+              }}
+              className="space-y-3 px-5 py-4"
+            >
+              <input
+                ref={mobileInputRef}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Yaqin kunlarga reja..."
+                className="w-full bg-transparent text-[17px] placeholder:text-faint focus:outline-none"
+              />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCalendar((v) => !v);
+                      setShowTime(false);
+                    }}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] transition-colors",
+                      showCalendar
+                        ? "border-border-strong bg-subtle"
+                        : isPastSelected
+                        ? "border-warm/40 bg-warm/10 text-warm"
+                        : "text-muted hover:border-border-strong hover:text-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="size-3.5" />
+                    {shortDateLabel(date, today)}
+                  </button>
+                  <button
+                    ref={mobileTimeBtnRef}
+                    type="button"
+                    onClick={() => {
+                      setShowTime((v) => !v);
+                      setShowCalendar(false);
+                    }}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-[13px] tabular-nums transition-colors",
+                      showTime
+                        ? "border-border-strong bg-subtle"
+                        : "text-muted hover:border-border-strong hover:text-foreground"
+                    )}
+                  >
+                    <Clock className="size-3.5" />
+                    {time || "Vaqt"}
+                  </button>
+                </div>
+                <button
+                  type="submit"
+                  disabled={!title.trim()}
+                  className={cn(
+                    "rounded-md px-4 py-2 text-[13.5px] font-medium transition-opacity",
+                    !title.trim()
+                      ? "cursor-not-allowed bg-foreground/40 text-background"
+                      : "bg-foreground text-background hover:opacity-90"
+                  )}
+                >
+                  Qo&apos;shish
+                </button>
+              </div>
+
+              {showCalendar && (
+                <div
+                  ref={mobileCalendarWrapRef}
+                  className="overflow-hidden rounded-md border border-border bg-subtle/40 p-3"
+                >
+                  <div className="reveal-down">
+                    <MiniMonth
+                      today={today}
+                      selected={date}
+                      plans={plans}
+                      onSelect={(d) => {
+                        setDate(d);
+                        setShowCalendar(false);
+                      }}
+                    />
+                    <p className="mt-2 text-center text-[11px] text-faint">
+                      Bugundan keyingi kunni tanlang.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </form>
+          </div>
+        </>
+      )}
+
       {confirmEl}
     </div>
   );

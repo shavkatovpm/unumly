@@ -260,3 +260,33 @@
 .reja-tabbar::-webkit-scrollbar {
   display: none;
 }
+
+/* New-task pop-in — smooth slide + scale + fade, no max-height conflict */
+@utility task-pop {
+  animation: task-pop 0.5s var(--ease-out) both;
+}
+
+@keyframes task-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.96);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(0) scale(1.015);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Mobile: prevent iOS auto-zoom on input focus
+   (any input with font-size < 16px triggers zoom on Safari iOS) */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
