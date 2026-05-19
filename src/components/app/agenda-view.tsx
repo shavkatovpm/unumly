@@ -248,6 +248,26 @@ export function AgendaView() {
     }
   }, [mobileSheet]);
 
+  // Push the mobile sheet up by the keyboard height (iOS visualViewport)
+  useEffect(() => {
+    if (!mobileSheet) return;
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!vv) return;
+    function update() {
+      if (!vv) return;
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      document.documentElement.style.setProperty("--kb-inset", `${inset}px`);
+    }
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+      document.documentElement.style.setProperty("--kb-inset", "0px");
+    };
+  }, [mobileSheet]);
+
   function openDetailForCurrent() {
     const t = title.trim() || "Yangi reja";
     const newId = create({
@@ -365,6 +385,15 @@ export function AgendaView() {
             >
               <CalendarIcon className="size-3" />
               {shortDateLabel(date, today)}
+            </button>
+            <button
+              type="button"
+              onClick={openDetailForCurrent}
+              title="Batafsil sozlash (priority, izoh, davom...)"
+              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-faint transition-colors hover:bg-hover hover:text-foreground"
+            >
+              <Pencil className="size-3" />
+              batafsil
             </button>
             <button
               ref={timeBtnRef}
@@ -567,8 +596,12 @@ export function AgendaView() {
             className="fade-in fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px] md:hidden"
           />
           <div
-            className="fade-in fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
-            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
+            className="fade-in fixed inset-x-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
+            style={{
+              bottom: "var(--kb-inset, 0px)",
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)",
+              transition: "bottom 200ms ease-out",
+            }}
           >
             <button
               type="button"

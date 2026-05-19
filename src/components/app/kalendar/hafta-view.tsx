@@ -659,8 +659,9 @@ export function HaftaView({
                         zIndex: cellIsHovered ? 2 : undefined,
                       }}
                     >
-                      {/* Quick task zone container (left 50%) — sized to actual free slot */}
-                      <div className="relative w-1/2 shrink-0">
+                      {/* Quick task zone — full width on mobile (no 15-min drag),
+                          left 50% on desktop where 15-min drag lives in the right half */}
+                      <div className="relative w-full shrink-0 sm:w-1/2">
                         {hasFree && (
                           <div
                             className="absolute inset-x-0 cursor-pointer transition-colors"
@@ -686,9 +687,9 @@ export function HaftaView({
                         )}
                       </div>
 
-                      {/* 15-min zone (right) */}
+                      {/* 15-min zone (right) — desktop only */}
                       <div
-                        className="relative flex-1 cursor-pointer transition-colors"
+                        className="relative hidden flex-1 cursor-pointer transition-colors sm:block"
                         onMouseDown={(e) => handleSlotMouseDown(dayIdx, h, e)}
                         onMouseMove={(e) => handleSlotMove(dayIdx, h, e)}
                         onMouseLeave={() => setHover(null)}
