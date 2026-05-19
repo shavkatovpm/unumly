@@ -60,6 +60,10 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
         style={{
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
           boxShadow: "0 -4px 20px -10px rgba(0,0,0,0.15)",
+          // Klaviatura ochilganda iOS visual viewport navni tepaga tortadi —
+          // shunga qarshi pastga suramiz (nav ekran ostida qoladi)
+          transform: "translateY(var(--kb-inset, 0px))",
+          transition: "transform 200ms ease-out",
         }}
       >
         {PRIMARY.map((t) => {
