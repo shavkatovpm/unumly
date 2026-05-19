@@ -48,22 +48,53 @@ const BOSHQARUV_ROUTES = ["/reja"];
 export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
   const isBoshqaruvActive = BOSHQARUV_ROUTES.some(isActive);
 
+  // Klaviatura ochilishini focus orqali aniqlash — bu iOS visual viewport
+  // o'zgarishidan oldin sodir bo'ladi, shuning uchun nav klaviatura
+  // animatsiyasi boshlanmasdan oldin yashirinadi.
+  useEffect(() => {
+    function isTextEntry(el: Element | null): boolean {
+      if (!el) return false;
+      if (el instanceof HTMLInputElement) {
+        const t = el.type;
+        return t !== "button" && t !== "submit" && t !== "checkbox" && t !== "radio" && t !== "file";
+      }
+      if (el instanceof HTMLTextAreaElement) return true;
+      if (el instanceof HTMLElement && el.isContentEditable) return true;
+      return false;
+    }
+    function onFocusIn(e: FocusEvent) {
+      if (isTextEntry(e.target as Element)) setKeyboardOpen(true);
+    }
+    function onFocusOut() {
+      setTimeout(() => {
+        if (!isTextEntry(document.activeElement)) setKeyboardOpen(false);
+      }, 0);
+    }
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
+
   return (
     <>
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border bg-surface md:hidden"
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border bg-surface md:hidden",
+          "transition-[transform,opacity] duration-200 ease-out",
+          keyboardOpen && "pointer-events-none translate-y-full opacity-0"
+        )}
         style={{
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
           boxShadow: "0 -4px 20px -10px rgba(0,0,0,0.15)",
-          // Klaviatura ochilganda iOS visual viewport navni tepaga tortadi —
-          // shunga qarshi pastga suramiz (nav ekran ostida qoladi)
-          transform: "translateY(var(--kb-inset, 0px))",
-          transition: "transform 200ms ease-out",
         }}
       >
         {PRIMARY.map((t) => {

@@ -150,35 +150,6 @@ export function HaftaView({
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  // Track keyboard height so the bottom-nav (and other UI) can react.
-  // Only active while the mobile modal is open.
-  useEffect(() => {
-    if (!isMobile || !editing) return;
-    const vv = typeof window !== "undefined" ? window.visualViewport : null;
-    if (!vv) return;
-    let rafId = 0;
-    let stopAt = 0;
-    function tick() {
-      if (!vv) return;
-      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      document.documentElement.style.setProperty("--kb-inset", `${inset}px`);
-      if (performance.now() < stopAt) rafId = requestAnimationFrame(tick);
-    }
-    function poll() {
-      stopAt = performance.now() + 700;
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(tick);
-    }
-    poll();
-    vv.addEventListener("resize", poll);
-    vv.addEventListener("scroll", poll);
-    return () => {
-      cancelAnimationFrame(rafId);
-      vv.removeEventListener("resize", poll);
-      vv.removeEventListener("scroll", poll);
-      document.documentElement.style.setProperty("--kb-inset", "0px");
-    };
-  }, [isMobile, editing]);
 
   // Global mouseup: commit drag (or click) regardless of where cursor releases
   useEffect(() => {

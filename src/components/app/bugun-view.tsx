@@ -110,39 +110,6 @@ export function BugunView() {
     }
   }, [mobileSheet]);
 
-  // Push the mobile sheet up by the keyboard height — poll visualViewport
-  // every frame so the sheet tracks the keyboard animation smoothly
-  useEffect(() => {
-    if (!mobileSheet) return;
-    const vv = typeof window !== "undefined" ? window.visualViewport : null;
-    if (!vv) return;
-    let rafId = 0;
-    let stopAt = 0;
-    function tick() {
-      if (!vv) return;
-      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      document.documentElement.style.setProperty("--kb-inset", `${inset}px`);
-      if (performance.now() < stopAt) {
-        rafId = requestAnimationFrame(tick);
-      }
-    }
-    function poll() {
-      // Poll for ~700ms after each event to ride out the keyboard animation
-      stopAt = performance.now() + 700;
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(tick);
-    }
-    poll();
-    vv.addEventListener("resize", poll);
-    vv.addEventListener("scroll", poll);
-    return () => {
-      cancelAnimationFrame(rafId);
-      vv.removeEventListener("resize", poll);
-      vv.removeEventListener("scroll", poll);
-      document.documentElement.style.setProperty("--kb-inset", "0px");
-    };
-  }, [mobileSheet]);
-
   function openDetailForCurrent() {
     const t = title.trim() || "Yangi reja";
     const newId = create({
