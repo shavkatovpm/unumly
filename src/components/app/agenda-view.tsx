@@ -558,7 +558,10 @@ export function AgendaView() {
         type="button"
         onClick={() => setMobileSheet(true)}
         aria-label="Yangi reja qo'shish"
-        className="fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-foreground text-background shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 md:hidden"
+        className={cn(
+          "fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-foreground text-background shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 md:hidden",
+          mobileSheet && "pointer-events-none scale-75 opacity-0"
+        )}
         style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
       >
         <Plus className="size-6" strokeWidth={2.5} />
