@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
   ChevronDown,
@@ -109,22 +110,35 @@ export function BugunView() {
     }
   }, [mobileSheet]);
 
-  // Push the mobile sheet up by the keyboard height (iOS visualViewport)
+  // Push the mobile sheet up by the keyboard height — poll visualViewport
+  // every frame so the sheet tracks the keyboard animation smoothly
   useEffect(() => {
     if (!mobileSheet) return;
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
     if (!vv) return;
-    function update() {
+    let rafId = 0;
+    let stopAt = 0;
+    function tick() {
       if (!vv) return;
       const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
       document.documentElement.style.setProperty("--kb-inset", `${inset}px`);
+      if (performance.now() < stopAt) {
+        rafId = requestAnimationFrame(tick);
+      }
     }
-    update();
-    vv.addEventListener("resize", update);
-    vv.addEventListener("scroll", update);
+    function poll() {
+      // Poll for ~700ms after each event to ride out the keyboard animation
+      stopAt = performance.now() + 700;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(tick);
+    }
+    poll();
+    vv.addEventListener("resize", poll);
+    vv.addEventListener("scroll", poll);
     return () => {
-      vv.removeEventListener("resize", update);
-      vv.removeEventListener("scroll", update);
+      cancelAnimationFrame(rafId);
+      vv.removeEventListener("resize", poll);
+      vv.removeEventListener("scroll", poll);
       document.documentElement.style.setProperty("--kb-inset", "0px");
     };
   }, [mobileSheet]);
@@ -425,18 +439,26 @@ export function BugunView() {
       </button>
 
       {/* Mobile add-task bottom sheet */}
+      <AnimatePresence>
       {mobileSheet && (
         <>
-          <div
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             onClick={() => setMobileSheet(false)}
-            className="fade-in fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px] md:hidden"
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px] md:hidden"
           />
-          <div
-            className="fade-in fixed inset-x-0 z-50 rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 32, stiffness: 320 }}
+            className="fixed inset-x-0 z-50 rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
             style={{
               bottom: "var(--kb-inset, 0px)",
               paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)",
-              transition: "bottom 200ms ease-out",
             }}
           >
             <button
@@ -515,9 +537,10 @@ export function BugunView() {
                 </button>
               </div>
             </form>
-          </div>
+          </motion.div>
         </>
       )}
+      </AnimatePresence>
 
       {confirmEl}
     </div>

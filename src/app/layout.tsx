@@ -60,7 +60,10 @@ try {
   document.documentElement.style.setProperty('--font-sans', fv);
 } catch(e) {}
 try {
-  if (localStorage.getItem('unumly:theme:v1') === 'noir') {
+  var t = localStorage.getItem('unumly:theme:v1');
+  if (t === 'noir') {
+    document.documentElement.dataset.theme = 'noir';
+  } else if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
     document.documentElement.dataset.theme = 'noir';
   }
 } catch(e) {}

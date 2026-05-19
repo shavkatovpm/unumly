@@ -10,6 +10,7 @@ const DEFAULT: ThemeId = "mono";
 
 let current: ThemeId = DEFAULT;
 let hydrated = false;
+let systemListenerAttached = false;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -25,6 +26,39 @@ function applyToDom(id: ThemeId) {
   }
 }
 
+function hasUserOverride(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = window.localStorage.getItem(KEY);
+    return raw === "mono" || raw === "noir";
+  } catch {
+    return false;
+  }
+}
+
+function systemTheme(): ThemeId {
+  if (typeof window === "undefined" || !window.matchMedia) return DEFAULT;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "noir" : "mono";
+}
+
+function attachSystemListener() {
+  if (systemListenerAttached || typeof window === "undefined" || !window.matchMedia) return;
+  systemListenerAttached = true;
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  const handler = (e: MediaQueryListEvent) => {
+    // Only follow the system if the user hasn't explicitly chosen
+    if (hasUserOverride()) return;
+    current = e.matches ? "noir" : "mono";
+    applyToDom(current);
+    emit();
+  };
+  if (typeof mq.addEventListener === "function") {
+    mq.addEventListener("change", handler);
+  } else if (typeof (mq as MediaQueryList & { addListener?: (cb: (e: MediaQueryListEvent) => void) => void }).addListener === "function") {
+    (mq as MediaQueryList & { addListener: (cb: (e: MediaQueryListEvent) => void) => void }).addListener(handler);
+  }
+}
+
 function hydrateOnce() {
   if (hydrated || typeof window === "undefined") return;
   hydrated = true;
@@ -32,11 +66,15 @@ function hydrateOnce() {
     const raw = window.localStorage.getItem(KEY) as ThemeId | null;
     if (raw === "mono" || raw === "noir") {
       current = raw;
-      emit();
+    } else {
+      current = systemTheme();
     }
+    applyToDom(current);
+    emit();
   } catch {
     // ignore
   }
+  attachSystemListener();
 }
 
 function subscribe(cb: () => void) {

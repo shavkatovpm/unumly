@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -122,9 +123,11 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
         </button>
       </nav>
 
-      {sheetOpen && (
-        <BoshqaruvSheet onClose={() => setSheetOpen(false)} pathname={pathname} />
-      )}
+      <AnimatePresence>
+        {sheetOpen && (
+          <BoshqaruvSheet onClose={() => setSheetOpen(false)} pathname={pathname} />
+        )}
+      </AnimatePresence>
     </>
   );
 }
@@ -153,12 +156,20 @@ function BoshqaruvSheet({
 
   return (
     <>
-      <div
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
         onClick={onClose}
-        className="fade-in fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px] md:hidden"
+        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px] md:hidden"
       />
-      <div
-        className="fade-in fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 32, stiffness: 320 }}
+        className="fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         {/* Drag handle */}
@@ -235,7 +246,7 @@ function BoshqaruvSheet({
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
     </>
   );
 }
