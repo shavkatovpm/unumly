@@ -60,13 +60,20 @@ export function YilView({
           const monthDate = new Date(year, monthIdx, 1);
           const grid = getCalendarGrid(monthDate);
           const meta = monthTotals[monthIdx];
+          const isCurrentMonth =
+            today.getFullYear() === year && today.getMonth() === monthIdx;
 
           return (
             <button
               key={monthIdx}
               type="button"
               onClick={() => onSelectMonth(monthDate)}
-              className="group rounded-lg border border-border bg-surface p-3 text-left shadow-[0_1px_0_var(--border)] transition-all hover:border-border-strong hover:shadow-sm"
+              className={cn(
+                "group rounded-lg border bg-surface p-3 text-left shadow-[0_1px_0_var(--border)] transition-all hover:shadow-sm",
+                isCurrentMonth
+                  ? "border-foreground/70"
+                  : "border-border hover:border-border-strong"
+              )}
             >
               <header className="mb-2 flex items-baseline justify-between">
                 <h3 className="text-[12.5px] font-semibold tracking-tight">
@@ -81,10 +88,7 @@ export function YilView({
                 {WEEKDAYS.map((d, i) => (
                   <div
                     key={d + i}
-                    className={cn(
-                      "py-0.5 text-center font-mono text-[8.5px]",
-                      i >= 5 ? "text-warm/70" : "text-faint"
-                    )}
+                    className="py-0.5 text-center font-mono text-[8.5px] text-faint"
                   >
                     {d}
                   </div>

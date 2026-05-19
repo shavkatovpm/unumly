@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
-import type { Plan, PlanScope } from "@/lib/types";
+import type { Plan, PlanPriority, PlanScope } from "@/lib/types";
 
 const STORAGE_KEY = "unumly:plans:v1";
 
@@ -70,6 +70,7 @@ export type CreatePlanInput = {
   scheduledFor: string;
   time?: string;
   duration?: number;
+  priority?: PlanPriority;
 };
 
 export function usePlans() {
@@ -79,7 +80,7 @@ export function usePlans() {
     hydrateOnce();
   }, []);
 
-  const create = useCallback((input: CreatePlanInput) => {
+  const create = useCallback((input: CreatePlanInput): string => {
     const now = new Date().toISOString();
     const plan: Plan = {
       id: nextId(),
@@ -89,12 +90,14 @@ export function usePlans() {
       scheduledFor: input.scheduledFor,
       time: input.time,
       duration: input.duration,
+      priority: input.priority,
       createdAt: now,
       order: memoryState.length,
     };
     memoryState = [...memoryState, plan];
     persist();
     emit();
+    return plan.id;
   }, []);
 
   const update = useCallback((id: string, patch: Partial<Plan>) => {
@@ -123,5 +126,13 @@ export function usePlans() {
     emit();
   }, []);
 
-  return { plans, create, update, toggleStatus, remove };
+  const removeMany = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    const set = new Set(ids);
+    memoryState = memoryState.filter((p) => !set.has(p.id));
+    persist();
+    emit();
+  }, []);
+
+  return { plans, create, update, toggleStatus, remove, removeMany };
 }

@@ -1,23 +1,175 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar as CalendarIcon, Check, Clock, Plus, X } from "lucide-react";
+import { Calendar as CalendarIcon, Check, ChevronDown, Clock, Plus, X } from "lucide-react";
 import { usePlans } from "@/lib/plans-store";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   formatUzDate,
   fromDateInputValue,
+  occupiedTimeSlots,
   parseTimeToMinutes,
   startOfDay,
   toDateInputValue,
 } from "@/lib/dates";
 import { MiniMonth } from "./kalendar/mini-month";
+import { TimePickerPopover } from "./widgets/time-picker-popover";
+import { TaskDetail } from "./widgets/task-detail";
+import { useConfirmRemove } from "./widgets/confirm-dialog";
 
 const UZ_WEEKDAYS = [
   "yakshanba", "dushanba", "seshanba", "chorshanba",
   "payshanba", "juma", "shanba",
 ];
+
+const PRIORITY_DOT: Record<NonNullable<Plan["priority"]>, string> = {
+  HIGH:   "bg-priority-high",
+  MEDIUM: "bg-priority-medium",
+  LOW:    "bg-priority-low",
+};
+
+const DONE_DELAY_MS = 700;
+
+function AgendaRow({
+  plan,
+  onToggle,
+  onRemove,
+  onOpen,
+}: {
+  plan: Plan;
+  onToggle: (id: string) => void;
+  onRemove: (id: string) => void;
+  onOpen: (id: string) => void;
+}) {
+  const done = plan.status === "DONE";
+  const [pendingDone, setPendingDone] = useState(false);
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (done && pendingDone) {
+      setPendingDone(false);
+      if (timerRef.current) {
+        window.clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+  }, [done, pendingDone]);
+
+  function handleToggle(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (timerRef.current) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (done) {
+      onToggle(plan.id);
+      return;
+    }
+    if (pendingDone) {
+      setPendingDone(false);
+      return;
+    }
+    setPendingDone(true);
+    timerRef.current = window.setTimeout(() => {
+      onToggle(plan.id);
+      timerRef.current = null;
+    }, DONE_DELAY_MS);
+  }
+
+  const visualDone = done || pendingDone;
+  const priorityDot = plan.priority ? PRIORITY_DOT[plan.priority] : "bg-faint/40";
+
+  return (
+    <li
+      onClick={() => onOpen(plan.id)}
+      className={cn(
+        "group flex cursor-pointer items-center gap-3 overflow-hidden border-b border-border/70 px-3 last:border-b-0 hover:bg-hover/60",
+        visualDone && "bg-subtle/30"
+      )}
+      style={{
+        maxHeight: pendingDone ? 0 : 64,
+        opacity: pendingDone ? 0 : 1,
+        paddingTop: pendingDone ? 0 : "0.5rem",
+        paddingBottom: pendingDone ? 0 : "0.5rem",
+        transition:
+          "max-height 400ms 200ms cubic-bezier(0.16,1,0.3,1), opacity 350ms 200ms ease-out, padding 400ms 200ms cubic-bezier(0.16,1,0.3,1), background-color 200ms ease-out",
+      }}
+    >
+      <button
+        type="button"
+        onClick={handleToggle}
+        aria-label="Holatni o'zgartirish"
+        className="group/check -my-2 -ml-3 -mr-3 flex shrink-0 cursor-pointer items-center py-2 pl-3 pr-3 transition-colors hover:bg-hover/40"
+      >
+        <span
+          className={cn(
+            "grid size-[18px] place-items-center rounded-md border transition-all duration-200",
+            visualDone
+              ? "border-accent bg-accent check-fill"
+              : "border-border-strong group-hover/check:border-accent"
+          )}
+        >
+          {visualDone && (
+            <Check className="size-2.5 text-background check-pop" strokeWidth={4} />
+          )}
+        </span>
+      </button>
+
+      <span
+        aria-hidden
+        className={cn(
+          "size-1.5 shrink-0 rounded-full",
+          priorityDot,
+          visualDone && "opacity-40"
+        )}
+      />
+
+      {plan.time ? (
+        <span
+          className={cn(
+            "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] tabular-nums",
+            visualDone ? "text-faint" : "bg-subtle text-foreground"
+          )}
+        >
+          <Clock className="size-2.5" />
+          {plan.time}
+        </span>
+      ) : (
+        <span className="w-[58px] shrink-0 text-center font-mono text-[10.5px] text-faint">
+          vaqtsiz
+        </span>
+      )}
+
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate text-[13.5px]",
+          visualDone && "text-faint line-through"
+        )}
+      >
+        {plan.title}
+      </span>
+
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(plan.id);
+        }}
+        aria-label="O'chirish"
+        className="grid size-6 shrink-0 place-items-center rounded text-faint opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
+      >
+        <X className="size-3.5" />
+      </button>
+    </li>
+  );
+}
 
 function labelFor(date: Date, today: Date): string {
   const t = new Date(today);
@@ -44,7 +196,12 @@ function shortDateLabel(date: Date, today: Date): string {
 }
 
 export function AgendaView() {
-  const { plans, create, toggleStatus, remove } = usePlans();
+  const { plans, create, update, toggleStatus, remove } = usePlans();
+  const { askRemove, confirmEl } = useConfirmRemove(plans, remove);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detailPlan = detailId ? plans.find((p) => p.id === detailId) ?? null : null;
+  const [expandedCompleted, setExpandedCompleted] = useState<Set<string>>(new Set());
+
   const today = useMemo(() => startOfDay(), []);
   const todayIso = useMemo(() => toDateInputValue(today), [today]);
 
@@ -60,6 +217,7 @@ export function AgendaView() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showTime, setShowTime] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const timeBtnRef = useRef<HTMLButtonElement>(null);
   const calendarWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -173,6 +331,7 @@ export function AgendaView() {
               {shortDateLabel(date, today)}
             </button>
             <button
+              ref={timeBtnRef}
               type="button"
               onClick={() => {
                 setShowTime((v) => !v);
@@ -193,38 +352,47 @@ export function AgendaView() {
             </kbd>
           </div>
 
-          {showTime && (
-            <div className="border-t border-border bg-subtle/40 px-3 py-2">
-              <input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="rounded-md border border-border bg-surface px-2 py-1 font-mono text-[12px] tabular-nums focus:border-border-strong focus:outline-none"
-              />
-            </div>
-          )}
-
           {showCalendar && (
             <div
               ref={calendarWrapRef}
-              className="border-t border-border bg-subtle/40 p-3"
+              className="overflow-hidden border-t border-border bg-subtle/40 p-3"
             >
-              <MiniMonth
-                today={today}
-                selected={date}
-                plans={plans}
-                onSelect={(d) => {
-                  setDate(d);
-                  setShowCalendar(false);
-                }}
-              />
-              <p className="mt-2 text-center text-[11px] text-faint">
-                Bugundan keyingi kunni tanlang. Bugun uchun{" "}
-                <span className="text-muted">Bugun</span> bo&apos;limidan foydalaning.
-              </p>
+              <div className="reveal-down">
+                <MiniMonth
+                  today={today}
+                  selected={date}
+                  plans={plans}
+                  onSelect={(d) => {
+                    setDate(d);
+                    setShowCalendar(false);
+                  }}
+                />
+                <p className="mt-2 text-center text-[11px] text-faint">
+                  Bugundan keyingi kunni tanlang. Bugun uchun{" "}
+                  <span className="text-muted">Bugun</span> bo&apos;limidan foydalaning.
+                </p>
+              </div>
             </div>
           )}
         </form>
+
+        <TimePickerPopover
+          open={showTime}
+          triggerRef={timeBtnRef}
+          value={time}
+          onChange={(v) => setTime(v)}
+          onClear={() => setTime("")}
+          onClose={() => setShowTime(false)}
+          disableBefore={
+            toDateInputValue(date) === todayIso
+              ? (() => {
+                  const n = new Date();
+                  return `${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
+                })()
+              : undefined
+          }
+          occupiedSlots={occupiedTimeSlots(plans, toDateInputValue(date))}
+        />
 
         {/* List */}
         <div className="rise-in mt-6" style={{ animationDelay: "60ms" }}>
@@ -239,84 +407,106 @@ export function AgendaView() {
             </div>
           ) : (
             <div className="space-y-5">
-              {groups.map((g) => (
-                <section key={g.iso}>
-                  <header className="mb-2 flex items-baseline gap-3 px-1">
-                    <h3 className="text-[14px] font-semibold tracking-[-0.01em] text-foreground">
-                      {labelFor(g.date, today)}
-                    </h3>
-                    <span className="text-[11.5px] text-faint">{formatUzDate(g.date)}</span>
-                    <span className="ml-auto font-mono text-[10.5px] tabular-nums text-faint">
-                      {g.items.filter((p) => p.status === "DONE").length}/{g.items.length}
-                    </span>
-                  </header>
+              {groups.map((g) => {
+                const activeItems = g.items.filter((p) => p.status !== "DONE");
+                const completedItems = g.items.filter((p) => p.status === "DONE");
+                const isCompletedOpen = expandedCompleted.has(g.iso);
+                const renderRow = (p: Plan) => (
+                  <AgendaRow
+                    key={p.id}
+                    plan={p}
+                    onToggle={toggleStatus}
+                    onRemove={askRemove}
+                    onOpen={setDetailId}
+                  />
+                );
+                return (
+                  <section key={g.iso}>
+                    <header className="mb-2 flex items-baseline gap-3 px-1">
+                      <h3 className="text-[14px] font-semibold tracking-[-0.01em] text-foreground">
+                        {labelFor(g.date, today)}
+                      </h3>
+                      <span className="text-[11.5px] text-faint">{formatUzDate(g.date)}</span>
+                      <span className="ml-auto font-mono text-[10.5px] tabular-nums text-faint">
+                        {completedItems.length}/{g.items.length}
+                      </span>
+                    </header>
 
-                  <ul className="overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]">
-                    {g.items.map((p) => {
-                      const isDone = p.status === "DONE";
-                      return (
-                        <li
-                          key={p.id}
+                    {activeItems.length > 0 && (
+                      <ul className="overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]">
+                        {activeItems.map(renderRow)}
+                      </ul>
+                    )}
+
+                    {completedItems.length > 0 && (
+                      <section
+                        className={cn(
+                          "overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]",
+                          activeItems.length > 0 && "mt-2"
+                        )}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedCompleted((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(g.iso)) next.delete(g.iso);
+                              else next.add(g.iso);
+                              return next;
+                            })
+                          }
                           className={cn(
-                            "group flex items-center gap-3 border-b border-border/70 px-3 py-2 last:border-b-0 transition-colors hover:bg-hover/60",
-                            isDone && "bg-subtle/30"
+                            "flex w-full items-center justify-between bg-subtle/30 px-3 py-1.5 transition-colors hover:bg-subtle/60",
+                            isCompletedOpen && "border-b border-border"
                           )}
+                          aria-expanded={isCompletedOpen}
                         >
-                          <button
-                            type="button"
-                            onClick={() => toggleStatus(p.id)}
-                            aria-label="Holatni o'zgartirish"
-                            className={cn(
-                              "grid size-[18px] shrink-0 place-items-center rounded-md border transition-all",
-                              isDone ? "border-accent bg-accent" : "border-border-strong hover:border-accent"
-                            )}
-                          >
-                            {isDone && <Check className="size-2.5 text-white" strokeWidth={4} />}
-                          </button>
-
-                          {p.time ? (
-                            <span
+                          <div className="flex items-center gap-1.5">
+                            <ChevronDown
                               className={cn(
-                                "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] tabular-nums",
-                                isDone ? "text-faint" : "bg-subtle text-foreground"
+                                "size-3 text-faint transition-transform duration-300",
+                                !isCompletedOpen && "-rotate-90"
                               )}
-                            >
-                              <Clock className="size-2.5" />
-                              {p.time}
-                            </span>
-                          ) : (
-                            <span className="w-[58px] shrink-0 text-center font-mono text-[10.5px] text-faint">
-                              vaqtsiz
-                            </span>
-                          )}
-
-                          <span
-                            className={cn(
-                              "min-w-0 flex-1 truncate text-[13.5px]",
-                              isDone && "text-faint line-through"
-                            )}
-                          >
-                            {p.title}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() => remove(p.id)}
-                            aria-label="O'chirish"
-                            className="grid size-6 shrink-0 place-items-center rounded text-faint opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
-                          >
-                            <X className="size-3.5" />
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              ))}
+                            />
+                            <p className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-faint">
+                              Bajarilgan
+                            </p>
+                          </div>
+                          <p className="font-mono text-[10.5px] tabular-nums text-faint">
+                            {completedItems.length}
+                          </p>
+                        </button>
+                        <div
+                          className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                          style={{ gridTemplateRows: isCompletedOpen ? "1fr" : "0fr" }}
+                        >
+                          <ul className="divide-y divide-border/70 overflow-hidden">
+                            {completedItems.map((p) => (
+                              <div key={p.id} className="fade-in">
+                                {renderRow(p)}
+                              </div>
+                            ))}
+                          </ul>
+                        </div>
+                      </section>
+                    )}
+                  </section>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
+
+      <TaskDetail
+        plan={detailPlan}
+        plans={plans}
+        open={!!detailPlan}
+        onClose={() => setDetailId(null)}
+        onUpdate={update}
+        onRemove={askRemove}
+      />
+      {confirmEl}
     </div>
   );
 }

@@ -11,6 +11,7 @@
 
 /* :root = Mono (light, default) */
 :root {
+  color-scheme: light;
   --background:      oklch(0.975 0 0);
   --surface:         oklch(1 0 0);
   --surface-raised:  oklch(1 0 0);
@@ -34,6 +35,17 @@
   --danger:          oklch(0.6 0.18 25);
   --danger-soft:     oklch(0.95 0.04 25);
 
+  /* Priority colors — minimal, low chroma */
+  --priority-high:        oklch(0.55 0.13 25);
+  --priority-medium:      oklch(0.68 0.09 70);
+  --priority-low:         oklch(0.62 0.04 240);
+  --priority-high-soft:   oklch(0.97 0.013 25);
+  --priority-medium-soft: oklch(0.97 0.011 70);
+  --priority-low-soft:    oklch(0.975 0.005 240);
+
+  /* Current time indicator — calm blue */
+  --current-time:      oklch(0.6 0.14 240);
+
   --shadow-sm:       0 1px 0 0 oklch(0.86 0 0);
   --shadow-md:       0 1px 2px 0 oklch(0 0 0 / 0.04), 0 0 0 1px oklch(0.9 0 0);
   --shadow-lg:       0 10px 30px -10px oklch(0 0 0 / 0.15), 0 0 0 1px oklch(0.9 0 0);
@@ -44,6 +56,7 @@
 
 /* Noir — Mono's natural dark sibling */
 [data-theme="noir"] {
+  color-scheme: dark;
   --background:     oklch(0.16 0 0);
   --surface:        oklch(0.2 0 0);
   --surface-raised: oklch(0.23 0 0);
@@ -66,6 +79,17 @@
 
   --danger:         oklch(0.7 0.18 25);
   --danger-soft:    oklch(0.3 0.08 25);
+
+  /* Priority colors — minimal, slightly brighter on dark */
+  --priority-high:        oklch(0.66 0.13 25);
+  --priority-medium:      oklch(0.74 0.09 70);
+  --priority-low:         oklch(0.7 0.04 240);
+  --priority-high-soft:   oklch(0.22 0.025 25);
+  --priority-medium-soft: oklch(0.22 0.02 70);
+  --priority-low-soft:    oklch(0.22 0.012 240);
+
+  /* Current time — slightly brighter blue on dark */
+  --current-time:      oklch(0.72 0.15 240);
 
   --shadow-sm:      0 1px 0 0 oklch(0.28 0 0);
   --shadow-md:      0 1px 2px 0 oklch(0 0 0 / 0.4), 0 0 0 1px oklch(0.28 0 0);
@@ -95,6 +119,15 @@
 
   --color-danger:         var(--danger);
   --color-danger-soft:    var(--danger-soft);
+
+  --color-priority-high:        var(--priority-high);
+  --color-priority-medium:      var(--priority-medium);
+  --color-priority-low:         var(--priority-low);
+  --color-priority-high-soft:   var(--priority-high-soft);
+  --color-priority-medium-soft: var(--priority-medium-soft);
+  --color-priority-low-soft:    var(--priority-low-soft);
+
+  --color-current-time:         var(--current-time);
 
   --font-sans:            var(--font-hanken);
   --font-mono:            var(--font-geist-mono);
@@ -159,4 +192,66 @@
 @keyframes fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+@utility check-pop {
+  animation: check-pop 0.35s var(--ease-out) both;
+}
+
+@keyframes check-pop {
+  0%   { opacity: 0; transform: scale(0.3) rotate(-12deg); }
+  60%  { opacity: 1; transform: scale(1.25) rotate(0deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+@utility check-fill {
+  animation: check-fill 0.35s var(--ease-out) both;
+}
+
+@keyframes check-fill {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+@utility reveal-down {
+  animation: reveal-down 0.28s var(--ease-out) both;
+  transform-origin: top center;
+}
+
+@keyframes reveal-down {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scaleY(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+@utility drop-in {
+  animation: drop-in 0.42s var(--ease-out) both;
+  transform-origin: top center;
+}
+
+@keyframes drop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-22px);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  40% {
+    opacity: 1;
+    max-height: 48px;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 48px;
+  }
 }

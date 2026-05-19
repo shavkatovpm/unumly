@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { usePlans } from "@/lib/plans-store";
-import { useCalendarView, type CalendarView } from "@/lib/calendar-view-store";
+import type { CalendarView } from "@/lib/calendar-view-store";
 import {
   endOfWeek,
   formatUzDate,
@@ -17,6 +17,7 @@ import { DayGrid } from "./kalendar/day-grid";
 import { HaftaView } from "./kalendar/hafta-view";
 import { OyView } from "./kalendar/oy-view";
 import { YilView } from "./kalendar/yil-view";
+import { useConfirmRemove } from "./widgets/confirm-dialog";
 
 const UZ_MONTHS = [
   "yanvar", "fevral", "mart", "aprel", "may", "iyun",
@@ -40,8 +41,9 @@ function headingFor(view: CalendarView, date: Date): string {
 }
 
 export function KalendarView() {
-  const { plans, create, toggleStatus, remove } = usePlans();
-  const [view, setView] = useCalendarView();
+  const { plans, create, update, toggleStatus, remove, removeMany } = usePlans();
+  const { askRemove, confirmEl } = useConfirmRemove(plans, remove);
+  const [view, setView] = useState<CalendarView>("hafta");
   const today = useMemo(() => startOfDay(), []);
   const [selected, setSelected] = useState<Date>(today);
 
@@ -82,6 +84,18 @@ export function KalendarView() {
         <div className="flex items-center gap-3">
           <h1 className="text-[13px] font-semibold tracking-[-0.01em]">Kalendar</h1>
 
+          {view === "kun" && (
+            <button
+              type="button"
+              onClick={() => setView("oy")}
+              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted transition-colors hover:bg-hover hover:text-foreground"
+              aria-label="Oyga qaytish"
+            >
+              <ArrowLeft className="size-3" />
+              Oy
+            </button>
+          )}
+
           <div className="flex items-center gap-0.5">
             <button
               type="button"
@@ -94,15 +108,21 @@ export function KalendarView() {
             <button
               type="button"
               onClick={() => setSelected(today)}
-              disabled={isToday && view === "kun"}
+              disabled={isToday}
+              title={isToday ? undefined : "Bugunga qaytish"}
               className={cn(
-                "rounded px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider transition-colors",
-                isToday && view === "kun"
-                  ? "text-faint"
-                  : "text-muted hover:bg-hover hover:text-foreground"
+                "flex items-center gap-1.5 rounded px-2 py-0.5 text-[12.5px] font-medium transition-colors",
+                isToday
+                  ? "text-accent"
+                  : "text-foreground hover:bg-hover"
               )}
             >
-              Bugun
+              <span>{headingFor(view, selected)}</span>
+              {isToday && view === "kun" && (
+                <span className="font-mono text-[10px] uppercase tracking-wider text-faint">
+                  bugun
+                </span>
+              )}
             </button>
             <button
               type="button"
@@ -114,17 +134,15 @@ export function KalendarView() {
             </button>
           </div>
 
-          <span className={cn(
-            "text-[12.5px] font-medium",
-            isToday && view === "kun" ? "text-accent" : "text-muted"
-          )}>
-            {headingFor(view, selected)}
-            {isToday && view === "kun" && (
-              <span className="ml-1.5 font-mono text-[10px] uppercase tracking-wider text-faint">
-                bugun
-              </span>
-            )}
-          </span>
+          {!isToday && (
+            <button
+              type="button"
+              onClick={() => setSelected(today)}
+              className="rounded-md px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-faint transition-colors hover:bg-hover hover:text-foreground"
+            >
+              Bugun
+            </button>
+          )}
         </div>
 
         <ViewSwitcher value={view} onChange={setView} />
@@ -140,7 +158,8 @@ export function KalendarView() {
                 plans={plans}
                 onCreate={create}
                 onToggle={toggleStatus}
-                onRemove={remove}
+                onRemove={askRemove}
+                onUpdate={update}
               />
             </div>
           )}
@@ -152,7 +171,9 @@ export function KalendarView() {
               plans={plans}
               onCreate={create}
               onToggle={toggleStatus}
-              onRemove={remove}
+              onRemove={askRemove}
+              onUpdate={update}
+              onRemoveMany={removeMany}
             />
           )}
 
@@ -181,6 +202,7 @@ export function KalendarView() {
           )}
         </div>
       </div>
+      {confirmEl}
     </div>
   );
 }

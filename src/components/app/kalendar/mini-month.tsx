@@ -85,13 +85,10 @@ export function MiniMonth({
       </header>
 
       <div className="grid grid-cols-7 gap-y-0.5">
-        {WEEKDAYS.map((d, i) => (
+        {WEEKDAYS.map((d) => (
           <div
             key={d}
-            className={cn(
-              "py-1 text-center font-mono text-[9.5px] uppercase tracking-wider",
-              i >= 5 ? "text-warm/80" : "text-faint"
-            )}
+            className="py-1 text-center font-mono text-[9.5px] uppercase tracking-wider text-faint"
           >
             {d}
           </div>
@@ -103,7 +100,6 @@ export function MiniMonth({
           const isSelected = isSameDay(cell, selected);
           const iso = toDateInputValue(cell);
           const count = planDates.get(iso) ?? 0;
-          const isWeekend = cell.getDay() === 0 || cell.getDay() === 6;
 
           return (
             <button
@@ -113,7 +109,7 @@ export function MiniMonth({
               className={cn(
                 "grid h-7 w-full place-items-center rounded text-[12px] tabular-nums transition-all",
                 !inMonth && "text-faint/60",
-                inMonth && !isSelected && !isToday && (isWeekend ? "text-warm" : "text-foreground"),
+                inMonth && !isSelected && !isToday && "text-foreground",
                 inMonth && !isSelected && "hover:bg-hover",
                 isToday && !isSelected && "font-semibold text-accent",
                 isSelected && "bg-foreground font-semibold text-background"

@@ -1,0 +1,147 @@
+"use client";
+
+import { useEffect, useMemo, useRef } from "react";
+import { Clock, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const MINUTES = [0, 15, 30, 45];
+
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function nowSlot(): string {
+  const d = new Date();
+  const total = d.getHours() * 60 + Math.round(d.getMinutes() / 15) * 15;
+  const wrapped = total % (24 * 60);
+  return `${pad(Math.floor(wrapped / 60))}:${pad(wrapped % 60)}`;
+}
+
+const ALL_SLOTS = HOURS.flatMap((h) => MINUTES.map((m) => `${pad(h)}:${pad(m)}`));
+
+export function TimePicker({
+  value,
+  onChange,
+  onClear,
+  disableBefore,
+  occupiedSlots,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  onClear?: () => void;
+  /** HH:MM — slots strictly less than this are unselectable (shown as past) */
+  disableBefore?: string;
+  /** HH:MM slots already booked by other tasks (shown as busy) */
+  occupiedSlots?: string[];
+}) {
+  const occupiedSet = useMemo(() => new Set(occupiedSlots ?? []), [occupiedSlots]);
+  const current = nowSlot();
+  const currentDisabled =
+    (!!disableBefore && current < disableBefore) || occupiedSet.has(current);
+  const listRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef<HTMLButtonElement>(null);
+
+  // Auto-scroll to current value, or first selectable slot on open
+  useEffect(() => {
+    const el = activeRef.current;
+    if (!el || !listRef.current) return;
+    el.scrollIntoView({ block: "center" });
+  }, []);
+
+  return (
+    <div className="space-y-2">
+      {/* Quick actions */}
+      <div className="flex flex-wrap items-center gap-1">
+        <button
+          type="button"
+          disabled={currentDisabled}
+          onClick={() => onChange(current)}
+          className={cn(
+            "flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[11px] tabular-nums transition-colors",
+            currentDisabled
+              ? "cursor-not-allowed border-border/40 bg-surface text-faint/50 line-through"
+              : value === current
+              ? "border-foreground bg-foreground text-background"
+              : "border-border bg-surface text-foreground hover:bg-hover"
+          )}
+          title={currentDisabled ? "O'tib ketgan vaqt" : `Hozirgi vaqt: ${current}`}
+        >
+          <Clock className="size-3" />
+          Hozir
+          <span className={cn(currentDisabled ? "text-faint/50" : "text-faint")}>
+            {current}
+          </span>
+        </button>
+        {onClear && value && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-faint transition-colors hover:bg-hover hover:text-foreground"
+          >
+            <X className="size-3" />
+            Tozalash
+          </button>
+        )}
+      </div>
+
+      {/* Slot list */}
+      <div
+        ref={listRef}
+        className="max-h-[240px] overflow-y-auto rounded-md border border-border bg-surface"
+      >
+        {ALL_SLOTS.map((slot) => {
+          const active = slot === value;
+          const isCurrent = slot === current;
+          const isPast = !!disableBefore && slot < disableBefore;
+          const isBusy = !isPast && occupiedSet.has(slot);
+          const disabled = isPast || isBusy;
+          // Anchor scroll to selected value if any; otherwise to first
+          // selectable slot near "now".
+          const isScrollAnchor =
+            active ||
+            (!value &&
+              (disableBefore
+                ? slot === ALL_SLOTS.find((s) => s >= disableBefore)
+                : isCurrent));
+          return (
+            <button
+              key={slot}
+              ref={isScrollAnchor ? activeRef : null}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(slot)}
+              className={cn(
+                "flex w-full items-center justify-between px-3 py-1.5 text-left font-mono text-[12.5px] tabular-nums transition-colors",
+                isPast && "cursor-not-allowed text-faint/45 line-through",
+                isBusy && "cursor-not-allowed bg-subtle/60 text-faint",
+                !disabled && active && "bg-foreground text-background",
+                !disabled && !active && "text-foreground hover:bg-hover"
+              )}
+              title={
+                isPast ? "O'tib ketgan vaqt" : isBusy ? "Boshqa reja band qilgan" : undefined
+              }
+            >
+              <span>{slot}</span>
+              {isCurrent && !active && !disabled && (
+                <span className="rounded bg-current-time/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-current-time">
+                  hozir
+                </span>
+              )}
+              {isPast && isCurrent && (
+                <span className="font-mono text-[9px] uppercase tracking-wider text-faint/60">
+                  o&apos;tgan
+                </span>
+              )}
+              {isBusy && (
+                <span className="font-mono text-[9px] uppercase tracking-wider text-muted">
+                  band
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

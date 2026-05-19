@@ -48,13 +48,10 @@ export function OyView({
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]">
       {/* Header */}
       <div className="grid shrink-0 grid-cols-7 border-b border-border bg-subtle/30">
-        {WEEKDAYS.map((d, i) => (
+        {WEEKDAYS.map((d) => (
           <div
             key={d}
-            className={cn(
-              "border-l border-border py-2 text-center font-mono text-[10px] uppercase tracking-wider first:border-l-0",
-              i >= 5 ? "text-warm" : "text-faint"
-            )}
+            className="border-l border-border py-2 text-center font-mono text-[10px] uppercase tracking-wider text-faint first:border-l-0"
           >
             {d.slice(0, 3)}
           </div>
@@ -68,7 +65,7 @@ export function OyView({
           const isToday = isSameDay(cell, today);
           const iso = toDateInputValue(cell);
           const items = byDate.get(iso) ?? [];
-          const isWeekend = cell.getDay() === 0 || cell.getDay() === 6;
+          const isPast = !isToday && cell < today;
 
           return (
             <button
@@ -76,17 +73,22 @@ export function OyView({
               type="button"
               onClick={() => onSelectDate(cell)}
               className={cn(
-                "group flex min-h-[100px] flex-col items-stretch border-l border-t border-border p-1.5 text-left transition-colors first:border-l-0 hover:bg-hover/30",
-                !inMonth && "bg-subtle/40 text-faint",
-                isWeekend && inMonth && "bg-warm-soft/15"
+                "group relative flex min-h-[100px] flex-col items-stretch border-l border-t p-1.5 text-left transition-colors first:border-l-0 hover:bg-hover/30",
+                isToday ? "border-foreground/70" : "border-border",
+                !inMonth && "bg-subtle/40 text-faint"
               )}
             >
+              {isPast && inMonth && (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 z-[1] bg-[repeating-linear-gradient(135deg,transparent_0,transparent_5px,var(--border)_5px,var(--border)_6px)] opacity-50"
+                />
+              )}
               <div className="flex items-baseline justify-between">
                 <span
                   className={cn(
                     "text-[12px] font-medium tabular-nums",
                     !inMonth && "text-faint/60",
-                    inMonth && isWeekend && "text-warm",
                     isToday && "grid size-5 place-items-center rounded-full bg-foreground !text-background"
                   )}
                 >

@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 import type { CalendarView } from "@/lib/calendar-view-store";
 
 const VIEWS: { id: CalendarView; label: string }[] = [
-  { id: "kun",    label: "Kun" },
   { id: "hafta",  label: "Hafta" },
   { id: "oy",     label: "Oy" },
   { id: "yil",    label: "Yil" },

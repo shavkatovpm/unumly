@@ -157,3 +157,31 @@ export function fromDateInputValue(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
 }
+
+/**
+ * Returns every 15-minute HH:MM slot occupied by the given plans on the given
+ * date. Pass `excludeId` to skip a plan (useful when editing — so the plan
+ * does not block its own time).
+ */
+export function occupiedTimeSlots(
+  plans: { id: string; scope?: string; scheduledFor?: string; time?: string; duration?: number }[],
+  dateIso: string,
+  excludeId?: string
+): string[] {
+  const out: string[] = [];
+  for (const p of plans) {
+    if (p.scope !== "DAILY") continue;
+    if (p.scheduledFor !== dateIso) continue;
+    if (!p.time) continue;
+    if (excludeId && p.id === excludeId) continue;
+    const [h, m] = p.time.split(":").map(Number);
+    const start = h * 60 + m;
+    const dur = p.duration ?? 15;
+    for (let t = start; t < start + dur; t += 15) {
+      const sh = Math.floor(t / 60);
+      const sm = t % 60;
+      out.push(`${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}`);
+    }
+  }
+  return out;
+}

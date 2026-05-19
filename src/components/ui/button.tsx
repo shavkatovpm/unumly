@@ -10,7 +10,7 @@ const buttonVariants = cva(
         primary:
           "bg-foreground text-background hover:bg-foreground/90",
         accent:
-          "bg-accent text-white hover:bg-accent/90 shadow-[0_1px_0_0_color-mix(in_oklch,var(--accent-ink)_30%,transparent)]",
+          "bg-accent text-background hover:bg-accent/90 shadow-[0_1px_0_0_color-mix(in_oklch,var(--accent-ink)_30%,transparent)]",
         outline:
           "border border-border-strong bg-surface text-foreground hover:bg-subtle",
         ghost:

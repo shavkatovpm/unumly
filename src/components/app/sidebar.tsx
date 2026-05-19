@@ -1,38 +1,120 @@
 "use client";
 
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  CalendarDays,
-  CalendarRange,
-  CalendarClock,
+  Calendar as CalendarIcon,
   Inbox,
   ListChecks,
-  Calendar as CalendarIcon,
-  Settings,
-  Search,
-  Sun,
   Moon,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Settings,
+  Sparkles,
+  Sun,
+  Target,
+  Trash2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/color-store";
 
-const NAV = [
-  { href: "/bugun",     label: "Bugun",     icon: Inbox,        kbd: "B" },
-  { href: "/agenda",    label: "Agenda",    icon: ListChecks,   kbd: "A" },
-  { href: "/kalendar",  label: "Kalendar",  icon: CalendarIcon, kbd: "K" },
-];
+type IconCmp = ComponentType<{ className?: string; strokeWidth?: number }>;
 
-const SCOPES = [
-  { label: "Hafta", icon: CalendarDays },
-  { label: "Oy",    icon: CalendarRange },
-  { label: "Yil",   icon: CalendarClock },
-];
+type CustomItem = { id: string; label: string };
+
+const STORAGE_HIDDEN = "unumly:sidebar:hidden";
+const STORAGE_CUSTOM = "unumly:sidebar:custom";
+
+function readJSON<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const v = localStorage.getItem(key);
+    return v ? (JSON.parse(v) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJSON(key: string, value: unknown) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* ignore */
+  }
+}
 
 export function Sidebar({ todayCount }: { todayCount: number }) {
   const pathname = usePathname();
   const { theme, toggle } = useTheme();
   const isDark = theme === "noir";
+
+  const [hidden, setHidden] = useState<string[]>([]);
+  const [custom, setCustom] = useState<CustomItem[]>([]);
+  useEffect(() => {
+    setHidden(readJSON<string[]>(STORAGE_HIDDEN, []));
+    setCustom(readJSON<CustomItem[]>(STORAGE_CUSTOM, []));
+  }, []);
+
+  function toggleHidden(key: string) {
+    setHidden((prev) => {
+      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key];
+      writeJSON(STORAGE_HIDDEN, next);
+      return next;
+    });
+  }
+
+  function addCustom(label: string) {
+    const item: CustomItem = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      label: label.trim(),
+    };
+    setCustom((prev) => {
+      const next = [...prev, item];
+      writeJSON(STORAGE_CUSTOM, next);
+      return next;
+    });
+  }
+
+  function removeCustom(id: string) {
+    setCustom((prev) => {
+      const next = prev.filter((c) => c.id !== id);
+      writeJSON(STORAGE_CUSTOM, next);
+      return next;
+    });
+  }
+
+  // Manage popover for Boshqaruv
+  const [manageOpen, setManageOpen] = useState(false);
+  const manageBtnRef = useRef<HTMLButtonElement>(null);
+  const managePopRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!manageOpen) return;
+    function onDown(e: MouseEvent) {
+      const t = e.target as Node;
+      if (managePopRef.current?.contains(t)) return;
+      if (manageBtnRef.current?.contains(t)) return;
+      setManageOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [manageOpen]);
+
+  // Add-custom inline input
+  const [addingCustom, setAddingCustom] = useState(false);
+  const [newLabel, setNewLabel] = useState("");
+
+  function isActive(href: string) {
+    return pathname === href || pathname.startsWith(href + "/");
+  }
 
   return (
     <aside className="hidden h-screen w-[240px] flex-col border-r border-border bg-subtle/40 md:flex">
@@ -57,77 +139,185 @@ export function Sidebar({ todayCount }: { todayCount: number }) {
         </button>
       </div>
 
-      {/* Workspace nav */}
-      <div className="px-3">
-        <p className="px-2 pb-1 text-[10.5px] font-medium uppercase tracking-[0.12em] text-faint">
-          Ish stoli
-        </p>
-        <nav className="space-y-px">
-          {NAV.map(({ href, label, icon: Icon, kbd }) => {
-            const active = pathname === href || pathname.startsWith(href + "/");
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "group flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
-                  active
-                    ? "bg-surface text-foreground shadow-[0_1px_0_var(--border)]"
-                    : "text-muted hover:bg-hover hover:text-foreground"
-                )}
-              >
-                <Icon
-                  className={cn(
-                    "size-3.5 shrink-0 transition-colors",
-                    active ? "text-foreground" : "text-faint"
-                  )}
-                  strokeWidth={2}
-                />
-                <span className="flex-1">{label}</span>
-                {label === "Bugun" && todayCount > 0 && (
-                  <span
-                    className={cn(
-                      "rounded px-1.5 font-mono text-[10px] tabular-nums",
-                      active ? "bg-accent-soft text-accent-ink" : "text-faint"
-                    )}
-                  >
-                    {todayCount}
-                  </span>
-                )}
-                {kbd && !todayCount && (
-                  <kbd className="hidden rounded border border-border bg-background px-1 py-0.5 font-mono text-[9.5px] text-faint group-hover:inline">
-                    {kbd}
-                  </kbd>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
+      <div className="flex-1 overflow-y-auto">
+        {/* ── Asosiy ──────────────────────────── */}
+        <Section label="Asosiy">
+          <SidebarLink
+            href="/bugun"
+            label="Bugun"
+            icon={Inbox}
+            active={isActive("/bugun")}
+            badge={todayCount > 0 ? String(todayCount) : undefined}
+          />
+          <SidebarLink
+            href="/agenda"
+            label="Agenda"
+            icon={ListChecks}
+            active={isActive("/agenda")}
+          />
+          <SidebarLink
+            href="/kalendar"
+            label="Kalendar"
+            icon={CalendarIcon}
+            active={isActive("/kalendar")}
+          />
+        </Section>
 
-      {/* Doiralar — coming later */}
-      <div className="mt-5 px-3">
-        <p className="px-2 pb-1 text-[10.5px] font-medium uppercase tracking-[0.12em] text-faint">
-          Doiralar
-        </p>
-        <nav className="space-y-px">
-          {SCOPES.map(({ label, icon: Icon }) => (
-            <div
-              key={label}
-              className="flex cursor-not-allowed items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] text-faint/80"
+        {/* ── Boshqaruv ─────────────────────────── */}
+        <Section
+          label="Boshqaruv"
+          action={
+            !hidden.includes("maqsad") || hidden.includes("maqsad") ? (
+              <button
+                ref={manageBtnRef}
+                type="button"
+                onClick={() => setManageOpen((v) => !v)}
+                aria-label="Bo'limni boshqarish"
+                className="grid size-5 place-items-center rounded text-faint opacity-0 transition-colors hover:bg-hover hover:text-foreground group-hover/section:opacity-100"
+              >
+                <MoreHorizontal className="size-3" />
+              </button>
+            ) : null
+          }
+        >
+          <SidebarLink
+            href="/reja"
+            label="Reja"
+            icon={ListChecks}
+            active={isActive("/reja")}
+          />
+          {!hidden.includes("maqsad") && (
+            <SidebarItem
+              label="Maqsad"
+              icon={Target}
+              badge="tez orada"
+              disabled
+            />
+          )}
+        </Section>
+
+        {/* Manage popover */}
+        {manageOpen && (
+          <div
+            ref={managePopRef}
+            className="fade-in mx-3 mb-2 rounded-md border border-border bg-surface p-2 shadow-lg"
+          >
+            <p className="px-1 pb-1 font-mono text-[9.5px] uppercase tracking-wider text-faint">
+              Ko&apos;rinishi
+            </p>
+            <ManageRow
+              label="Maqsad"
+              icon={Target}
+              checked={!hidden.includes("maqsad")}
+              onToggle={() => toggleHidden("maqsad")}
+            />
+            <p className="mt-1 border-t border-border/60 px-1 pt-1.5 text-[10.5px] text-faint">
+              Reja yashirib bo&apos;lmaydi.
+            </p>
+          </div>
+        )}
+
+        {/* ── Maxsus ──────────────────────────── */}
+        <Section
+          label="Maxsus"
+          action={
+            <button
+              type="button"
+              onClick={() => {
+                setAddingCustom(true);
+                setNewLabel("");
+              }}
+              aria-label="Yangi qo'shish"
+              className="grid size-5 place-items-center rounded text-faint opacity-0 transition-colors hover:bg-hover hover:text-foreground group-hover/section:opacity-100"
             >
-              <Icon className="size-3.5 shrink-0" strokeWidth={2} />
-              <span className="flex-1">{label}</span>
-              <span className="rounded bg-subtle px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-faint">
-                tez orada
-              </span>
+              <Plus className="size-3" />
+            </button>
+          }
+        >
+          {custom.length === 0 && !addingCustom && (
+            <button
+              type="button"
+              onClick={() => {
+                setAddingCustom(true);
+                setNewLabel("");
+              }}
+              className="flex w-full items-center gap-2 rounded-md border border-dashed border-border px-2 py-1.5 text-[12px] text-faint transition-colors hover:border-border-strong hover:text-muted"
+            >
+              <Plus className="size-3.5" />
+              Loyiha qo&apos;shish
+            </button>
+          )}
+
+          {custom.map((c) => (
+            <div
+              key={c.id}
+              className="group/item flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted transition-colors hover:bg-hover"
+            >
+              <Sparkles className="size-3.5 shrink-0 text-faint" />
+              <span className="flex-1 truncate">{c.label}</span>
+              <button
+                type="button"
+                onClick={() => removeCustom(c.id)}
+                aria-label="O'chirish"
+                className="grid size-5 shrink-0 place-items-center rounded text-faint opacity-0 transition-colors hover:bg-danger-soft hover:text-danger group-hover/item:opacity-100"
+              >
+                <Trash2 className="size-3" />
+              </button>
             </div>
           ))}
-        </nav>
+
+          {addingCustom && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (newLabel.trim()) {
+                  addCustom(newLabel);
+                  setNewLabel("");
+                  setAddingCustom(false);
+                }
+              }}
+              className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1.5"
+            >
+              <Sparkles className="size-3.5 shrink-0 text-faint" />
+              <input
+                autoFocus
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                onBlur={() => {
+                  if (newLabel.trim()) {
+                    addCustom(newLabel);
+                  }
+                  setNewLabel("");
+                  setAddingCustom(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setNewLabel("");
+                    setAddingCustom(false);
+                  }
+                }}
+                placeholder="Loyiha nomi..."
+                className="flex-1 bg-transparent text-[12.5px] placeholder:text-faint focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setNewLabel("");
+                  setAddingCustom(false);
+                }}
+                aria-label="Bekor"
+                className="grid size-5 place-items-center rounded text-faint hover:text-foreground"
+              >
+                <X className="size-3" />
+              </button>
+            </form>
+          )}
+        </Section>
       </div>
 
-      {/* Settings + theme toggle */}
-      <div className="mt-auto px-3 pb-3">
+      {/* Bottom: profile + theme toggle */}
+      <div className="px-3 pb-3">
         <div className="flex items-center gap-2 rounded-md bg-surface/80 px-2 py-2 shadow-[0_1px_0_var(--border)]">
           <div className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-medium text-background">
             U
@@ -156,5 +346,139 @@ export function Sidebar({ todayCount }: { todayCount: number }) {
         </div>
       </div>
     </aside>
+  );
+}
+
+/* ─────────────── Sub-components ─────────────── */
+
+function Section({
+  label,
+  action,
+  children,
+}: {
+  label: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="group/section px-3 pb-3">
+      <div className="flex items-center justify-between px-2 pb-1">
+        <p className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-faint">
+          {label}
+        </p>
+        {action}
+      </div>
+      <nav className="space-y-px">{children}</nav>
+    </div>
+  );
+}
+
+function SidebarLink({
+  href,
+  label,
+  icon: Icon,
+  active,
+  badge,
+}: {
+  href: string;
+  label: string;
+  icon: IconCmp;
+  active: boolean;
+  badge?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "group flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
+        active
+          ? "bg-surface text-foreground shadow-[0_1px_0_var(--border)]"
+          : "text-muted hover:bg-hover hover:text-foreground"
+      )}
+    >
+      <Icon
+        className={cn(
+          "size-3.5 shrink-0 transition-colors",
+          active ? "text-foreground" : "text-faint"
+        )}
+        strokeWidth={2}
+      />
+      <span className="flex-1">{label}</span>
+      {badge && (
+        <span
+          className={cn(
+            "rounded px-1.5 font-mono text-[10px] tabular-nums",
+            active ? "bg-accent-soft text-accent-ink" : "text-faint"
+          )}
+        >
+          {badge}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function SidebarItem({
+  label,
+  icon: Icon,
+  badge,
+  disabled,
+}: {
+  label: string;
+  icon: IconCmp;
+  badge?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors",
+        disabled
+          ? "cursor-not-allowed text-faint/70"
+          : "text-muted hover:bg-hover hover:text-foreground"
+      )}
+      title={disabled ? "Tez orada" : undefined}
+    >
+      <Icon className="size-3.5 shrink-0 text-faint/70" strokeWidth={2} />
+      <span className="flex-1">{label}</span>
+      {badge && (
+        <span className="rounded bg-subtle px-1.5 font-mono text-[9.5px] uppercase tracking-wider text-faint">
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function ManageRow({
+  label,
+  icon: Icon,
+  checked,
+  onToggle,
+}: {
+  label: string;
+  icon: IconCmp;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-[12.5px] text-muted transition-colors hover:bg-hover"
+    >
+      <Icon className="size-3.5 shrink-0 text-faint" />
+      <span className="flex-1">{label}</span>
+      <span
+        className={cn(
+          "grid size-4 place-items-center rounded border",
+          checked ? "border-accent bg-accent" : "border-border"
+        )}
+      >
+        {checked && <span className="size-1.5 rounded-sm bg-background" />}
+      </span>
+    </button>
   );
 }
