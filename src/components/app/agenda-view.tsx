@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Calendar as CalendarIcon, Check, ChevronDown, Clock, Plus, X } from "lucide-react";
+import { Calendar as CalendarIcon, Check, ChevronDown, Clock, Pencil, Plus, X } from "lucide-react";
 import { usePlans } from "@/lib/plans-store";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -97,13 +97,17 @@ function AgendaRow({
       className={cn(
         "group flex cursor-pointer items-center gap-3 overflow-hidden border-b border-border/70 px-3 last:border-b-0 hover:bg-hover/60",
         visualDone && "bg-subtle/30",
-        isNew && "task-pop"
+        isNew && "task-pop",
+        !pendingDone && "max-h-[78px] py-3 sm:max-h-[64px] sm:py-2"
       )}
-      style={{
-        maxHeight: pendingDone ? 0 : 64,
-        opacity: pendingDone ? 0 : 1,
-        paddingTop: pendingDone ? 0 : "0.5rem",
-        paddingBottom: pendingDone ? 0 : "0.5rem",
+      style={pendingDone ? {
+        maxHeight: 0,
+        opacity: 0,
+        paddingTop: 0,
+        paddingBottom: 0,
+        transition:
+          "max-height 400ms 200ms cubic-bezier(0.16,1,0.3,1), opacity 350ms 200ms ease-out, padding 400ms 200ms cubic-bezier(0.16,1,0.3,1)",
+      } : {
         transition:
           "max-height 400ms 200ms cubic-bezier(0.16,1,0.3,1), opacity 350ms 200ms ease-out, padding 400ms 200ms cubic-bezier(0.16,1,0.3,1), background-color 200ms ease-out",
       }}
@@ -135,7 +139,7 @@ function AgendaRow({
 
       <span
         className={cn(
-          "min-w-0 flex-1 truncate text-[15px] sm:text-[13.5px]",
+          "min-w-0 flex-1 truncate text-[17px] sm:text-[13.5px]",
           visualDone && "text-faint line-through"
         )}
       >
@@ -239,10 +243,26 @@ export function AgendaView() {
 
   useEffect(() => {
     if (mobileSheet) {
-      const id = window.setTimeout(() => mobileInputRef.current?.focus(), 50);
-      return () => window.clearTimeout(id);
+      // Focus immediately so iOS keyboard opens within the user gesture window
+      mobileInputRef.current?.focus({ preventScroll: false });
     }
   }, [mobileSheet]);
+
+  function openDetailForCurrent() {
+    const t = title.trim() || "Yangi reja";
+    const newId = create({
+      title: t,
+      scope: "DAILY",
+      scheduledFor: toDateInputValue(date),
+      time: time || undefined,
+    });
+    setTitle("");
+    setTime("");
+    setShowCalendar(false);
+    setShowTime(false);
+    setMobileSheet(false);
+    setDetailId(newId);
+  }
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -581,28 +601,11 @@ export function AgendaView() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Yaqin kunlarga reja..."
+                autoFocus
                 className="w-full bg-transparent text-[17px] placeholder:text-faint focus:outline-none"
               />
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCalendar((v) => !v);
-                      setShowTime(false);
-                    }}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] transition-colors",
-                      showCalendar
-                        ? "border-border-strong bg-subtle"
-                        : isPastSelected
-                        ? "border-warm/40 bg-warm/10 text-warm"
-                        : "text-muted hover:border-border-strong hover:text-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="size-3.5" />
-                    {shortDateLabel(date, today)}
-                  </button>
                   <button
                     ref={mobileTimeBtnRef}
                     type="button"
@@ -619,6 +622,14 @@ export function AgendaView() {
                   >
                     <Clock className="size-3.5" />
                     {time || "Vaqt"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openDetailForCurrent}
+                    className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] text-muted transition-colors hover:border-border-strong hover:text-foreground"
+                  >
+                    <Pencil className="size-3.5" />
+                    Batafsil
                   </button>
                 </div>
                 <button

@@ -66,8 +66,13 @@ export function RejaView() {
   const [sortOrder, setSortOrder] = useState<SortOrder>("new");
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const v = window.localStorage.getItem(VIEW_KEY);
-    if (v === "tab" || v === "kanban") setView(v);
+    const isMobile = window.matchMedia("(max-width: 639px)").matches;
+    if (isMobile) {
+      setView("tab"); // kanban is unusable on mobile
+    } else {
+      const v = window.localStorage.getItem(VIEW_KEY);
+      if (v === "tab" || v === "kanban") setView(v);
+    }
     const s = window.localStorage.getItem(SORT_KEY);
     if (s === "new" || s === "old") setSortOrder(s);
   }, []);
@@ -195,27 +200,28 @@ function ViewSwitcher({
   value: "tab" | "kanban";
   onChange: (v: "tab" | "kanban") => void;
 }) {
+  // Hidden on mobile — kanban is uncomfortable on small screens
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-md border border-border bg-surface p-0.5">
+    <div className="hidden items-center gap-0.5 rounded-md border border-border bg-surface p-0.5 sm:inline-flex">
       <button
         onClick={() => onChange("tab")}
         aria-label="Tab ko'rinishi"
         className={cn(
-          "flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] transition-colors sm:px-2",
+          "flex items-center gap-1 rounded px-2 py-0.5 text-[11px] transition-colors",
           value === "tab" ? "bg-foreground text-background" : "text-muted hover:text-foreground"
         )}
       >
-        <Layers className="size-3" /> <span className="hidden sm:inline">Tab</span>
+        <Layers className="size-3" /> Tab
       </button>
       <button
         onClick={() => onChange("kanban")}
         aria-label="Kanban ko'rinishi"
         className={cn(
-          "flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] transition-colors sm:px-2",
+          "flex items-center gap-1 rounded px-2 py-0.5 text-[11px] transition-colors",
           value === "kanban" ? "bg-foreground text-background" : "text-muted hover:text-foreground"
         )}
       >
-        <LayoutGrid className="size-3" /> <span className="hidden sm:inline">Kanban</span>
+        <LayoutGrid className="size-3" /> Kanban
       </button>
     </div>
   );

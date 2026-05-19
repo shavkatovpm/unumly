@@ -261,6 +261,11 @@ export function HaftaView({
   }
 
   function handleSlotMouseDown(dayIdx: number, hour: number, e: React.MouseEvent<HTMLDivElement>) {
+    // Mobile: skip drag-to-create entirely. Mobile users create via the FAB
+    // on Bugun/Agenda; here in Hafta they only tap existing tasks to edit.
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+      return;
+    }
     const minute = calcMinuteInCell(e);
     const dayIso = toDateInputValue(days[dayIdx]);
     if (isPastTime(dayIso, hour * 60 + minute)) return;
@@ -503,7 +508,8 @@ export function HaftaView({
           className="sticky top-0 z-30 grid border-b border-border bg-subtle/95 backdrop-blur"
           style={{ gridTemplateColumns: "56px repeat(7, 1fr)" }}
         >
-          <div />
+          {/* Top-left corner — sticky both directions */}
+          <div className="sticky left-0 z-10 bg-subtle/95 backdrop-blur" />
           {days.map((d, i) => {
             const isToday = isSameDay(d, today);
             const dayIso = toDateInputValue(d);
@@ -549,8 +555,8 @@ export function HaftaView({
 
         {/* Body */}
         <div className="grid pt-3" style={{ gridTemplateColumns: "56px repeat(7, 1fr)" }}>
-          {/* Time axis */}
-          <div>
+          {/* Time axis — sticky left so it stays visible during horizontal scroll */}
+          <div className="sticky left-0 z-20 bg-surface">
             {hours.map((h) => (
               <div key={h} className="relative border-t border-border" style={{ height: HOUR_HEIGHT }}>
                 <span className="absolute right-2 top-0 -translate-y-1/2 bg-surface px-1 font-mono text-[10px] tabular-nums text-faint">

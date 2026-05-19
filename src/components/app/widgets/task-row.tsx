@@ -84,13 +84,17 @@ export function TaskRow({
         "group flex items-center gap-3 overflow-hidden px-3 hover:bg-hover/60",
         visualDone && "bg-subtle/30",
         isNew && "task-pop",
-        onOpen && "cursor-pointer"
+        onOpen && "cursor-pointer",
+        !pendingDone && "max-h-[78px] py-3 sm:max-h-[64px] sm:py-2"
       )}
-      style={{
-        maxHeight: pendingDone ? 0 : 64,
-        opacity: pendingDone ? 0 : 1,
-        paddingTop: pendingDone ? 0 : "0.5rem",
-        paddingBottom: pendingDone ? 0 : "0.5rem",
+      style={pendingDone ? {
+        maxHeight: 0,
+        opacity: 0,
+        paddingTop: 0,
+        paddingBottom: 0,
+        transition:
+          "max-height 400ms 200ms cubic-bezier(0.16,1,0.3,1), opacity 350ms 200ms ease-out, padding 400ms 200ms cubic-bezier(0.16,1,0.3,1)",
+      } : {
         transition:
           "max-height 400ms 200ms cubic-bezier(0.16,1,0.3,1), opacity 350ms 200ms ease-out, padding 400ms 200ms cubic-bezier(0.16,1,0.3,1), background-color 200ms ease-out",
       }}
@@ -119,7 +123,7 @@ export function TaskRow({
 
       <span
         className={cn(
-          "min-w-0 flex-1 truncate text-[15px] leading-snug sm:text-[13.5px]",
+          "min-w-0 flex-1 truncate text-[17px] leading-snug sm:text-[13.5px]",
           done && "text-faint line-through decoration-faint/60"
         )}
       >

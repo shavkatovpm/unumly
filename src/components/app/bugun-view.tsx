@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Clock,
   Coffee,
+  Pencil,
   Plus,
   Sun,
   Sunrise,
@@ -102,11 +103,27 @@ export function BugunView() {
 
   useEffect(() => {
     if (mobileSheet) {
-      // Focus title input when sheet opens
-      const id = window.setTimeout(() => mobileInputRef.current?.focus(), 50);
-      return () => window.clearTimeout(id);
+      // Focus title input as soon as the sheet renders (no delay so iOS
+      // accepts the keyboard request inside the user-gesture window)
+      mobileInputRef.current?.focus({ preventScroll: false });
     }
   }, [mobileSheet]);
+
+  function openDetailForCurrent() {
+    const t = title.trim() || "Yangi reja";
+    const newId = create({
+      title: t,
+      scope: "DAILY",
+      scheduledFor: todayIso,
+      time: time || undefined,
+    });
+    setTitle("");
+    setTime("");
+    setMobileSheet(false);
+    setShowTime(false);
+    // Open the detail dialog for further editing (priority, notes, duration, ...)
+    setDetailId(newId);
+  }
 
   useEffect(() => {
     return () => {
@@ -420,26 +437,37 @@ export function BugunView() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Bugun nima qilmoqchisiz?"
+                autoFocus
                 className="w-full bg-transparent text-[17px] placeholder:text-faint focus:outline-none"
               />
               <div className="flex items-center justify-between gap-2">
-                <button
-                  ref={mobileTimeBtnRef}
-                  type="button"
-                  onClick={() => setShowTime((v) => !v)}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-[13px] tabular-nums transition-colors",
-                    isTimePast
-                      ? "border-danger bg-danger-soft text-danger"
-                      : showTime
-                      ? "border-border-strong bg-subtle"
-                      : "text-muted hover:border-border-strong hover:text-foreground"
-                  )}
-                  title={isTimePast ? "O'tib ketgan vaqt" : undefined}
-                >
-                  <Clock className="size-3.5" />
-                  {time || "Vaqt"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    ref={mobileTimeBtnRef}
+                    type="button"
+                    onClick={() => setShowTime((v) => !v)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-[13px] tabular-nums transition-colors",
+                      isTimePast
+                        ? "border-danger bg-danger-soft text-danger"
+                        : showTime
+                        ? "border-border-strong bg-subtle"
+                        : "text-muted hover:border-border-strong hover:text-foreground"
+                    )}
+                    title={isTimePast ? "O'tib ketgan vaqt" : undefined}
+                  >
+                    <Clock className="size-3.5" />
+                    {time || "Vaqt"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openDetailForCurrent}
+                    className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] text-muted transition-colors hover:border-border-strong hover:text-foreground"
+                  >
+                    <Pencil className="size-3.5" />
+                    Batafsil
+                  </button>
+                </div>
                 <button
                   type="submit"
                   disabled={!title.trim() || isTimePast}
