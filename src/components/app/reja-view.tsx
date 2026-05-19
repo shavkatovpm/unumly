@@ -54,7 +54,7 @@ export function RejaView() {
     itemLabel: "G'oyani",
   });
   const { askRemove: askRemoveCat, confirmEl: confirmCatEl } = useConfirmRemove(
-    categories,
+    categories.map((c) => ({ id: c.id, title: c.label })),
     (id) => {
       for (const i of ideas.filter((x) => x.categoryId === id)) remove(i.id);
       removeCategory(id);
@@ -459,10 +459,11 @@ function MaterialTabBar({
 
   useEffect(() => {
     if (!menuFor) return;
+    const menuForId = menuFor.id;
     function onDown(e: MouseEvent) {
       const t = e.target as Node;
       if (menuRef.current?.contains(t)) return;
-      const btn = menuBtnRefs.current[menuFor.id];
+      const btn = menuBtnRefs.current[menuForId];
       if (btn?.contains(t)) return;
       setMenuFor(null);
     }
