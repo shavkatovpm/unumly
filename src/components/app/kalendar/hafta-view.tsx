@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Trash2, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Check, Clock, Pencil, Trash2, X } from "lucide-react";
 import type { Plan, PlanPriority } from "@/lib/types";
 import type { CreatePlanInput } from "@/lib/plans-store";
 import { cn } from "@/lib/utils";
@@ -138,6 +139,16 @@ export function HaftaView({
   useEffect(() => {
     if (editing) inputRef.current?.focus();
   }, [editing]);
+
+  // Mobile detection — switches the inline editor for a centered modal
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   // Global mouseup: commit drag (or click) regardless of where cursor releases
   useEffect(() => {
@@ -918,8 +929,8 @@ export function HaftaView({
                     </div>
                   )}
 
-                  {/* Editor */}
-                  {editing && editing.dayIdx === dayIdx && (() => {
+                  {/* Editor — desktop inline only; mobile uses centered modal below */}
+                  {!isMobile && editing && editing.dayIdx === dayIdx && (() => {
                     const editH = (editing.duration / 60) * HOUR_HEIGHT;
                     const eTiny = editH < 24;
                     const eCompact = editH < 42;
@@ -996,6 +1007,121 @@ export function HaftaView({
         onUpdate={onUpdate}
         onRemove={onRemove}
       />
+
+      {/* Mobile centered task-create modal — replaces the inline hour editor */}
+      <AnimatePresence>
+        {isMobile && editing && (() => {
+          const editDay = days[editing.dayIdx];
+          const editTime = `${String(editing.hour).padStart(2, "0")}:${String(editing.minute).padStart(2, "0")}`;
+          const dur = editing.duration;
+          const durLabel =
+            dur >= 60
+              ? `${Math.floor(dur / 60)}s${dur % 60 ? ` ${dur % 60}d` : ""}`
+              : `${dur}d`;
+          const dayLabel = WEEKDAY_FULL[editing.dayIdx];
+
+          function submitMobile(e: React.FormEvent<HTMLFormElement>) {
+            e.preventDefault();
+            commit();
+          }
+
+          function openDetailFromEditor() {
+            if (!editing) return;
+            const titleVal = editingTitle.trim() || "Yangi reja";
+            const newId = onCreate({
+              title: titleVal,
+              scope: "DAILY",
+              scheduledFor: toDateInputValue(editDay),
+              time: editTime,
+              duration: editing.duration,
+            });
+            setEditing(null);
+            setEditingTitle("");
+            setDetailId(newId);
+          }
+
+          return (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={cancel}
+                className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[3px] md:hidden"
+              />
+              <div
+                className="fixed inset-0 z-50 flex items-start justify-center px-4 md:hidden"
+                style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 4rem)" }}
+                onClick={cancel}
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: -12, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                  transition={{ type: "spring", damping: 28, stiffness: 360 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
+                >
+                  <header className="flex items-center justify-between border-b border-border px-5 py-3">
+                    <p className="text-[15px] font-semibold tracking-[-0.01em]">Yangi reja</p>
+                    <button
+                      type="button"
+                      onClick={cancel}
+                      aria-label="Yopish"
+                      className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </header>
+                  <form onSubmit={submitMobile} className="space-y-3 px-5 py-4">
+                    <input
+                      ref={inputRef}
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      placeholder="Reja nomi…"
+                      autoFocus
+                      className="w-full bg-transparent text-[17px] placeholder:text-faint focus:outline-none"
+                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-[13px] tabular-nums text-foreground">
+                          <Clock className="size-3.5 text-faint" />
+                          {editTime}
+                          <span className="text-[11px] text-faint">· {durLabel}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={openDetailFromEditor}
+                          className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] text-muted transition-colors hover:border-border-strong hover:text-foreground"
+                        >
+                          <Pencil className="size-3.5" />
+                          Batafsil
+                        </button>
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={!editingTitle.trim()}
+                        className={cn(
+                          "rounded-md px-4 py-2 text-[13.5px] font-medium transition-opacity",
+                          !editingTitle.trim()
+                            ? "cursor-not-allowed bg-foreground/40 text-background"
+                            : "bg-foreground text-background hover:opacity-90"
+                        )}
+                      >
+                        Qo&apos;shish
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-faint">
+                      {dayLabel}
+                    </p>
+                  </form>
+                </motion.div>
+              </div>
+            </>
+          );
+        })()}
+      </AnimatePresence>
 
       <ConfirmDialog
         open={!!clearDayInfo && clearDayInfo.count > 0}

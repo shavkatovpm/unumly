@@ -451,14 +451,14 @@ export function BugunView() {
             className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[3px] md:hidden"
           />
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center px-4 md:hidden"
-            style={{ paddingBottom: "var(--kb-inset, 0px)" }}
+            className="fixed inset-0 z-50 flex items-start justify-center px-4 md:hidden"
+            style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 4rem)" }}
             onClick={() => setMobileSheet(false)}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.94, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 4 }}
+              initial={{ opacity: 0, y: -12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.98 }}
               transition={{ type: "spring", damping: 28, stiffness: 360 }}
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
