@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { Category, CategoryColor } from "@/lib/types";
+import { migrateCategoryColor } from "@/lib/category-palette";
 
 const STORAGE_KEY = "unumly:categories:v1";
 const SEEDED_KEY = "unumly:categories:seeded";
 
 const DEFAULTS: Category[] = [
-  { id: "ish",       label: "Ish",       color: "red",  order: 0 },
-  { id: "organish",  label: "O'rganish", color: "blue", order: 1 },
+  { id: "ish",       label: "Ish",       color: "pink",   order: 0 },
+  { id: "organish",  label: "O'rganish", color: "indigo", order: 1 },
 ];
 
 type State = Category[];
@@ -39,7 +40,15 @@ function hydrateOnce() {
     if (raw) {
       const parsed: unknown = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        memoryState = parsed as State;
+        // Migrate legacy color keys (red/amber/blue/...) to the new palette
+        const arr = parsed as Array<Record<string, unknown>>;
+        let mutated = false;
+        memoryState = arr.map((c) => {
+          const migrated = migrateCategoryColor(c.color);
+          if (migrated !== c.color) mutated = true;
+          return { ...c, color: migrated } as Category;
+        });
+        if (mutated) persist();
       }
     }
     // Seed defaults only on the very first init (so user can delete defaults later)

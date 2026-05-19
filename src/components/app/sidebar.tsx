@@ -2,7 +2,6 @@
 
 import {
   useEffect,
-  useRef,
   useState,
   type ComponentType,
 } from "react";
@@ -10,11 +9,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Calendar as CalendarIcon,
+  ClipboardList,
   Inbox,
   ListChecks,
   Moon,
-  MoreHorizontal,
   Plus,
+  Repeat,
   Search,
   Settings,
   Sparkles,
@@ -30,7 +30,6 @@ type IconCmp = ComponentType<{ className?: string; strokeWidth?: number }>;
 
 type CustomItem = { id: string; label: string };
 
-const STORAGE_HIDDEN = "unumly:sidebar:hidden";
 const STORAGE_CUSTOM = "unumly:sidebar:custom";
 
 function readJSON<T>(key: string, fallback: T): T {
@@ -52,25 +51,23 @@ function writeJSON(key: string, value: unknown) {
   }
 }
 
-export function Sidebar({ todayCount }: { todayCount: number }) {
+export function Sidebar({
+  todayCount,
+  open = true,
+  onCloseRequested,
+}: {
+  todayCount: number;
+  open?: boolean;
+  onCloseRequested?: () => void;
+}) {
   const pathname = usePathname();
   const { theme, toggle } = useTheme();
   const isDark = theme === "noir";
 
-  const [hidden, setHidden] = useState<string[]>([]);
   const [custom, setCustom] = useState<CustomItem[]>([]);
   useEffect(() => {
-    setHidden(readJSON<string[]>(STORAGE_HIDDEN, []));
     setCustom(readJSON<CustomItem[]>(STORAGE_CUSTOM, []));
   }, []);
-
-  function toggleHidden(key: string) {
-    setHidden((prev) => {
-      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key];
-      writeJSON(STORAGE_HIDDEN, next);
-      return next;
-    });
-  }
 
   function addCustom(label: string) {
     const item: CustomItem = {
@@ -92,22 +89,6 @@ export function Sidebar({ todayCount }: { todayCount: number }) {
     });
   }
 
-  // Manage popover for Boshqaruv
-  const [manageOpen, setManageOpen] = useState(false);
-  const manageBtnRef = useRef<HTMLButtonElement>(null);
-  const managePopRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!manageOpen) return;
-    function onDown(e: MouseEvent) {
-      const t = e.target as Node;
-      if (managePopRef.current?.contains(t)) return;
-      if (manageBtnRef.current?.contains(t)) return;
-      setManageOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [manageOpen]);
-
   // Add-custom inline input
   const [addingCustom, setAddingCustom] = useState(false);
   const [newLabel, setNewLabel] = useState("");
@@ -116,14 +97,44 @@ export function Sidebar({ todayCount }: { todayCount: number }) {
     return pathname === href || pathname.startsWith(href + "/");
   }
 
+  // On mobile (<md), close the drawer after navigation
+  function closeOnMobile() {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      onCloseRequested?.();
+    }
+  }
+
   return (
-    <aside className="hidden h-screen w-[240px] flex-col border-r border-border bg-subtle/40 md:flex">
-      {/* Brand */}
-      <div className="flex h-12 items-center px-4">
-        <p className="text-[14px] font-semibold tracking-[-0.01em]">
-          unumly<span className="text-accent">.</span>
-        </p>
-      </div>
+    <>
+      {/* Mobile backdrop — closes sidebar when tapped */}
+      {open && (
+        <div
+          aria-hidden
+          onClick={() => onCloseRequested?.()}
+          className="fade-in fixed inset-0 z-30 bg-black/40 backdrop-blur-[2px] md:hidden"
+        />
+      )}
+      <div
+        className={cn(
+          "group/sidebar relative h-screen shrink-0 transition-[width] duration-300 ease-out",
+          // Desktop: pushes content when open. Mobile: zero-width (sidebar is overlay).
+          "w-0",
+          open ? "md:w-[240px]" : "md:w-0"
+        )}
+      >
+        <aside
+          className={cn(
+            "fixed inset-y-0 left-0 z-40 flex w-[240px] flex-col overflow-hidden border-r border-border bg-subtle/40 transition-transform duration-300 ease-out md:absolute",
+            open ? "translate-x-0" : "-translate-x-full"
+          )}
+        >
+        {/* Brand — pl-12 leaves room for the fixed hamburger toggle (top-left) */}
+        <div className="flex h-12 shrink-0 items-center pl-12 pr-4">
+          <p className="text-[14px] font-semibold tracking-[-0.01em]">
+            unumly<span className="text-accent">.</span>
+          </p>
+        </div>
 
       {/* Search */}
       <div className="px-3 pb-3">
@@ -148,74 +159,46 @@ export function Sidebar({ todayCount }: { todayCount: number }) {
             icon={Inbox}
             active={isActive("/bugun")}
             badge={todayCount > 0 ? String(todayCount) : undefined}
+            onNavigate={closeOnMobile}
           />
           <SidebarLink
             href="/agenda"
             label="Agenda"
             icon={ListChecks}
             active={isActive("/agenda")}
+            onNavigate={closeOnMobile}
           />
           <SidebarLink
             href="/kalendar"
             label="Kalendar"
             icon={CalendarIcon}
             active={isActive("/kalendar")}
+            onNavigate={closeOnMobile}
           />
         </Section>
 
         {/* ── Boshqaruv ─────────────────────────── */}
-        <Section
-          label="Boshqaruv"
-          action={
-            !hidden.includes("maqsad") || hidden.includes("maqsad") ? (
-              <button
-                ref={manageBtnRef}
-                type="button"
-                onClick={() => setManageOpen((v) => !v)}
-                aria-label="Bo'limni boshqarish"
-                className="grid size-5 place-items-center rounded text-faint opacity-0 transition-colors hover:bg-hover hover:text-foreground group-hover/section:opacity-100"
-              >
-                <MoreHorizontal className="size-3" />
-              </button>
-            ) : null
-          }
-        >
+        <Section label="Boshqaruv">
           <SidebarLink
             href="/reja"
             label="Reja"
-            icon={ListChecks}
+            icon={ClipboardList}
             active={isActive("/reja")}
+            onNavigate={closeOnMobile}
           />
-          {!hidden.includes("maqsad") && (
-            <SidebarItem
-              label="Maqsad"
-              icon={Target}
-              badge="tez orada"
-              disabled
-            />
-          )}
+          <SidebarItem
+            label="Odat"
+            icon={Repeat}
+            badge="tez orada"
+            disabled
+          />
+          <SidebarItem
+            label="Maqsad"
+            icon={Target}
+            badge="tez orada"
+            disabled
+          />
         </Section>
-
-        {/* Manage popover */}
-        {manageOpen && (
-          <div
-            ref={managePopRef}
-            className="fade-in mx-3 mb-2 rounded-md border border-border bg-surface p-2 shadow-lg"
-          >
-            <p className="px-1 pb-1 font-mono text-[9.5px] uppercase tracking-wider text-faint">
-              Ko&apos;rinishi
-            </p>
-            <ManageRow
-              label="Maqsad"
-              icon={Target}
-              checked={!hidden.includes("maqsad")}
-              onToggle={() => toggleHidden("maqsad")}
-            />
-            <p className="mt-1 border-t border-border/60 px-1 pt-1.5 text-[10.5px] text-faint">
-              Reja yashirib bo&apos;lmaydi.
-            </p>
-          </div>
-        )}
 
         {/* ── Maxsus ──────────────────────────── */}
         <Section
@@ -345,7 +328,9 @@ export function Sidebar({ todayCount }: { todayCount: number }) {
           </button>
         </div>
       </div>
-    </aside>
+        </aside>
+      </div>
+    </>
   );
 }
 
@@ -379,16 +364,19 @@ function SidebarLink({
   icon: Icon,
   active,
   badge,
+  onNavigate,
 }: {
   href: string;
   label: string;
   icon: IconCmp;
   active: boolean;
   badge?: string;
+  onNavigate?: () => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={onNavigate}
       className={cn(
         "group flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
         active
@@ -448,37 +436,6 @@ function SidebarItem({
           {badge}
         </span>
       )}
-    </button>
-  );
-}
-
-function ManageRow({
-  label,
-  icon: Icon,
-  checked,
-  onToggle,
-}: {
-  label: string;
-  icon: IconCmp;
-  checked: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-[12.5px] text-muted transition-colors hover:bg-hover"
-    >
-      <Icon className="size-3.5 shrink-0 text-faint" />
-      <span className="flex-1">{label}</span>
-      <span
-        className={cn(
-          "grid size-4 place-items-center rounded border",
-          checked ? "border-accent bg-accent" : "border-border"
-        )}
-      >
-        {checked && <span className="size-1.5 rounded-sm bg-background" />}
-      </span>
     </button>
   );
 }

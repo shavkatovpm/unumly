@@ -18,13 +18,15 @@ export type Plan = {
 };
 
 export type CategoryColor =
-  | "red"
-  | "amber"
-  | "green"
-  | "blue"
-  | "purple"
-  | "pink"
+  | "olive"
+  | "emerald"
   | "teal"
+  | "indigo"
+  | "pink"
+  | "slate"
+  | "stone"
+  | "mocha"
+  | "white"
   | "gray";
 
 export type Category = {
@@ -42,4 +44,10 @@ export type Idea = {
   done: boolean;
   createdAt: string; // ISO datetime
   order: number;
+  // Optional scheduling — when present, the idea is mirrored as a Plan
+  // (with the same id) so it appears in Bugun/Agenda/Kalendar too.
+  scheduledFor?: string; // YYYY-MM-DD
+  time?: string;         // HH:MM
+  duration?: number;     // minutes
+  priority?: PlanPriority;
 };

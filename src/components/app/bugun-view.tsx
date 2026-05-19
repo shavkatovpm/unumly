@@ -136,12 +136,12 @@ export function BugunView() {
   return (
     <div className="flex h-screen flex-col overflow-y-auto">
       {/* Header */}
-      <header className="flex h-12 items-center justify-between border-b border-border px-6">
-        <div className="flex items-center gap-2">
+      <header className="flex h-12 items-center justify-between gap-2 border-b border-border pl-12 pr-3 md:pl-6 md:pr-6">
+        <div className="flex min-w-0 items-center gap-2">
           <h1 className="text-[13px] font-semibold tracking-[-0.01em]">Bugun</h1>
-          <span className="text-[12px] text-faint">{formatUzDate(today)}</span>
+          <span className="truncate text-[12px] text-faint">{formatUzDate(today)}</span>
         </div>
-        <p className="font-mono text-[11px] tabular-nums text-faint">
+        <p className="shrink-0 font-mono text-[11px] tabular-nums text-faint">
           {now
             ? now.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })
             : "—"}
@@ -149,7 +149,7 @@ export function BugunView() {
       </header>
 
       {/* Content */}
-      <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-8">
+      <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
         {/* Greeting block */}
         <div className="rise-in grid grid-cols-[1fr_auto] items-center gap-4">
           <div className="min-w-0">
@@ -161,7 +161,7 @@ export function BugunView() {
                 ? "Bo'sh varaq. Birinchi rejangizni yozing."
                 : done === total
                 ? `Hammasi bajarildi — ${total} ta reja. Kunni yopish vaqti.`
-                : `${done} / ${total} bajarildi · ${active.length} ta qoldi`}
+                : `Bajarildi: ${done}/${total} · Qoldi: ${active.length} ta`}
             </p>
           </div>
 
@@ -199,8 +199,8 @@ export function BugunView() {
                 </svg>
                 {pct === 100 && (
                   <Check
-                    className="absolute size-4 text-accent check-pop"
-                    strokeWidth={3}
+                    className="absolute size-5 text-accent check-pop"
+                    strokeWidth={5}
                   />
                 )}
               </div>

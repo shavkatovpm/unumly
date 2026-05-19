@@ -356,6 +356,14 @@ export function DayGrid({
                   onClick={() => setDetailId(p.id)}
                   className="group flex cursor-pointer items-center gap-2.5 px-3 py-1.5 transition-colors hover:bg-hover/60"
                 >
+                  <span
+                    className={cn(
+                      "flex-1 truncate text-[12.5px]",
+                      done && "text-faint line-through"
+                    )}
+                  >
+                    {p.title}
+                  </span>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -371,25 +379,6 @@ export function DayGrid({
                     )}
                   >
                     {done && <Check className="size-2 text-background" strokeWidth={4} />}
-                  </button>
-                  <span
-                    className={cn(
-                      "flex-1 truncate text-[12.5px]",
-                      done && "text-faint line-through"
-                    )}
-                  >
-                    {p.title}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemove(p.id);
-                    }}
-                    aria-label="O'chirish"
-                    className="grid size-5 place-items-center rounded text-faint opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
-                  >
-                    <X className="size-3" />
                   </button>
                 </li>
               );
@@ -787,17 +776,6 @@ export function DayGrid({
                     onClick={() => setDetailId(p.id)}
                     className="group fade-in flex cursor-pointer items-center gap-3 bg-subtle/30 px-3 py-2 transition-colors hover:bg-hover/60"
                   >
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggle(p.id);
-                      }}
-                      aria-label="Bekor qilish"
-                      className="grid size-[18px] shrink-0 place-items-center rounded-md border border-accent bg-accent"
-                    >
-                      <Check className="size-2.5 text-background" strokeWidth={4} />
-                    </button>
                     {p.time ? (
                       <span className="flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-faint">
                         <Clock className="size-2.5" />
@@ -815,12 +793,12 @@ export function DayGrid({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onRemove(p.id);
+                        onToggle(p.id);
                       }}
-                      aria-label="O'chirish"
-                      className="grid size-6 shrink-0 place-items-center rounded text-faint opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
+                      aria-label="Bekor qilish"
+                      className="grid size-[18px] shrink-0 place-items-center rounded-md border border-accent bg-accent"
                     >
-                      <X className="size-3.5" />
+                      <Check className="size-2.5 text-background" strokeWidth={4} />
                     </button>
                   </li>
                 ))}

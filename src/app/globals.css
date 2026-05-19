@@ -195,12 +195,12 @@
 }
 
 @utility check-pop {
-  animation: check-pop 0.35s var(--ease-out) both;
+  animation: check-pop 0.4s var(--ease-out) both;
 }
 
 @keyframes check-pop {
-  0%   { opacity: 0; transform: scale(0.3) rotate(-12deg); }
-  60%  { opacity: 1; transform: scale(1.25) rotate(0deg); }
+  0%   { opacity: 0; transform: scale(0.2) rotate(-15deg); }
+  55%  { opacity: 1; transform: scale(1.6) rotate(0deg); }
   100% { opacity: 1; transform: scale(1) rotate(0deg); }
 }
 
@@ -254,4 +254,9 @@
     transform: translateY(0);
     max-height: 48px;
   }
+}
+
+/* Reja tab bar — hide scrollbar but keep horizontal scrolling */
+.reja-tabbar::-webkit-scrollbar {
+  display: none;
 }

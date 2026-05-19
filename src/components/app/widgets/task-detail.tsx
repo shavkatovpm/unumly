@@ -156,7 +156,6 @@ export function TaskDetail({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Reja nomi"
-            autoFocus
             className="w-full bg-transparent text-[18px] font-semibold tracking-[-0.01em] placeholder:text-faint focus:outline-none"
           />
 
@@ -171,6 +170,7 @@ export function TaskDetail({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Qo'shimcha tafsilot..."
               rows={3}
+              autoFocus
               className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-2 text-[13px] leading-relaxed placeholder:text-faint focus:border-border-strong focus:outline-none"
             />
           </div>

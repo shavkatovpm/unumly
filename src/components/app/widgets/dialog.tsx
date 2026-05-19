@@ -33,7 +33,7 @@ export function Dialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 fade-in"
+      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4 fade-in"
       role="dialog"
       aria-modal="true"
     >
@@ -44,7 +44,9 @@ export function Dialog({
       <div
         ref={cardRef}
         className={cn(
-          "rise-in relative z-10 w-full max-w-md overflow-hidden rounded-xl border border-border bg-surface shadow-2xl",
+          "rise-in relative z-10 w-full max-w-md overflow-hidden border border-border bg-surface shadow-2xl",
+          // Mobile: bottom-sheet style, rounded only on top
+          "rounded-t-2xl sm:rounded-xl",
           className
         )}
       >

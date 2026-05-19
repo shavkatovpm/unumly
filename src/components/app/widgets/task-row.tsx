@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Clock, Trash2 } from "lucide-react";
+import { Check, Clock } from "lucide-react";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -92,26 +92,6 @@ export function TaskRow({
           "max-height 400ms 200ms cubic-bezier(0.16,1,0.3,1), opacity 350ms 200ms ease-out, padding 400ms 200ms cubic-bezier(0.16,1,0.3,1), background-color 200ms ease-out",
       }}
     >
-      <button
-        type="button"
-        onClick={handleToggle}
-        aria-label={visualDone ? "Bekor qilish" : "Bajarildi"}
-        className="group/check -my-2 -ml-3 -mr-3 flex shrink-0 cursor-pointer items-center py-2 pl-3 pr-3 transition-colors hover:bg-hover/40"
-      >
-        <span
-          className={cn(
-            "grid size-[18px] place-items-center rounded-md border transition-all duration-200",
-            visualDone
-              ? "border-accent bg-accent check-fill"
-              : "border-border-strong group-hover/check:border-accent"
-          )}
-        >
-          {visualDone && (
-            <Check className="size-2.5 text-background check-pop" strokeWidth={4} />
-          )}
-        </span>
-      </button>
-
       {/* Priority dot */}
       <span
         aria-hidden
@@ -145,14 +125,22 @@ export function TaskRow({
 
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove(plan.id);
-        }}
-        aria-label="O'chirish"
-        className="grid size-7 shrink-0 place-items-center rounded-md text-faint opacity-0 transition-all hover:bg-danger-soft hover:text-danger group-hover:opacity-100"
+        onClick={handleToggle}
+        aria-label={visualDone ? "Bekor qilish" : "Bajarildi"}
+        className="group/check -my-2 -mr-3 flex shrink-0 cursor-pointer items-center py-2 pl-3 pr-3 transition-colors hover:bg-hover/40"
       >
-        <Trash2 className="size-3.5" />
+        <span
+          className={cn(
+            "grid size-[18px] place-items-center rounded-md border transition-all duration-200",
+            visualDone
+              ? "border-accent bg-accent check-fill"
+              : "border-border-strong group-hover/check:border-accent"
+          )}
+        >
+          {visualDone && (
+            <Check className="size-3 text-background check-pop" strokeWidth={5} />
+          )}
+        </span>
       </button>
     </li>
   );

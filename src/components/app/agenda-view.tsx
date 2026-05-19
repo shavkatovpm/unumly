@@ -102,26 +102,6 @@ function AgendaRow({
           "max-height 400ms 200ms cubic-bezier(0.16,1,0.3,1), opacity 350ms 200ms ease-out, padding 400ms 200ms cubic-bezier(0.16,1,0.3,1), background-color 200ms ease-out",
       }}
     >
-      <button
-        type="button"
-        onClick={handleToggle}
-        aria-label="Holatni o'zgartirish"
-        className="group/check -my-2 -ml-3 -mr-3 flex shrink-0 cursor-pointer items-center py-2 pl-3 pr-3 transition-colors hover:bg-hover/40"
-      >
-        <span
-          className={cn(
-            "grid size-[18px] place-items-center rounded-md border transition-all duration-200",
-            visualDone
-              ? "border-accent bg-accent check-fill"
-              : "border-border-strong group-hover/check:border-accent"
-          )}
-        >
-          {visualDone && (
-            <Check className="size-2.5 text-background check-pop" strokeWidth={4} />
-          )}
-        </span>
-      </button>
-
       <span
         aria-hidden
         className={cn(
@@ -158,14 +138,22 @@ function AgendaRow({
 
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove(plan.id);
-        }}
-        aria-label="O'chirish"
-        className="grid size-6 shrink-0 place-items-center rounded text-faint opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
+        onClick={handleToggle}
+        aria-label="Holatni o'zgartirish"
+        className="group/check -my-2 -mr-3 flex shrink-0 cursor-pointer items-center py-2 pl-3 pr-3 transition-colors hover:bg-hover/40"
       >
-        <X className="size-3.5" />
+        <span
+          className={cn(
+            "grid size-[18px] place-items-center rounded-md border transition-all duration-200",
+            visualDone
+              ? "border-accent bg-accent check-fill"
+              : "border-border-strong group-hover/check:border-accent"
+          )}
+        >
+          {visualDone && (
+            <Check className="size-3 text-background check-pop" strokeWidth={5} />
+          )}
+        </span>
       </button>
     </li>
   );
@@ -284,20 +272,20 @@ export function AgendaView() {
   return (
     <div className="flex h-screen flex-col overflow-y-auto">
       {/* Header */}
-      <header className="flex h-12 items-center justify-between border-b border-border px-6">
-        <div className="flex items-center gap-2">
+      <header className="flex h-12 items-center justify-between gap-2 border-b border-border pl-12 pr-3 md:pl-6 md:pr-6">
+        <div className="flex min-w-0 items-center gap-2">
           <h1 className="text-[13px] font-semibold tracking-[-0.01em]">Agenda</h1>
-          <span className="text-[12px] text-faint">Yaqin kunlar</span>
+          <span className="truncate text-[12px] text-faint">Yaqin kunlar</span>
         </div>
         {total > 0 && (
-          <p className="font-mono text-[11px] tabular-nums text-faint">
+          <p className="shrink-0 font-mono text-[11px] tabular-nums text-faint">
             {done}/{total}
           </p>
         )}
       </header>
 
       {/* Content */}
-      <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-8">
+      <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
         {/* Add task form */}
         <form
           onSubmit={submit}
