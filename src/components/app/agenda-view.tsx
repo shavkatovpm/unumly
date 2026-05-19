@@ -446,8 +446,11 @@ export function AgendaView() {
               <p className="text-[13.5px] text-muted">
                 Yaqin kunlarda hech narsa yo&apos;q.
               </p>
-              <p className="mt-1 text-[11px] text-faint">
+              <p className="mt-1 hidden text-[11px] text-faint md:block">
                 Yuqoridagi maydondan ertangi yoki keyingi kunlarga reja qo&apos;shing.
+              </p>
+              <p className="mt-1 text-[11px] text-faint md:hidden">
+                Pastdagi <span className="font-mono">+</span> tugmasi orqali ertangi yoki keyingi kunlarga reja qo&apos;shing.
               </p>
             </div>
           ) : (

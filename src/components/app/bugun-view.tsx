@@ -285,9 +285,15 @@ export function BugunView() {
           {total === 0 ? (
             <div className="rounded-lg border border-dashed border-border px-6 py-16 text-center">
               <p className="text-[13.5px] text-muted">
-                Ro&apos;yxat bo&apos;sh. Yuqoridagi maydonga birinchi rejangizni yozing.
+                Ro&apos;yxat bo&apos;sh.{" "}
+                <span className="hidden md:inline">
+                  Yuqoridagi maydonga birinchi rejangizni yozing.
+                </span>
+                <span className="md:hidden">
+                  Pastdagi <span className="font-mono">+</span> tugmasi orqali birinchi rejangizni qo&apos;shing.
+                </span>
               </p>
-              <p className="mt-1 text-[11px] text-faint">
+              <p className="mt-1 hidden text-[11px] text-faint md:block">
                 Vaqt qo&apos;shish uchun ⏱ tugmasini bosing.
               </p>
             </div>
