@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createSession } from "@/lib/auth";
 import { hashCode } from "@/lib/otp";
+import { sendLoginSuccess } from "@/lib/telegram-bot";
 
 export const runtime = "nodejs";
+
+const APP_URL = "https://www.unumly.uz/bugun";
 
 const MAX_ATTEMPTS = 5;
 
@@ -56,6 +59,12 @@ export async function POST(req: Request) {
     data: { lastSeenAt: new Date() },
   });
   await createSession({ userId: user.id, telegramId: Number(user.telegramId) });
+
+  // Fire-and-forget: send a Telegram confirmation with a Mini App button.
+  // We don't await the send — login should succeed even if Telegram is slow.
+  void sendLoginSuccess(Number(user.telegramId), APP_URL).catch((err) => {
+    console.error("sendLoginSuccess failed", err);
+  });
 
   return NextResponse.json({
     ok: true,

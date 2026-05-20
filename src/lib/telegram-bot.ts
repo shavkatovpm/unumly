@@ -57,9 +57,23 @@ export async function sendOtpMessage(chatId: number | string, code: string) {
     text:
       `🔐 *Unumly kirish kodi*\n\n` +
       `\`${code}\`\n\n` +
-      `Kodni unumly.uz/kirish sahifasiga kiriting. 10 daqiqa amal qiladi.\n` +
-      `Agar bu siz emassiz — e'tiborsiz qoldiring.`,
+      `Kodni unumly.uz/kirish sahifasiga kiriting. 10 daqiqa amal qiladi.`,
     parse_mode: "Markdown",
+  });
+}
+
+/** Send a confirmation with a Mini App button after a successful web login. */
+export async function sendLoginSuccess(chatId: number | string, appUrl: string) {
+  return sendMessage({
+    chat_id: chatId,
+    text:
+      `✅ Muvaffaqiyatli kirildi!\n\n` +
+      `Unumly ilovasidan foydalanish uchun pastdagi tugmani bosing 👇`,
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "🚀 START", web_app: { url: appUrl } }],
+      ],
+    },
   });
 }
 
