@@ -62,9 +62,20 @@ export function TimePickerPopover({
     place();
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
+    // visualViewport — iOS'da klaviatura ochilib/yopilganda window.resize
+    // har doim ham otmaydi. visualViewport.resize ishonchli.
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener("resize", place);
+      vv.addEventListener("scroll", place);
+    }
     return () => {
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
+      if (vv) {
+        vv.removeEventListener("resize", place);
+        vv.removeEventListener("scroll", place);
+      }
     };
   }, [open, triggerRef]);
 

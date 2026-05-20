@@ -589,8 +589,15 @@ export function AgendaView() {
                     ref={mobileTimeBtnRef}
                     type="button"
                     onClick={() => {
-                      setShowTime((v) => !v);
                       setShowCalendar(false);
+                      // Klaviatura yopilishini kutib popover ochamiz
+                      const input = mobileInputRef.current;
+                      if (input && document.activeElement === input) {
+                        input.blur();
+                        setTimeout(() => setShowTime((v) => !v), 250);
+                      } else {
+                        setShowTime((v) => !v);
+                      }
                     }}
                     className={cn(
                       "flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-[13px] tabular-nums transition-colors",

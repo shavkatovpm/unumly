@@ -18,7 +18,7 @@ function getCtx(): AudioContext | null {
   return _ctx;
 }
 
-let _master = 0.6;
+let _master = 0.4;
 export function setMasterVolume(v: number) { _master = Math.max(0, Math.min(1, v)); }
 export function getMasterVolume() { return _master; }
 
@@ -127,7 +127,7 @@ function vibe(freq: number, peak = 0.28, decay = 0.45): SoundSpec {
     voices: [
       { freq, attack: 0.003, decay, peak },
       { freq, detune: 7, attack: 0.004, decay: decay * 1.05, peak: peak * 0.7 },
-      { freq: freq * 2, attack: 0.002, decay: decay * 0.6, peak: peak * 0.3 },
+      { freq: freq * 2, attack: 0.002, decay: decay * 0.4, peak: peak * 0.3 },
     ],
   };
 }
@@ -136,7 +136,7 @@ function bell(freq: number, peak = 0.3, decay = 0.7): SoundSpec {
   return {
     voices: [
       { freq, attack: 0.003, decay, peak },
-      { freq: freq * 2.76, attack: 0.003, decay: decay * 0.65, peak: peak * 0.45 },
+      { freq: freq * 2.76, attack: 0.003, decay: decay * 0.45, peak: peak * 0.45 },
       { freq: freq * 5.4, attack: 0.002, decay: decay * 0.40, peak: peak * 0.20 },
     ],
   };
@@ -318,14 +318,14 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
       { freq: 523.25, attack: 0.005, decay: 0.45, peak: 0.30, delay: 0.00 },
       { freq: 659.25, attack: 0.005, decay: 0.45, peak: 0.28, delay: 0.10 },
       { freq: 783.99, attack: 0.005, decay: 0.50, peak: 0.28, delay: 0.20 },
-      { freq: 1046.5, attack: 0.005, decay: 0.65, peak: 0.30, delay: 0.30 },
+      { freq: 1046.5, attack: 0.005, decay: 0.45, peak: 0.30, delay: 0.30 },
     ],
   },
   "bell-tower": {
     voices: [
       ...bell(440, 0.28, 0.80).voices!.map((v) => ({ ...v, delay: 0.00 })),
       ...bell(660, 0.24, 0.70).voices!.map((v) => ({ ...v, delay: 0.18 })),
-      ...bell(880, 0.20, 0.65).voices!.map((v) => ({ ...v, delay: 0.36 })),
+      ...bell(880, 0.20, 0.45).voices!.map((v) => ({ ...v, delay: 0.36 })),
     ],
   },
   "choir-oh": {
@@ -341,8 +341,8 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
     voices: [
       { freq: 392, type: "triangle", attack: 0.015, decay: 0.55, peak: 0.26 },
       { freq: 523.25, type: "triangle", attack: 0.015, decay: 0.55, peak: 0.24, delay: 0.06 },
-      { freq: 659.25, type: "triangle", attack: 0.015, decay: 0.60, peak: 0.22, delay: 0.12 },
-      { freq: 783.99, type: "triangle", attack: 0.015, decay: 0.65, peak: 0.20, delay: 0.18 },
+      { freq: 659.25, type: "triangle", attack: 0.015, decay: 0.40, peak: 0.22, delay: 0.12 },
+      { freq: 783.99, type: "triangle", attack: 0.015, decay: 0.45, peak: 0.20, delay: 0.18 },
     ],
   },
   "music-box": {
@@ -470,7 +470,7 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
     voices: [
       ...vibe(440, 0.26, 0.50).voices!.map((v) => ({ ...v, delay: 0.00 })),
       ...vibe(554.37, 0.24, 0.50).voices!.map((v) => ({ ...v, delay: 0.14 })),
-      ...vibe(659.25, 0.24, 0.60).voices!.map((v) => ({ ...v, delay: 0.28 })),
+      ...vibe(659.25, 0.24, 0.40).voices!.map((v) => ({ ...v, delay: 0.28 })),
     ],
   },
   "sus-resolve": {
@@ -634,7 +634,7 @@ export type SoundSelection = {
 
 export function loadSelection(): SoundSelection {
   if (typeof window === "undefined") {
-    return { check: null, complete: null, create: null, enabled: true, volume: 0.6 };
+    return { check: null, complete: null, create: null, enabled: true, volume: 0.4 };
   }
   function read<T extends string>(key: string): T | null {
     try {
@@ -651,9 +651,9 @@ export function loadSelection(): SoundSelection {
   const volume = (() => {
     try {
       const raw = window.localStorage.getItem(KEYS.volume);
-      const v = raw == null ? 0.6 : parseFloat(raw);
-      return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.6;
-    } catch { return 0.6; }
+      const v = raw == null ? 0.4 : parseFloat(raw);
+      return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.4;
+    } catch { return 0.4; }
   })();
   return {
     check: read<CheckVariant>(KEYS.check),
@@ -691,7 +691,7 @@ function _refreshMaster() {
   if (typeof window === "undefined") return;
   try {
     const raw = window.localStorage.getItem(KEYS.volume);
-    const v = raw == null ? 0.6 : parseFloat(raw);
+    const v = raw == null ? 0.4 : parseFloat(raw);
     if (Number.isFinite(v)) _master = Math.max(0, Math.min(1, v));
   } catch { /**/ }
 }
