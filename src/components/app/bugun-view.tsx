@@ -8,6 +8,7 @@ import {
   Coffee,
   Pencil,
   Plus,
+  Moon,
   Sun,
   Sunrise,
   Sunset,
@@ -71,24 +72,26 @@ export function BugunView() {
   const active = todays.filter((p) => p.status !== "DONE");
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
-  function bucketOf(p: Plan): "morning" | "noon" | "evening" | "anytime" {
+  function bucketOf(p: Plan): "midnight" | "morning" | "noon" | "evening" | "anytime" {
     if (!p.time) return "anytime";
     const h = Number(p.time.split(":")[0]);
-    if (h < 12) return "morning";
-    if (h < 17) return "noon";
-    return "evening";
+    if (h < 4)  return "midnight";   // 00:00 – 03:59
+    if (h < 12) return "morning";    // 04:00 – 11:59
+    if (h < 17) return "noon";       // 12:00 – 16:59
+    return "evening";                // 17:00 – 23:59
   }
 
   const blocks: {
-    key: "morning" | "noon" | "evening" | "anytime";
+    key: "midnight" | "morning" | "noon" | "evening" | "anytime";
     label: string;
     icon: React.ReactNode;
     items: Plan[];
   }[] = [
-    { key: "morning", label: "Ertalab",   icon: <Sunrise className="size-3.5" />, items: active.filter((p) => bucketOf(p) === "morning") },
-    { key: "noon",    label: "Kunduzi",   icon: <Sun className="size-3.5" />,     items: active.filter((p) => bucketOf(p) === "noon") },
-    { key: "evening", label: "Kechqurun", icon: <Sunset className="size-3.5" />,  items: active.filter((p) => bucketOf(p) === "evening") },
-    { key: "anytime", label: "Vaqtsiz",   icon: <Coffee className="size-3.5" />,  items: active.filter((p) => bucketOf(p) === "anytime") },
+    { key: "midnight", label: "Yarim kechasi", icon: <Moon className="size-3.5" />,    items: active.filter((p) => bucketOf(p) === "midnight") },
+    { key: "morning",  label: "Ertalab",       icon: <Sunrise className="size-3.5" />, items: active.filter((p) => bucketOf(p) === "morning") },
+    { key: "noon",     label: "Kunduzi",       icon: <Sun className="size-3.5" />,     items: active.filter((p) => bucketOf(p) === "noon") },
+    { key: "evening",  label: "Kechqurun",     icon: <Sunset className="size-3.5" />,  items: active.filter((p) => bucketOf(p) === "evening") },
+    { key: "anytime",  label: "Vaqtsiz",       icon: <Coffee className="size-3.5" />,  items: active.filter((p) => bucketOf(p) === "anytime") },
   ];
 
   // Add task form state

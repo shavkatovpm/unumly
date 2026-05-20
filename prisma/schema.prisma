@@ -31,10 +31,11 @@ model User {
   phone        String?  @unique
 
   // Booleans we may use later (notification settings, premium status)
-  isPremium    Boolean  @default(false)
-  notifyLow    Boolean  @default(false)   // notify even on LOW-priority plans
-  notifyMedium Boolean  @default(true)
-  notifyHigh   Boolean  @default(true)
+  isPremium           Boolean @default(false)
+  notifyLow           Boolean @default(true)
+  notifyMedium        Boolean @default(true)
+  notifyHigh          Boolean @default(true)
+  notifyUnprioritized Boolean @default(true)   // tasks without a priority
 
   createdAt    DateTime @default(now())
   lastSeenAt   DateTime @default(now())

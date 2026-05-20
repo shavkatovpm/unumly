@@ -168,8 +168,8 @@ export function SettingsDialog({
             Eslatmalar
           </p>
           <p className="mb-3 text-[11.5px] leading-relaxed text-faint">
-            Vaqti yetib kelganda bot orqali eslatma yuboriladi. Muhim va
-            o&apos;rta darajadagi rejalar default holatda yoqilgan.
+            Vaqti yetib kelganda bot orqali eslatma yuboriladi. Default
+            holatda uchchala darajadagi rejalar uchun ham yoqilgan.
           </p>
           <div className="space-y-2">
             <NotifToggle
@@ -189,9 +189,16 @@ export function SettingsDialog({
             <NotifToggle
               label="Past"
               dot="bg-priority-low"
-              enabled={notifs?.notifyLow ?? false}
+              enabled={notifs?.notifyLow ?? true}
               loading={!notifs}
               onChange={() => toggleNotif("notifyLow")}
+            />
+            <NotifToggle
+              label="Darajasiz"
+              dot="bg-faint/40"
+              enabled={notifs?.notifyUnprioritized ?? true}
+              loading={!notifs}
+              onChange={() => toggleNotif("notifyUnprioritized")}
             />
           </div>
         </section>

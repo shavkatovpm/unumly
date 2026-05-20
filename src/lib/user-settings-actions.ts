@@ -4,18 +4,20 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 
 export type NotificationPrefs = {
-  notifyLow: boolean;
-  notifyMedium: boolean;
   notifyHigh: boolean;
+  notifyMedium: boolean;
+  notifyLow: boolean;
+  notifyUnprioritized: boolean;
 };
 
 export async function getNotificationPrefs(): Promise<NotificationPrefs | null> {
   const u = await getSessionUser();
   if (!u) return null;
   return {
-    notifyLow: u.notifyLow,
-    notifyMedium: u.notifyMedium,
     notifyHigh: u.notifyHigh,
+    notifyMedium: u.notifyMedium,
+    notifyLow: u.notifyLow,
+    notifyUnprioritized: u.notifyUnprioritized,
   };
 }
 
@@ -27,11 +29,17 @@ export async function updateNotificationPrefs(
   const updated = await prisma.user.update({
     where: { id: u.id },
     data: {
-      ...(patch.notifyLow    !== undefined && { notifyLow:    patch.notifyLow }),
-      ...(patch.notifyMedium !== undefined && { notifyMedium: patch.notifyMedium }),
-      ...(patch.notifyHigh   !== undefined && { notifyHigh:   patch.notifyHigh }),
+      ...(patch.notifyHigh          !== undefined && { notifyHigh:          patch.notifyHigh }),
+      ...(patch.notifyMedium        !== undefined && { notifyMedium:        patch.notifyMedium }),
+      ...(patch.notifyLow           !== undefined && { notifyLow:           patch.notifyLow }),
+      ...(patch.notifyUnprioritized !== undefined && { notifyUnprioritized: patch.notifyUnprioritized }),
     },
-    select: { notifyLow: true, notifyMedium: true, notifyHigh: true },
+    select: {
+      notifyHigh: true,
+      notifyMedium: true,
+      notifyLow: true,
+      notifyUnprioritized: true,
+    },
   });
   return updated;
 }

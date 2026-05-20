@@ -69,13 +69,27 @@ const POLL_INTERVAL_MS = 20 * 1000;
 let pollTimer: number | null = null;
 let pollSubscribers = 0;
 
+// Mutation hisoblagichi — optimistik update kelganda polling natijasini
+// ignor qilish uchun. Aks holda race: polling server'dan eski (mutation'gacha
+// bo'lgan) ma'lumot qaytarib, lokal optimistik o'zgarishni bekor qiladi.
+let pendingMutations = 0;
+function withPending<T>(p: Promise<T>): Promise<T> {
+  pendingMutations++;
+  return p.finally(() => {
+    pendingMutations = Math.max(0, pendingMutations - 1);
+  });
+}
+
 function startPolling() {
   if (pollTimer !== null || typeof window === "undefined") return;
   pollTimer = window.setInterval(() => {
     if (document.visibilityState !== "visible") return;
+    if (pendingMutations > 0) return; // mutation in-flight — skip
     void actions
       .listPlans()
       .then((rows) => {
+        // Mutation fetch davomida boshlanmagan ekanini ham tekshiramiz
+        if (pendingMutations > 0) return;
         if (rowsEqual(rows, memoryState)) return;
         memoryState = rows;
         emit();
@@ -113,10 +127,12 @@ function rowsEqual(a: Plan[], b: Plan[]): boolean {
 
 function maybeRefreshOnVisible() {
   if (document.visibilityState !== "visible") return;
+  if (pendingMutations > 0) return; // mutation in-flight — skip
   // On tab focus, fetch immediately rather than waiting for the next tick
   void actions
     .listPlans()
     .then((rows) => {
+      if (pendingMutations > 0) return;
       if (!rowsEqual(rows, memoryState)) {
         memoryState = rows;
         emit();
@@ -174,16 +190,17 @@ export function createPlan(input: CreatePlanInput): string {
   emit();
   playOnCreate();
 
-  void actions
-    .createPlan({ ...input, id })
-    .then((server) => {
-      memoryState = memoryState.map((p) => (p.id === id ? server : p));
-      emit();
-    })
-    .catch(() => {
-      memoryState = memoryState.filter((p) => p.id !== id);
-      emit();
-    });
+  void withPending(
+    actions.createPlan({ ...input, id })
+      .then((server) => {
+        memoryState = memoryState.map((p) => (p.id === id ? server : p));
+        emit();
+      })
+      .catch(() => {
+        memoryState = memoryState.filter((p) => p.id !== id);
+        emit();
+      })
+  );
 
   return id;
 }
@@ -198,8 +215,8 @@ export function upsertPlan(plan: Plan): void {
   }
   emit();
 
-  void actions
-    .upsertPlan({
+  void withPending(
+    actions.upsertPlan({
       id: plan.id,
       title: plan.title,
       notes: plan.notes,
@@ -220,7 +237,8 @@ export function upsertPlan(plan: Plan): void {
         memoryState = memoryState.filter((p) => p.id !== plan.id);
       }
       emit();
-    });
+    })
+  );
 }
 
 export function updatePlan(id: string, patch: Partial<Plan>): void {
@@ -243,16 +261,17 @@ export function updatePlan(id: string, patch: Partial<Plan>): void {
     ...(patch.completedAt !== undefined && { completedAt: patch.completedAt ?? null }),
   };
 
-  void actions
-    .updatePlan(id, serverPatch)
-    .then((server) => {
-      memoryState = memoryState.map((p) => (p.id === id ? server : p));
-      emit();
-    })
-    .catch(() => {
-      memoryState = memoryState.map((p) => (p.id === id ? prev : p));
-      emit();
-    });
+  void withPending(
+    actions.updatePlan(id, serverPatch)
+      .then((server) => {
+        memoryState = memoryState.map((p) => (p.id === id ? server : p));
+        emit();
+      })
+      .catch(() => {
+        memoryState = memoryState.map((p) => (p.id === id ? prev : p));
+        emit();
+      })
+  );
 }
 
 export function togglePlanStatus(id: string): void {
@@ -272,16 +291,17 @@ export function togglePlanStatus(id: string): void {
     );
   }
 
-  void actions
-    .togglePlanStatus(id)
-    .then((server) => {
-      memoryState = memoryState.map((p) => (p.id === id ? server : p));
-      emit();
-    })
-    .catch(() => {
-      memoryState = memoryState.map((p) => (p.id === id ? prev : p));
-      emit();
-    });
+  void withPending(
+    actions.togglePlanStatus(id)
+      .then((server) => {
+        memoryState = memoryState.map((p) => (p.id === id ? server : p));
+        emit();
+      })
+      .catch(() => {
+        memoryState = memoryState.map((p) => (p.id === id ? prev : p));
+        emit();
+      })
+  );
 }
 
 /** Soft delete — moves a plan to trash. Trash auto-purges after 30 days. */
@@ -292,10 +312,12 @@ export function removePlan(id: string): void {
   memoryState = memoryState.map((p) => (p.id === id ? { ...p, deletedAt: now } : p));
   emit();
 
-  void actions.removePlan(id).catch(() => {
-    memoryState = memoryState.map((p) => (p.id === id ? prev : p));
-    emit();
-  });
+  void withPending(
+    actions.removePlan(id).catch(() => {
+      memoryState = memoryState.map((p) => (p.id === id ? prev : p));
+      emit();
+    })
+  );
 }
 
 export function removeManyPlans(ids: string[]): void {
@@ -306,11 +328,13 @@ export function removeManyPlans(ids: string[]): void {
   memoryState = memoryState.map((p) => (set.has(p.id) ? { ...p, deletedAt: now } : p));
   emit();
 
-  void actions.removeManyPlans(ids).catch(() => {
-    const back = new Map(prevs.map((p) => [p.id, p]));
-    memoryState = memoryState.map((p) => back.get(p.id) ?? p);
-    emit();
-  });
+  void withPending(
+    actions.removeManyPlans(ids).catch(() => {
+      const back = new Map(prevs.map((p) => [p.id, p]));
+      memoryState = memoryState.map((p) => back.get(p.id) ?? p);
+      emit();
+    })
+  );
 }
 
 export function restorePlan(id: string): void {
@@ -324,10 +348,12 @@ export function restorePlan(id: string): void {
   });
   emit();
 
-  void actions.restorePlan(id).catch(() => {
-    memoryState = memoryState.map((p) => (p.id === id ? prev : p));
-    emit();
-  });
+  void withPending(
+    actions.restorePlan(id).catch(() => {
+      memoryState = memoryState.map((p) => (p.id === id ? prev : p));
+      emit();
+    })
+  );
 }
 
 export function purgePlan(id: string): void {
@@ -336,10 +362,12 @@ export function purgePlan(id: string): void {
   memoryState = memoryState.filter((p) => p.id !== id);
   emit();
 
-  void actions.purgePlan(id).catch(() => {
-    memoryState = [...memoryState, prev];
-    emit();
-  });
+  void withPending(
+    actions.purgePlan(id).catch(() => {
+      memoryState = [...memoryState, prev];
+      emit();
+    })
+  );
 }
 
 export function purgeManyPlans(ids: string[]): void {
@@ -349,10 +377,12 @@ export function purgeManyPlans(ids: string[]): void {
   memoryState = memoryState.filter((p) => !set.has(p.id));
   emit();
 
-  void actions.purgeManyPlans(ids).catch(() => {
-    memoryState = [...memoryState, ...prevs];
-    emit();
-  });
+  void withPending(
+    actions.purgeManyPlans(ids).catch(() => {
+      memoryState = [...memoryState, ...prevs];
+      emit();
+    })
+  );
 }
 
 export function getPlanById(id: string): Plan | undefined {
