@@ -129,13 +129,29 @@ export function HaftaView({
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Hafta ochilganda joriy soat tepada turadi, o'tib ketgan soatlar yashirinadi
+  // Hafta ochilganda:
+  // - Vertikal: joriy soat tepada, o'tib ketgan soatlar yashirinadi
+  // - Gorizontal (mobile): bugungi kun chap chetda, o'tib ketgan kunlar yashirinadi
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+
     const nowH = Math.max(START_HOUR, Math.min(END_HOUR, new Date().getHours()));
     el.scrollTop = Math.max(0, (nowH - START_HOUR) * HOUR_HEIGHT);
-  }, [date]);
+
+    // Today this week dami? Agar shu hafta ichida bo'lsa, gorizontal
+    // scroll qilamiz. requestAnimationFrame layoutdan keyin o'lchaymiz.
+    const todayIdx = days.findIndex((d) => isSameDay(d, today));
+    if (todayIdx < 0) return;
+    requestAnimationFrame(() => {
+      if (!el) return;
+      const overflow = el.scrollWidth - el.clientWidth;
+      if (overflow <= 0) return; // desktop — gorizontal scroll yo'q
+      const TIME_AXIS = 56;
+      const dayWidth = (el.scrollWidth - TIME_AXIS) / 7;
+      el.scrollLeft = Math.min(overflow, todayIdx * dayWidth);
+    });
+  }, [date, days, today]);
   // Offset (minutes) from the cursor to the dragged task's top, captured at
   // dragstart. Used by the drop preview so the task's top anchors to the
   // grab point, not to the cursor itself.
