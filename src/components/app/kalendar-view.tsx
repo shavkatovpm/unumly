@@ -56,12 +56,13 @@ export function KalendarView() {
     if (view !== "kun") return;
     const el = kunScrollRef.current;
     if (!el) return;
-    // Joriy soatdan 1.5 soat oldin scroll qilamiz (kontekst uchun)
+    // Joriy soat tepada turadi, o'tib ketgan soatlar yashirinadi
+    // (user yuqoriga scroll qilib ko'rishi mumkin)
     const HOUR_HEIGHT = 56;
     const START_HOUR = 6;
     const END_HOUR = 23;
     const nowH = Math.max(START_HOUR, Math.min(END_HOUR, new Date().getHours()));
-    el.scrollTop = Math.max(0, (nowH - START_HOUR) * HOUR_HEIGHT - HOUR_HEIGHT * 1.5);
+    el.scrollTop = Math.max(0, (nowH - START_HOUR) * HOUR_HEIGHT);
   }, [view, selected]);
 
   function shift(delta: number) {

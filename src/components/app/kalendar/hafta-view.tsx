@@ -129,12 +129,12 @@ export function HaftaView({
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Hafta ochilganda joriy soatga avto-scroll
+  // Hafta ochilganda joriy soat tepada turadi, o'tib ketgan soatlar yashirinadi
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const nowH = Math.max(START_HOUR, Math.min(END_HOUR, new Date().getHours()));
-    el.scrollTop = Math.max(0, (nowH - START_HOUR) * HOUR_HEIGHT - HOUR_HEIGHT * 1.5);
+    el.scrollTop = Math.max(0, (nowH - START_HOUR) * HOUR_HEIGHT);
   }, [date]);
   // Offset (minutes) from the cursor to the dragged task's top, captured at
   // dragstart. Used by the drop preview so the task's top anchors to the
