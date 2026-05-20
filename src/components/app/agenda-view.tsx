@@ -318,7 +318,10 @@ export function AgendaView() {
   const isPastSelected = toDateInputValue(date) <= todayIso;
 
   return (
-    <div className="flex h-screen flex-col overflow-y-auto">
+    <div
+      data-scroll-lock-on-focus
+      className="flex h-screen flex-col overflow-y-auto"
+    >
       {/* Header */}
       <header className="flex h-12 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
         <div className="flex min-w-0 items-center gap-2">

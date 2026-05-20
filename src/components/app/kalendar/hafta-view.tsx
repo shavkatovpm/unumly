@@ -513,7 +513,10 @@ export function HaftaView({
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]">
-      <div className="flex-1 select-none overflow-auto">
+      <div
+        data-scroll-lock-on-focus
+        className="flex-1 select-none overflow-auto"
+      >
         <div className="min-w-[760px] sm:min-w-0">
         {/* Sticky header */}
         <div

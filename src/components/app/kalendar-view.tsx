@@ -138,7 +138,7 @@ export function KalendarView() {
       <div className="flex-1 overflow-hidden p-2 pb-20 sm:p-4 md:pb-4">
         <div ref={scrollRef} className="h-full overflow-hidden">
           {view === "kun" && (
-            <div className="h-full overflow-y-auto pr-1">
+            <div data-scroll-lock-on-focus className="h-full overflow-y-auto pr-1">
               <DayGrid
                 date={selected}
                 plans={plans}
