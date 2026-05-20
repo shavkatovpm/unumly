@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2, Send } from "lucide-react";
+import { ArrowRight, Check, Loader2, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function digitsOnly(s: string) {
@@ -20,12 +20,22 @@ export function OtpLoginForm({
   const [code, setCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<{ name: string | null } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus({ preventScroll: false });
   }, []);
+
+  // After success, hold the confirmation briefly, then redirect
+  useEffect(() => {
+    if (!success) return;
+    const t = window.setTimeout(() => {
+      router.replace(redirectTo);
+    }, 1200);
+    return () => window.clearTimeout(t);
+  }, [success, router, redirectTo]);
 
   async function verifyOtp(e: React.FormEvent) {
     e.preventDefault();
@@ -40,7 +50,8 @@ export function OtpLoginForm({
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        router.replace(redirectTo);
+        const u = (data as { user?: { firstName?: string | null } })?.user;
+        setSuccess({ name: u?.firstName ?? null });
         return;
       }
       if (res.status === 401) {
@@ -57,6 +68,25 @@ export function OtpLoginForm({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (success) {
+    return (
+      <div className="rise-in w-full text-center" role="status" aria-live="polite">
+        <div className="mx-auto grid size-16 place-items-center rounded-full bg-accent-soft">
+          <Check className="size-8 text-accent check-pop" strokeWidth={3} />
+        </div>
+        <p className="mt-5 text-[18px] font-semibold tracking-[-0.01em] text-foreground">
+          {success.name ? `Xush kelibsiz, ${success.name}!` : "Muvaffaqiyatli kirildi"}
+        </p>
+        <p className="mt-1.5 text-[13px] text-muted">
+          Dashboard&apos;ga yo&apos;naltirilmoqda…
+        </p>
+        <div className="mt-4 flex items-center justify-center">
+          <Loader2 className="size-4 animate-spin text-faint" />
+        </div>
+      </div>
+    );
   }
 
   return (
