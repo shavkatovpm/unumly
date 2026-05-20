@@ -50,14 +50,19 @@ export function KalendarView() {
   const today = useMemo(() => startOfDay(), []);
   const [selected, setSelected] = useState<Date>(today);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
+  // Kun view scroll container — joriy soatga avto-scroll qiladi
+  const kunScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (view !== "kun" && view !== "hafta") return;
-    const el = scrollRef.current;
+    if (view !== "kun") return;
+    const el = kunScrollRef.current;
     if (!el) return;
-    // scroll to ~07:30 region
-    el.scrollTop = (8 - 6) * (view === "kun" ? 56 : 48) - 80;
-  }, [view]);
+    // Joriy soatdan 1.5 soat oldin scroll qilamiz (kontekst uchun)
+    const HOUR_HEIGHT = 56;
+    const START_HOUR = 6;
+    const END_HOUR = 23;
+    const nowH = Math.max(START_HOUR, Math.min(END_HOUR, new Date().getHours()));
+    el.scrollTop = Math.max(0, (nowH - START_HOUR) * HOUR_HEIGHT - HOUR_HEIGHT * 1.5);
+  }, [view, selected]);
 
   function shift(delta: number) {
     const next = new Date(selected);
@@ -139,9 +144,9 @@ export function KalendarView() {
 
       {/* Content */}
       <div className="flex-1 overflow-hidden p-2 pb-20 sm:p-4 md:pb-4">
-        <div ref={scrollRef} className="h-full overflow-hidden">
+        <div className="h-full overflow-hidden">
           {view === "kun" && (
-            <div data-scroll-lock-on-focus className="h-full overflow-y-auto pr-1">
+            <div ref={kunScrollRef} data-scroll-lock-on-focus className="h-full overflow-y-auto pr-1">
               <DayGrid
                 date={selected}
                 plans={plans}

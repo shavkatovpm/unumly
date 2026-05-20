@@ -127,6 +127,15 @@ export function HaftaView({
   })();
   const dragRef = useRef<Drag | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Hafta ochilganda joriy soatga avto-scroll
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const nowH = Math.max(START_HOUR, Math.min(END_HOUR, new Date().getHours()));
+    el.scrollTop = Math.max(0, (nowH - START_HOUR) * HOUR_HEIGHT - HOUR_HEIGHT * 1.5);
+  }, [date]);
   // Offset (minutes) from the cursor to the dragged task's top, captured at
   // dragstart. Used by the drop preview so the task's top anchors to the
   // grab point, not to the cursor itself.
@@ -516,6 +525,7 @@ export function HaftaView({
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]">
       <div
+        ref={scrollRef}
         data-scroll-lock-on-focus
         className="flex-1 select-none overflow-auto"
       >
