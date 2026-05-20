@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { isSameDay, toDateInputValue } from "@/lib/dates";
 import { TaskDetail } from "@/components/app/widgets/task-detail";
 import { useScrollLock } from "@/lib/use-scroll-lock";
+import { playOnComplete } from "@/lib/sounds";
 
 function priorityClasses(p: PlanPriority | undefined, done: boolean) {
   if (done) return { border: "border-border-strong", bg: "bg-subtle/80 hover:bg-subtle" };
@@ -381,6 +382,7 @@ export function DayGrid({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (!done) playOnComplete();
                       onToggle(p.id);
                     }}
                     aria-label={done ? "Bekor qilish" : "Bajarildi"}
@@ -601,6 +603,7 @@ export function DayGrid({
                         onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (!done) playOnComplete();
                           onToggle(p.id);
                         }}
                         aria-label="Holatni o'zgartirish"

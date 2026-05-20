@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/color-store";
 import { useScrollLock } from "@/lib/use-scroll-lock";
+import { SettingsDialog } from "./widgets/settings-dialog";
 
 type CustomItem = { id: string; label: string };
 
@@ -183,6 +184,7 @@ function BoshqaruvSheet({
   const isDark = theme === "noir";
   const [custom, setCustom] = useState<CustomItem[]>([]);
   const [hidden, setHidden] = useState<string[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Lock background scroll while sheet is open — also locks any
   // [data-scroll-lock-on-focus] containers (Bugun/Agenda/Kalendar).
@@ -313,6 +315,8 @@ function BoshqaruvSheet({
               {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </button>
             <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
               aria-label="Sozlamalar"
               className="grid size-9 place-items-center rounded-md text-muted hover:bg-hover hover:text-foreground"
             >
@@ -321,6 +325,7 @@ function BoshqaruvSheet({
           </div>
         </div>
       </motion.div>
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
   );
 }

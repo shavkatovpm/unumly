@@ -669,3 +669,43 @@ export function saveComplete(v: CompleteVariant) { try { window.localStorage.set
 export function saveCreate(v: CreateVariant) { try { window.localStorage.setItem(KEYS.create, v); } catch { /**/ } }
 export function saveEnabled(v: boolean) { try { window.localStorage.setItem(KEYS.enabled, v ? "1" : "0"); } catch { /**/ } }
 export function saveVolume(v: number) { try { window.localStorage.setItem(KEYS.volume, String(v)); } catch { /**/ } }
+
+/* ════════════════════════════════════════════════════════════
+   App-level playback (called from real UI components).
+   Sounds are wired to user's picked variants — see chosen IDs below.
+   Disabled if user toggled sounds off (KEYS.enabled === "0").
+   ════════════════════════════════════════════════════════════ */
+
+// Hardcoded user picks (set from /test/ovoz session).
+// Note: the IDs are unique across categories, so we can cross-reference.
+const PICK_ON_COMPLETE: CreateVariant = "pen-click";
+const PICK_ON_CREATE:   CheckVariant  = "tap-soft";
+
+function _isEnabled() {
+  if (typeof window === "undefined") return false;
+  try { return window.localStorage.getItem(KEYS.enabled) !== "0"; }
+  catch { return true; }
+}
+
+function _refreshMaster() {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = window.localStorage.getItem(KEYS.volume);
+    const v = raw == null ? 0.6 : parseFloat(raw);
+    if (Number.isFinite(v)) _master = Math.max(0, Math.min(1, v));
+  } catch { /**/ }
+}
+
+/** Play the "task done" sound. Call at the moment the user taps the checkbox. */
+export function playOnComplete() {
+  if (!_isEnabled()) return;
+  _refreshMaster();
+  playSpec(CREATE_SPECS[PICK_ON_COMPLETE]);
+}
+
+/** Play the "new task created" sound. Call right when the user submits a new task. */
+export function playOnCreate() {
+  if (!_isEnabled()) return;
+  _refreshMaster();
+  playSpec(CHECK_SPECS[PICK_ON_CREATE]);
+}

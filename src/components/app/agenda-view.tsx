@@ -19,6 +19,7 @@ import { TimePickerPopover } from "./widgets/time-picker-popover";
 import { TaskDetail } from "./widgets/task-detail";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { useScrollLock } from "@/lib/use-scroll-lock";
+import { playOnComplete } from "@/lib/sounds";
 
 const UZ_WEEKDAYS = [
   "yakshanba", "dushanba", "seshanba", "chorshanba",
@@ -80,6 +81,7 @@ function AgendaRow({
       setPendingDone(false);
       return;
     }
+    playOnComplete();
     setPendingDone(true);
     timerRef.current = window.setTimeout(() => {
       onToggle(plan.id);

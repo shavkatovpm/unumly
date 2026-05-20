@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { Plan, PlanPriority, PlanScope } from "@/lib/types";
+import { playOnCreate } from "@/lib/sounds";
 
 const STORAGE_KEY = "unumly:plans:v1";
 const TRASH_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -110,6 +111,7 @@ export function createPlan(input: CreatePlanInput): string {
   memoryState = [...memoryState, plan];
   persist();
   emit();
+  playOnCreate();
   return plan.id;
 }
 

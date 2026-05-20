@@ -13,6 +13,7 @@ import {
 } from "@/lib/dates";
 import { PriorityPicker } from "@/components/app/widgets/priority-picker";
 import { TaskDetail } from "@/components/app/widgets/task-detail";
+import { playOnComplete } from "@/lib/sounds";
 import { ConfirmDialog } from "@/components/app/widgets/confirm-dialog";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 
@@ -833,6 +834,7 @@ export function HaftaView({
                             onMouseDown={(e) => e.stopPropagation()}
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (!done) playOnComplete();
                               onToggle(p.id);
                             }}
                             aria-label="Holatni o'zgartirish"

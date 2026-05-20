@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Check, Clock } from "lucide-react";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { playOnComplete } from "@/lib/sounds";
 
 const PRIORITY_DOT: Record<NonNullable<Plan["priority"]>, string> = {
   HIGH:   "bg-priority-high",
@@ -66,6 +67,7 @@ export function TaskRow({
       setPendingDone(false);
       return;
     }
+    playOnComplete();
     setPendingDone(true);
     timerRef.current = window.setTimeout(() => {
       onToggle(plan.id);

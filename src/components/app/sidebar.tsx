@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/color-store";
+import { SettingsDialog } from "./widgets/settings-dialog";
 
 type IconCmp = ComponentType<{ className?: string; strokeWidth?: number }>;
 
@@ -97,6 +98,9 @@ export function Sidebar({
   // Add-custom inline input
   const [addingCustom, setAddingCustom] = useState(false);
   const [newLabel, setNewLabel] = useState("");
+
+  // Settings dialog
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Arxiv section collapsible — default closed, persisted.
   // Auto-closes when user navigates away from an Arxiv route.
@@ -398,8 +402,9 @@ export function Sidebar({
           </button>
           <button
             type="button"
+            onClick={() => setSettingsOpen(true)}
             aria-label="Sozlamalar"
-            title="Sozlamalar (tez orada)"
+            title="Sozlamalar"
             className="grid size-7 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-foreground"
           >
             <Settings className="size-3.5" />
@@ -407,6 +412,7 @@ export function Sidebar({
         </div>
       </div>
         </aside>
+        <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       </div>
     </>
   );
