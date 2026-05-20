@@ -122,7 +122,7 @@ export function SettingsDialog({
                 value={volume}
                 disabled={!enabled}
                 onChange={(e) => changeVolume(parseFloat(e.target.value))}
-                className="range-slider mt-4"
+                className="range-slider mt-7"
               />
             </div>
           </div>
