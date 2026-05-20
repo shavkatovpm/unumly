@@ -42,10 +42,14 @@ export async function GET(req: Request) {
       notifiedAt: null,
       notifyAt: { gt: earliest, lte: now },
       // Only fire on priorities the user opted into; LOW is opt-in.
+      // Tasks without an explicit priority are treated as MEDIUM so they
+      // still receive reminders by default (matches the user's expectation
+      // that "ordinary" tasks notify too).
       OR: [
         { priority: "HIGH",   user: { notifyHigh: true } },
         { priority: "MEDIUM", user: { notifyMedium: true } },
         { priority: "LOW",    user: { notifyLow: true } },
+        { priority: null,     user: { notifyMedium: true } },
       ],
     },
     include: { user: true },
