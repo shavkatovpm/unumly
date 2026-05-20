@@ -22,7 +22,7 @@ let _master = 0.2;
 // Per-event gain trim. Some events (like task done / pen-click) sound louder
 // than others at the same master volume; trim them down without touching
 // the user-visible percentage.
-const COMPLETE_GAIN_TRIM = 0.3;
+const COMPLETE_GAIN_TRIM = 0.2;
 const CREATE_GAIN_TRIM   = 0.8;
 export function setMasterVolume(v: number) { _master = Math.max(0, Math.min(1, v)); }
 export function getMasterVolume() { return _master; }
