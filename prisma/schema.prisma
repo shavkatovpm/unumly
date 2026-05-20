@@ -59,6 +59,17 @@ model OtpCode {
   @@index([phone, used, expiresAt])
 }
 
+// ───────────────────────── Admin config ─────────────────────────
+// Single-row table holding the admin password hash (scrypt).
+// On first login, if no row exists, falls back to ADMIN_PASSWORD env.
+// After admin changes the password from UI, hash is stored here and used.
+
+model AdminConfig {
+  id           Int      @id @default(1)
+  passwordHash String   // "salt:hex" (scrypt 64-byte)
+  updatedAt    DateTime @updatedAt
+}
+
 // ───────────────────────── Plans ─────────────────────────
 
 enum PlanScope {

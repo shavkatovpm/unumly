@@ -1,42 +1,116 @@
-"use client";
-
 import { TrendingUp, Users, CheckCircle2, Activity } from "lucide-react";
+import { prisma } from "@/lib/prisma";
 import { AdminPageHeader } from "@/components/admin/admin-shell";
 import { cn } from "@/lib/utils";
 
-// Inline mock data — DB tayyor bo'lganda almashtiriladi.
-const STATS = [
-  { label: "Jami foydalanuvchi", value: 247, delta: "+12", icon: Users },
-  { label: "Faol (7 kun)",       value: 89,  delta: "+5",  icon: Activity },
-  { label: "Bugungi tasklar",    value: 412, delta: "+34", icon: CheckCircle2 },
-  { label: "Bajarish nisbati",   value: "68%", delta: "+3%", icon: TrendingUp },
-];
+export const dynamic = "force-dynamic";
 
-// Oxirgi 14 kun task soni — mock
-const ACTIVITY_DAYS = [12, 18, 15, 22, 28, 14, 9, 24, 31, 27, 33, 29, 38, 42];
-const MAX_DAY = Math.max(...ACTIVITY_DAYS);
+const ACTIVE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const DAYS_BACK = 14;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-const RECENT_ACTIONS = [
-  { who: "@aliyev_b", action: "ro'yxatdan o'tdi", time: "5 daq oldin" },
-  { who: "@zarina_t", action: "12 ta task bajardi",   time: "18 daq oldin" },
-  { who: "@uzbektype", action: "yangi sessiya ochdi",  time: "1 soat oldin" },
-  { who: "@nodir_dev", action: "haftalik reja yaratdi", time: "2 soat oldin" },
-  { who: "@malika_k",  action: "bot orqali kirdi",     time: "3 soat oldin" },
-  { who: "@shavkat_t", action: "8 ta task bajardi",    time: "4 soat oldin" },
-];
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
-export default function AdminDashboardPage() {
+function relTime(d: Date): string {
+  const ms = Date.now() - d.getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return "hozir";
+  if (min < 60) return `${min} daq oldin`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} soat oldin`;
+  const day = Math.floor(hr / 24);
+  if (day < 30) return `${day} kun oldin`;
+  return d.toISOString().slice(0, 10);
+}
+
+function displayName(u: { firstName: string | null; lastName: string | null; username: string | null; telegramId: bigint }): string {
+  const parts = [u.firstName, u.lastName].filter(Boolean);
+  if (parts.length) return parts.join(" ");
+  if (u.username) return `@${u.username}`;
+  return `id:${u.telegramId.toString()}`;
+}
+
+export default async function AdminDashboardPage() {
+  const since14d = new Date(Date.now() - DAYS_BACK * DAY_MS);
+  const since7d = new Date(Date.now() - ACTIVE_WINDOW_MS);
+  const tIso = todayIso();
+
+  const [
+    totalUsers,
+    activeUsers7d,
+    newUsersThisWeek,
+    todayPlansCount,
+    todayDoneCount,
+    last14dPlans,
+    recentPlans,
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.user.count({ where: { lastSeenAt: { gte: since7d } } }),
+    prisma.user.count({ where: { createdAt: { gte: since7d } } }),
+    prisma.plan.count({
+      where: { scope: "DAILY", scheduledFor: tIso, deletedAt: null },
+    }),
+    prisma.plan.count({
+      where: { scope: "DAILY", scheduledFor: tIso, status: "DONE", deletedAt: null },
+    }),
+    prisma.plan.findMany({
+      where: { createdAt: { gte: since14d }, deletedAt: null },
+      select: { createdAt: true },
+    }),
+    prisma.plan.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            username: true,
+            telegramId: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const doneRate = todayPlansCount > 0
+    ? Math.round((todayDoneCount / todayPlansCount) * 100)
+    : 0;
+
+  // 14 kunlik chart
+  const byDay = new Map<string, number>();
+  for (let i = DAYS_BACK - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * DAY_MS);
+    byDay.set(d.toISOString().slice(0, 10), 0);
+  }
+  for (const p of last14dPlans) {
+    const key = p.createdAt.toISOString().slice(0, 10);
+    if (byDay.has(key)) byDay.set(key, (byDay.get(key) ?? 0) + 1);
+  }
+  const days = Array.from(byDay.values());
+  const maxDay = Math.max(1, ...days);
+  const totalLast14d = days.reduce((a, b) => a + b, 0);
+
+  const stats = [
+    { label: "Jami foydalanuvchi",   value: totalUsers,        delta: newUsersThisWeek > 0 ? `+${newUsersThisWeek}` : "", icon: Users },
+    { label: "Faol (7 kun)",          value: activeUsers7d,    delta: "",                                                  icon: Activity },
+    { label: "Bugungi tasklar",       value: todayPlansCount,  delta: "",                                                  icon: CheckCircle2 },
+    { label: "Bajarish nisbati",      value: `${doneRate}%`,   delta: `${todayDoneCount}/${todayPlansCount}`,              icon: TrendingUp },
+  ];
+
   return (
     <>
       <AdminPageHeader
         title="Dashboard"
-        subtitle="Umumiy ko'rsatkichlar va so'nggi faollik"
+        subtitle="Real ko'rsatkichlar va so'nggi faollik"
       />
 
       <div className="mx-auto max-w-6xl px-6 py-6">
         {/* Stat cards */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {STATS.map((s) => {
+          {stats.map((s) => {
             const Icon = s.icon;
             return (
               <div
@@ -55,7 +129,9 @@ export default function AdminDashboardPage() {
                   <p className="font-mono text-[26px] font-semibold tabular-nums tracking-[-0.02em]">
                     {s.value}
                   </p>
-                  <p className="font-mono text-[11px] text-accent">{s.delta}</p>
+                  {s.delta && (
+                    <p className="font-mono text-[11px] text-accent">{s.delta}</p>
+                  )}
                 </div>
               </div>
             );
@@ -67,18 +143,16 @@ export default function AdminDashboardPage() {
           <div className="mb-4 flex items-end justify-between">
             <div>
               <h2 className="text-[14px] font-semibold tracking-[-0.01em]">
-                Faollik (oxirgi 14 kun)
+                Faollik (oxirgi {DAYS_BACK} kun)
               </h2>
               <p className="text-[11px] text-faint">Kun bo&apos;yicha yaratilgan tasklar soni</p>
             </div>
-            <p className="font-mono text-[11px] text-faint">
-              Jami {ACTIVITY_DAYS.reduce((a, b) => a + b, 0)}
-            </p>
+            <p className="font-mono text-[11px] text-faint">Jami {totalLast14d}</p>
           </div>
           <div className="flex h-32 items-end gap-1.5">
-            {ACTIVITY_DAYS.map((v, i) => {
-              const pct = (v / MAX_DAY) * 100;
-              const isLast = i === ACTIVITY_DAYS.length - 1;
+            {days.map((v, i) => {
+              const pct = (v / maxDay) * 100;
+              const isLast = i === days.length - 1;
               return (
                 <div
                   key={i}
@@ -88,7 +162,9 @@ export default function AdminDashboardPage() {
                     <div
                       className={cn(
                         "w-full rounded-t-sm transition-colors",
-                        isLast ? "bg-foreground" : "bg-subtle group-hover:bg-border-strong"
+                        isLast
+                          ? "bg-foreground"
+                          : "bg-subtle group-hover:bg-border-strong",
                       )}
                       style={{ height: `${pct}%` }}
                     />
@@ -100,29 +176,38 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Recent actions */}
+        {/* Recent plans */}
         <div className="mt-6 rounded-xl border border-border bg-surface shadow-[0_1px_0_var(--border)]">
           <header className="border-b border-border px-5 py-3">
             <h2 className="text-[14px] font-semibold tracking-[-0.01em]">
-              So&apos;nggi harakatlar
+              So&apos;nggi yaratilgan rejalar
             </h2>
           </header>
-          <ul className="divide-y divide-border/70">
-            {RECENT_ACTIONS.map((a, i) => (
-              <li key={i} className="flex items-center gap-3 px-5 py-2.5">
-                <div className="grid size-7 shrink-0 place-items-center rounded-md bg-subtle font-mono text-[10px] uppercase text-muted">
-                  {a.who.slice(1, 3)}
-                </div>
-                <p className="min-w-0 flex-1 text-[13px]">
-                  <span className="font-mono text-muted">{a.who}</span>{" "}
-                  <span className="text-foreground">{a.action}</span>
-                </p>
-                <p className="shrink-0 font-mono text-[10.5px] text-faint">
-                  {a.time}
-                </p>
-              </li>
-            ))}
-          </ul>
+          {recentPlans.length === 0 ? (
+            <div className="px-5 py-12 text-center text-[13px] text-faint">
+              Hozircha hech narsa yaratilmagan
+            </div>
+          ) : (
+            <ul className="divide-y divide-border/70">
+              {recentPlans.map((p) => {
+                const name = displayName(p.user);
+                return (
+                  <li key={p.id} className="flex items-center gap-3 px-5 py-2.5">
+                    <div className="grid size-7 shrink-0 place-items-center rounded-md bg-subtle font-mono text-[10px] uppercase text-muted">
+                      {(name.replace("@", "").slice(0, 2) || "??").toUpperCase()}
+                    </div>
+                    <p className="min-w-0 flex-1 truncate text-[13px]">
+                      <span className="text-foreground">{p.title}</span>{" "}
+                      <span className="font-mono text-[11px] text-faint">— {name}</span>
+                    </p>
+                    <p className="shrink-0 font-mono text-[10.5px] text-faint">
+                      {relTime(p.createdAt)}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       </div>
     </>

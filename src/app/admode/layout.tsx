@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { PasswordGate } from "@/components/admin/password-gate";
+import { isAdminAuthed } from "@/lib/admin-auth";
+import { AdminLoginForm } from "@/components/admin/login-form";
 import { AdminShell } from "@/components/admin/admin-shell";
 
 export const metadata: Metadata = {
@@ -10,14 +11,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function AdminLayout({
+export const dynamic = "force-dynamic";
+
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <PasswordGate>
-      <AdminShell>{children}</AdminShell>
-    </PasswordGate>
-  );
+  const authed = await isAdminAuthed();
+  if (!authed) return <AdminLoginForm />;
+  return <AdminShell>{children}</AdminShell>;
 }

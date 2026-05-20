@@ -8,15 +8,17 @@ import {
   Activity,
   ClipboardList,
   LogOut,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { adminLogout } from "./password-gate";
+import { logoutAdmin } from "@/app/admode/_actions";
 
 const NAV = [
-  { href: "/admode",                 label: "Dashboard",        icon: LayoutDashboard },
+  { href: "/admode",                  label: "Dashboard",        icon: LayoutDashboard },
   { href: "/admode/foydalanuvchilar", label: "Foydalanuvchilar", icon: Users },
-  { href: "/admode/sessiyalar",      label: "Sessiyalar",       icon: Activity },
-  { href: "/admode/rejalar",         label: "Rejalar",          icon: ClipboardList },
+  { href: "/admode/sessiyalar",       label: "Faollik",          icon: Activity },
+  { href: "/admode/rejalar",          label: "Rejalar",          icon: ClipboardList },
+  { href: "/admode/sozlamalar",       label: "Sozlamalar",       icon: Settings },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -38,7 +40,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 Unumly Admin
               </p>
               <p className="font-mono text-[9.5px] uppercase tracking-[0.15em] text-faint">
-                v0.1 · UI
+                v0.2
               </p>
             </div>
           </Link>
@@ -68,16 +70,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="border-t border-border p-3">
+        <form action={logoutAdmin} className="border-t border-border p-3">
           <button
-            type="button"
-            onClick={adminLogout}
+            type="submit"
             className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-[12.5px] text-muted transition-colors hover:bg-hover hover:text-foreground"
           >
             <LogOut className="size-4 text-faint" strokeWidth={1.8} />
             Chiqish
           </button>
-        </div>
+        </form>
       </aside>
 
       {/* Content */}

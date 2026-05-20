@@ -197,7 +197,7 @@ export function BugunView() {
         {/* Greeting block — bitta tortburchak ichida, bir qatorda */}
         <div className="rise-in flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:px-5 sm:py-3.5">
           <h2 className="min-w-0 truncate text-[16px] font-semibold leading-tight tracking-[-0.02em] text-foreground sm:text-[18px]">
-            {total === 0 ? "Birinchi rejangizni yozing" : "Bugungi rejalar"}
+            {!hydrated ? "Bugungi rejalar" : total === 0 ? "Birinchi rejangizni yozing" : "Bugungi rejalar"}
           </h2>
           {total > 0 && (
             <div className="flex shrink-0 items-center gap-2.5">
