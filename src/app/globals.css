@@ -281,6 +281,13 @@
   }
 }
 
+/* Input caret — matches current theme foreground (qora light, oq noir) */
+input,
+textarea,
+[contenteditable] {
+  caret-color: var(--foreground);
+}
+
 /* Mobile: prevent iOS auto-zoom on input focus
    (any input with font-size < 16px triggers zoom on Safari iOS) */
 @media (max-width: 767px) {
