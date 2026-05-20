@@ -20,7 +20,7 @@ export function SettingsDialog({
   onClose: () => void;
 }) {
   const [enabled, setEnabled] = useState(true);
-  const [volume, setVolume] = useState(0.5);
+  const [volume, setVolume] = useState(1);
 
   useEffect(() => {
     if (!open) return;
@@ -124,7 +124,7 @@ export function SettingsDialog({
                 value={volume}
                 disabled={!enabled}
                 onChange={(e) => changeVolume(parseFloat(e.target.value))}
-                className="mt-2 w-full accent-foreground"
+                className="range-slider mt-3"
               />
             </div>
           </div>

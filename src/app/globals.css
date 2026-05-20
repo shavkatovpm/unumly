@@ -170,6 +170,79 @@
   }
 }
 
+/* ─── Custom range slider — large touch target, premium feel ─── */
+.range-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  background: transparent;
+  cursor: pointer;
+  padding: 14px 0;            /* extra vertical tap area */
+  margin: -14px 0;             /* visually keeps original height */
+  touch-action: pan-x;         /* prevents vertical scroll while dragging */
+}
+.range-slider:focus { outline: none; }
+.range-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 25%, transparent),
+              0 1px 3px rgba(0, 0, 0, 0.18);
+}
+.range-slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 25%, transparent),
+              0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+/* WebKit */
+.range-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--subtle);
+}
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--foreground);
+  margin-top: -8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: transform 120ms ease-out;
+}
+.range-slider:active::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+
+/* Firefox */
+.range-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--subtle);
+}
+.range-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--foreground);
+  border: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: transform 120ms ease-out;
+}
+.range-slider:active::-moz-range-thumb {
+  transform: scale(1.12);
+}
+
+/* Slightly bigger touch target & thumb on mobile */
+@media (max-width: 767px) {
+  .range-slider { padding: 18px 0; margin: -18px 0; }
+  .range-slider::-webkit-slider-runnable-track { height: 8px; }
+  .range-slider::-moz-range-track { height: 8px; }
+  .range-slider::-webkit-slider-thumb {
+    width: 26px; height: 26px; margin-top: -9px;
+  }
+  .range-slider::-moz-range-thumb { width: 26px; height: 26px; }
+}
+
+.range-slider:disabled { cursor: not-allowed; opacity: 0.55; }
+
 @utility rise-in {
   animation: rise-in 0.45s var(--ease-out) both;
 }
