@@ -1117,7 +1117,7 @@ export function HaftaView({
                     />
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-[13px] tabular-nums text-foreground">
+                        <span className="flex items-center gap-1.5 px-0.5 py-1.5 font-mono text-[13px] tabular-nums text-muted">
                           <Clock className="size-3.5 text-faint" />
                           {editTime}
                           <span className="text-[11px] text-faint">· {durLabel}</span>

@@ -1,9 +1,8 @@
 "use client";
 
 /* ════════════════════════════════════════════════════════════
-   Apple-style sound synth — Web Audio API.
-   Sine-heavy, harmonics layered with slight detuning,
-   soft attack, exponential decay, musical frequencies.
+   Sound synth library — Web Audio API
+   Data-driven: each variant is a SoundSpec (voices + optional noise burst).
    ════════════════════════════════════════════════════════════ */
 
 let _ctx: AudioContext | null = null;
@@ -20,30 +19,43 @@ function getCtx(): AudioContext | null {
 }
 
 let _master = 0.6;
-export function setMasterVolume(v: number) {
-  _master = Math.max(0, Math.min(1, v));
-}
-export function getMasterVolume() {
-  return _master;
-}
+export function setMasterVolume(v: number) { _master = Math.max(0, Math.min(1, v)); }
+export function getMasterVolume() { return _master; }
 
-/* ─── Voice helpers ───────────────────────────────────────── */
+/* ─── Voice & Noise types ─────────────────────────────────── */
 
 type Voice = {
   freq: number;
   freqEnd?: number;
-  glideTo?: number;          // smooth pitch arrival time (seconds)
-  type?: OscillatorType;     // default "sine"
-  detune?: number;           // cents
-  delay?: number;            // start offset from t0
-  attack: number;            // seconds
-  decay: number;             // seconds (peak → silence)
-  sustain?: number;          // gain at end-of-decay relative to peak (0..1)
-  release?: number;          // extra tail length after decay
-  peak: number;              // 0..1 (will be scaled by master)
+  glideTo?: number;
+  type?: OscillatorType;
+  detune?: number;
+  delay?: number;
+  attack: number;
+  decay: number;
+  peak: number;
 };
 
-function makeVoice(ctx: AudioContext, out: GainNode, t0: number, v: Voice) {
+type NoiseSpec = {
+  duration: number;
+  filterType: BiquadFilterType;
+  freq: number;
+  freqEnd?: number;
+  q?: number;
+  peak: number;
+  attack: number;
+  decay: number;
+  delay?: number;
+};
+
+type SoundSpec = {
+  voices?: Voice[];
+  noises?: NoiseSpec[];
+};
+
+/* ─── Synth core ──────────────────────────────────────────── */
+
+function scheduleVoice(ctx: AudioContext, out: GainNode, t0: number, v: Voice) {
   const start = t0 + (v.delay ?? 0);
   const osc = ctx.createOscillator();
   const g = ctx.createGain();
@@ -52,414 +64,556 @@ function makeVoice(ctx: AudioContext, out: GainNode, t0: number, v: Voice) {
   if (v.detune) osc.detune.setValueAtTime(v.detune, start);
   if (v.freqEnd !== undefined) {
     const glide = v.glideTo ?? v.attack + v.decay;
-    osc.frequency.exponentialRampToValueAtTime(
-      Math.max(1, v.freqEnd),
-      start + glide
-    );
+    osc.frequency.exponentialRampToValueAtTime(Math.max(1, v.freqEnd), start + glide);
   }
-  const peak = v.peak;
-  const sustain = v.sustain ?? 0;
-  const release = v.release ?? 0;
   g.gain.setValueAtTime(0.0001, start);
-  g.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak), start + v.attack);
-  if (sustain > 0) {
-    g.gain.exponentialRampToValueAtTime(
-      Math.max(0.0001, peak * sustain),
-      start + v.attack + v.decay
-    );
-    g.gain.exponentialRampToValueAtTime(0.0001, start + v.attack + v.decay + release);
-  } else {
-    g.gain.exponentialRampToValueAtTime(0.0001, start + v.attack + v.decay);
-  }
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0001, v.peak), start + v.attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, start + v.attack + v.decay);
   osc.connect(g).connect(out);
-  const stopAt = start + v.attack + v.decay + release + 0.05;
   osc.start(start);
-  osc.stop(stopAt);
+  osc.stop(start + v.attack + v.decay + 0.05);
 }
 
-function makeNoise(ctx: AudioContext, durationSec: number) {
-  const length = Math.max(1, Math.floor(ctx.sampleRate * durationSec));
+function scheduleNoise(ctx: AudioContext, out: GainNode, t0: number, n: NoiseSpec) {
+  const start = t0 + (n.delay ?? 0);
+  const length = Math.max(1, Math.floor(ctx.sampleRate * n.duration));
   const buf = ctx.createBuffer(1, length, ctx.sampleRate);
   const data = buf.getChannelData(0);
   for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
   const src = ctx.createBufferSource();
   src.buffer = buf;
-  return src;
-}
-
-function play(voices: Voice[]) {
-  const ctx = getCtx();
-  if (!ctx) return;
-  const t = ctx.currentTime;
-  const out = ctx.createGain();
-  out.gain.value = _master;
-  out.connect(ctx.destination);
-  for (const v of voices) makeVoice(ctx, out, t, v);
-}
-
-function playWithNoise(
-  voices: Voice[],
-  noise: {
-    duration: number;
-    filterType: BiquadFilterType;
-    freq: number;
-    freqEnd?: number;
-    q?: number;
-    peak: number;
-    attack: number;
-    decay: number;
-    delay?: number;
-  } | null
-) {
-  const ctx = getCtx();
-  if (!ctx) return;
-  const t = ctx.currentTime;
-  const out = ctx.createGain();
-  out.gain.value = _master;
-  out.connect(ctx.destination);
-  for (const v of voices) makeVoice(ctx, out, t, v);
-  if (noise) {
-    const start = t + (noise.delay ?? 0);
-    const src = makeNoise(ctx, noise.duration);
-    const filter = ctx.createBiquadFilter();
-    filter.type = noise.filterType;
-    filter.frequency.setValueAtTime(noise.freq, start);
-    if (noise.freqEnd !== undefined) {
-      filter.frequency.exponentialRampToValueAtTime(
-        Math.max(20, noise.freqEnd),
-        start + noise.duration
-      );
-    }
-    if (noise.q !== undefined) filter.Q.value = noise.q;
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, start);
-    g.gain.exponentialRampToValueAtTime(noise.peak, start + noise.attack);
-    g.gain.exponentialRampToValueAtTime(0.0001, start + noise.attack + noise.decay);
-    src.connect(filter).connect(g).connect(out);
-    src.start(start);
-    src.stop(start + noise.duration);
+  const filter = ctx.createBiquadFilter();
+  filter.type = n.filterType;
+  filter.frequency.setValueAtTime(n.freq, start);
+  if (n.freqEnd !== undefined) {
+    filter.frequency.exponentialRampToValueAtTime(Math.max(20, n.freqEnd), start + n.duration);
   }
+  if (n.q !== undefined) filter.Q.value = n.q;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, start);
+  g.gain.exponentialRampToValueAtTime(n.peak, start + n.attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, start + n.attack + n.decay);
+  src.connect(filter).connect(g).connect(out);
+  src.start(start);
+  src.stop(start + n.duration);
+}
+
+function playSpec(spec: SoundSpec) {
+  const ctx = getCtx();
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const out = ctx.createGain();
+  out.gain.value = _master;
+  out.connect(ctx.destination);
+  for (const v of spec.voices ?? []) scheduleVoice(ctx, out, t, v);
+  for (const n of spec.noises ?? []) scheduleNoise(ctx, out, t, n);
+}
+
+/* ─── Synth helpers (sound-design building blocks) ────────── */
+
+// Marimba: triangle fundamental + 4th partial sine + brief noise click
+function marimba(freq: number, peak = 0.3, decay = 0.18): SoundSpec {
+  return {
+    voices: [
+      { freq, type: "triangle", attack: 0.001, decay, peak },
+      { freq: freq * 4, attack: 0.001, decay: decay * 0.5, peak: peak * 0.35 },
+    ],
+    noises: [{ duration: 0.008, filterType: "bandpass", freq: 2200, q: 1.2, peak: peak * 0.5, attack: 0.0005, decay: 0.007 }],
+  };
+}
+// Vibraphone: pure sine + 2x harmonic + slight detune layer + slow tremolo not modeled
+function vibe(freq: number, peak = 0.28, decay = 0.45): SoundSpec {
+  return {
+    voices: [
+      { freq, attack: 0.003, decay, peak },
+      { freq, detune: 7, attack: 0.004, decay: decay * 1.05, peak: peak * 0.7 },
+      { freq: freq * 2, attack: 0.002, decay: decay * 0.6, peak: peak * 0.3 },
+    ],
+  };
+}
+// Bell: inharmonic partials (1, 2.76, 5.4) typical bell mode ratios
+function bell(freq: number, peak = 0.3, decay = 0.7): SoundSpec {
+  return {
+    voices: [
+      { freq, attack: 0.003, decay, peak },
+      { freq: freq * 2.76, attack: 0.003, decay: decay * 0.65, peak: peak * 0.45 },
+      { freq: freq * 5.4, attack: 0.002, decay: decay * 0.40, peak: peak * 0.20 },
+    ],
+  };
+}
+// Pluck: sharp attack, exp decay, octave overtone
+function pluck(freq: number, peak = 0.3, decay = 0.30): SoundSpec {
+  return {
+    voices: [
+      { freq, attack: 0.001, decay, peak },
+      { freq: freq * 2, attack: 0.001, decay: decay * 0.55, peak: peak * 0.4 },
+    ],
+  };
 }
 
 /* ════════════════════════════════════════════════════════════
-   Check (task bajarildi) — 10 Apple-style variants
+   Check (task bajarildi) — 20 variants
    ════════════════════════════════════════════════════════════ */
 
 export type CheckVariant =
-  | "pebble-click" | "plastic-click" | "glass-click" | "wood-click" | "bubble-click"
-  | "switch-click" | "key-click" | "lock-click" | "tap-click" | "mute-click";
+  | "marimba" | "glock" | "kalimba" | "triangle-bell" | "tongue-drum"
+  | "kicklet" | "pluck" | "harp" | "whistle-short" | "bubble"
+  | "cork-mini" | "puff" | "ice-tap" | "glass-tick" | "laser-tick"
+  | "bonk" | "ping" | "tap-soft" | "twinkle-short" | "mini-drum";
 
 export const CHECK_VARIANTS: { id: CheckVariant; label: string; hint: string }[] = [
-  { id: "pebble-click",  label: "Pebble click",  hint: "Yumshoq tosh taq" },
-  { id: "plastic-click", label: "Plastic click", hint: "Yengil plastik" },
-  { id: "glass-click",   label: "Glass click",   hint: "Mayda shisha" },
-  { id: "wood-click",    label: "Wood click",    hint: "Yog'och bloki" },
-  { id: "bubble-click",  label: "Bubble click",  hint: "Mayda pop" },
-  { id: "switch-click",  label: "Switch click",  hint: "Mexanik tugma" },
-  { id: "key-click",     label: "Key click",     hint: "iOS keyboard" },
-  { id: "lock-click",    label: "Lock click",    hint: "iOS lock" },
-  { id: "tap-click",     label: "Tap click",     hint: "Barmoq tegishi" },
-  { id: "mute-click",    label: "Mute click",    hint: "Eng yumshoq" },
+  { id: "marimba",        label: "Marimba",        hint: "Pitched wood" },
+  { id: "glock",          label: "Glockenspiel",   hint: "Bright metal pitched" },
+  { id: "kalimba",        label: "Kalimba",        hint: "Yumshoq metal til" },
+  { id: "triangle-bell",  label: "Triangle bell",  hint: "Yengil uchburchak" },
+  { id: "tongue-drum",    label: "Tongue drum",    hint: "Chuqur tilli baraban" },
+  { id: "kicklet",        label: "Kicklet",        hint: "Mayda kick" },
+  { id: "pluck",          label: "Pluck",          hint: "Tor chertilishi" },
+  { id: "harp",           label: "Harp",           hint: "Arfa chertilishi" },
+  { id: "whistle-short",  label: "Whistle",        hint: "Qisqa hushtak" },
+  { id: "bubble",         label: "Bubble",         hint: "Pufakcha" },
+  { id: "cork-mini",      label: "Cork",           hint: "Mayda probka" },
+  { id: "puff",           label: "Puff",           hint: "Yumshoq uflash" },
+  { id: "ice-tap",        label: "Ice tap",        hint: "Muz taq" },
+  { id: "glass-tick",     label: "Glass tick",     hint: "Mayda shisha tik" },
+  { id: "laser-tick",     label: "Laser",          hint: "Lazer tik" },
+  { id: "bonk",           label: "Bonk",           hint: "Past yog'och bonk" },
+  { id: "ping",           label: "Ping",           hint: "Metal ping" },
+  { id: "tap-soft",       label: "Soft tap",       hint: "Yumshoq tegish" },
+  { id: "twinkle-short",  label: "Twinkle",        hint: "Mayda uchqun" },
+  { id: "mini-drum",      label: "Mini drum",      hint: "Mayda baraban" },
 ];
 
-export function playCheck(v: CheckVariant) {
-  switch (v) {
-    case "pebble-click":
-      // Short downward sine + faint high tick
-      playWithNoise(
-        [
-          { freq: 700, freqEnd: 360, glideTo: 0.025, attack: 0.001, decay: 0.045, peak: 0.36 },
-          { freq: 1400, attack: 0.001, decay: 0.020, peak: 0.10 },
-        ],
-        { duration: 0.012, filterType: "highpass", freq: 3500, peak: 0.18, attack: 0.0008, decay: 0.011 }
-      );
-      break;
-    case "plastic-click":
-      // Triangle thock + crisp noise transient
-      playWithNoise(
-        [
-          { freq: 820, type: "triangle", attack: 0.001, decay: 0.030, peak: 0.32 },
-          { freq: 410, type: "triangle", attack: 0.002, decay: 0.040, peak: 0.18 },
-        ],
-        { duration: 0.014, filterType: "highpass", freq: 4000, peak: 0.22, attack: 0.0005, decay: 0.013 }
-      );
-      break;
-    case "glass-click":
-      // Very brief crystalline tick
-      play([
-        { freq: 2349, attack: 0.001, decay: 0.080, peak: 0.22 },
-        { freq: 2349, detune: 10, attack: 0.001, decay: 0.085, peak: 0.16 },
-        { freq: 4698, attack: 0.001, decay: 0.050, peak: 0.08 },
-      ]);
-      break;
-    case "wood-click":
-      // Filtered low knock + warm body
-      playWithNoise(
-        [
-          { freq: 240, type: "triangle", attack: 0.001, decay: 0.060, peak: 0.34 },
-          { freq: 480, type: "triangle", attack: 0.002, decay: 0.050, peak: 0.16 },
-          { freq: 180, attack: 0.003, decay: 0.080, peak: 0.20 },
-        ],
-        { duration: 0.020, filterType: "bandpass", freq: 1500, q: 1.2, peak: 0.18, attack: 0.0008, decay: 0.019 }
-      );
-      break;
-    case "bubble-click":
-      // Quick pitch pop — short and round
-      play([
-        { freq: 380, freqEnd: 760, glideTo: 0.012, attack: 0.001, decay: 0.030, peak: 0.36 },
-        { freq: 760, freqEnd: 520, glideTo: 0.020, attack: 0.002, decay: 0.040, peak: 0.20, delay: 0.012 },
-      ]);
-      break;
-    case "switch-click":
-      // Two-stage mechanical: noise click + brief resonant tone
-      playWithNoise(
-        [
-          { freq: 880, attack: 0.001, decay: 0.025, peak: 0.22, delay: 0.008 },
-          { freq: 440, attack: 0.002, decay: 0.035, peak: 0.16, delay: 0.008 },
-        ],
-        { duration: 0.010, filterType: "highpass", freq: 3500, peak: 0.30, attack: 0.0005, decay: 0.009 }
-      );
-      break;
-    case "key-click":
-      // iOS keyboard-style: lowpass noise + low resonance
-      playWithNoise(
-        [{ freq: 320, attack: 0.001, decay: 0.025, peak: 0.20 }],
-        { duration: 0.012, filterType: "lowpass", freq: 2200, q: 0.9, peak: 0.34, attack: 0.0005, decay: 0.011 }
-      );
-      break;
-    case "lock-click":
-      // Brief crisp mid-high click + subtle low body
-      playWithNoise(
-        [
-          { freq: 1200, attack: 0.001, decay: 0.040, peak: 0.26 },
-          { freq: 600,  attack: 0.002, decay: 0.050, peak: 0.16 },
-        ],
-        { duration: 0.008, filterType: "highpass", freq: 3000, peak: 0.20, attack: 0.0005, decay: 0.007 }
-      );
-      break;
-    case "tap-click":
-      // Soft finger-on-glass tap
-      playWithNoise(
-        [
-          { freq: 540, attack: 0.002, decay: 0.045, peak: 0.30 },
-          { freq: 1080, attack: 0.001, decay: 0.030, peak: 0.14 },
-        ],
-        { duration: 0.014, filterType: "bandpass", freq: 1800, q: 1.0, peak: 0.16, attack: 0.0008, decay: 0.013 }
-      );
-      break;
-    case "mute-click":
-      // Whisper-quiet click — for low-attention use
-      play([
-        { freq: 1100, attack: 0.001, decay: 0.020, peak: 0.12 },
-        { freq: 550,  attack: 0.002, decay: 0.025, peak: 0.08 },
-      ]);
-      break;
-  }
-}
+const CHECK_SPECS: Record<CheckVariant, SoundSpec> = {
+  "marimba":       marimba(880, 0.32, 0.18),
+  "glock":         {
+    voices: [
+      { freq: 2093, attack: 0.001, decay: 0.40, peak: 0.22 }, // C7
+      { freq: 4186, attack: 0.001, decay: 0.22, peak: 0.10 },
+    ],
+    noises: [{ duration: 0.005, filterType: "highpass", freq: 4500, peak: 0.10, attack: 0.0005, decay: 0.004 }],
+  },
+  "kalimba":       {
+    voices: [
+      { freq: 660,  attack: 0.002, decay: 0.30, peak: 0.30 },
+      { freq: 1320, attack: 0.002, decay: 0.18, peak: 0.14 },
+      { freq: 1980, attack: 0.002, decay: 0.10, peak: 0.06 },
+    ],
+  },
+  "triangle-bell": bell(2640, 0.18, 0.45),
+  "tongue-drum":   {
+    voices: [
+      { freq: 220, type: "triangle", attack: 0.002, decay: 0.35, peak: 0.34 },
+      { freq: 440, attack: 0.002, decay: 0.20, peak: 0.14 },
+      { freq: 110, attack: 0.005, decay: 0.45, peak: 0.18 },
+    ],
+  },
+  "kicklet":       {
+    voices: [{ freq: 180, freqEnd: 60, glideTo: 0.05, attack: 0.001, decay: 0.08, peak: 0.40 }],
+    noises: [{ duration: 0.010, filterType: "lowpass", freq: 1000, peak: 0.16, attack: 0.0005, decay: 0.009 }],
+  },
+  "pluck":         pluck(523.25, 0.32, 0.28),
+  "harp":          {
+    voices: [
+      { freq: 880,  attack: 0.001, decay: 0.35, peak: 0.30 },
+      { freq: 1320, attack: 0.001, decay: 0.30, peak: 0.18 },
+      { freq: 1760, attack: 0.001, decay: 0.22, peak: 0.10 },
+    ],
+  },
+  "whistle-short": {
+    voices: [{ freq: 1600, freqEnd: 2200, glideTo: 0.08, attack: 0.010, decay: 0.10, peak: 0.20 }],
+  },
+  "bubble":        {
+    voices: [
+      { freq: 320, freqEnd: 720, glideTo: 0.018, attack: 0.001, decay: 0.05, peak: 0.36 },
+      { freq: 720, freqEnd: 500, glideTo: 0.05, attack: 0.002, decay: 0.06, peak: 0.18, delay: 0.018 },
+    ],
+  },
+  "cork-mini":     {
+    voices: [{ freq: 160, freqEnd: 90, glideTo: 0.04, attack: 0.001, decay: 0.08, peak: 0.40 }],
+    noises: [{ duration: 0.012, filterType: "bandpass", freq: 600, q: 1.5, peak: 0.20, attack: 0.0005, decay: 0.011 }],
+  },
+  "puff":          {
+    noises: [{ duration: 0.10, filterType: "lowpass", freq: 1400, freqEnd: 600, q: 0.7, peak: 0.32, attack: 0.010, decay: 0.09 }],
+  },
+  "ice-tap":       {
+    voices: [
+      { freq: 3520, attack: 0.001, decay: 0.18, peak: 0.16 },
+      { freq: 5280, attack: 0.001, decay: 0.10, peak: 0.08 },
+      { freq: 1760, attack: 0.002, decay: 0.20, peak: 0.10 },
+    ],
+  },
+  "glass-tick":    {
+    voices: [
+      { freq: 2349, attack: 0.001, decay: 0.06, peak: 0.24 },
+      { freq: 2349, detune: 10, attack: 0.001, decay: 0.07, peak: 0.16 },
+    ],
+  },
+  "laser-tick":    {
+    voices: [{ freq: 2400, freqEnd: 600, glideTo: 0.03, attack: 0.001, decay: 0.05, peak: 0.28 }],
+  },
+  "bonk":          {
+    voices: [
+      { freq: 140, type: "triangle", attack: 0.001, decay: 0.10, peak: 0.42 },
+      { freq: 280, attack: 0.002, decay: 0.06, peak: 0.12 },
+    ],
+    noises: [{ duration: 0.010, filterType: "lowpass", freq: 800, peak: 0.18, attack: 0.0005, decay: 0.009 }],
+  },
+  "ping":          bell(1760, 0.20, 0.30),
+  "tap-soft":      {
+    voices: [{ freq: 540, attack: 0.001, decay: 0.06, peak: 0.20 }],
+    noises: [{ duration: 0.012, filterType: "bandpass", freq: 1500, q: 1.0, peak: 0.16, attack: 0.0005, decay: 0.011 }],
+  },
+  "twinkle-short": {
+    voices: [
+      { freq: 2349, attack: 0.001, decay: 0.10, peak: 0.18, delay: 0.00 },
+      { freq: 2960, attack: 0.001, decay: 0.10, peak: 0.16, delay: 0.04 },
+      { freq: 3520, attack: 0.001, decay: 0.10, peak: 0.14, delay: 0.08 },
+    ],
+  },
+  "mini-drum":     {
+    voices: [{ freq: 220, freqEnd: 110, glideTo: 0.04, attack: 0.001, decay: 0.10, peak: 0.36 }],
+    noises: [{ duration: 0.015, filterType: "bandpass", freq: 1200, q: 1.0, peak: 0.20, attack: 0.0005, decay: 0.014 }],
+  },
+};
+
+export function playCheck(v: CheckVariant) { playSpec(CHECK_SPECS[v]); }
 
 /* ════════════════════════════════════════════════════════════
-   Day 100% complete — 10 Apple-style variants
+   Day 100% complete — 20 variants
    ════════════════════════════════════════════════════════════ */
 
 export type CompleteVariant =
-  | "achievement" | "tritone-up" | "sparkle" | "bloom" | "awakening"
-  | "crystal-seq" | "fanfare" | "pulse" | "major-triad" | "calm-chord";
+  | "major-arp" | "bell-tower" | "choir-oh" | "soft-fanfare" | "music-box"
+  | "string-chord" | "whistle-melody" | "sparkle-cascade" | "wind-chimes" | "pluck-cascade"
+  | "ascending-sweep" | "triumph-stack" | "pad-swell" | "bell-sparkle" | "reverse-chime"
+  | "stack-chord" | "marimba-phrase" | "crystal-seq" | "vibe-phrase" | "sus-resolve";
 
 export const COMPLETE_VARIANTS: { id: CompleteVariant; label: string; hint: string }[] = [
-  { id: "achievement", label: "Achievement", hint: "Major arpeggio" },
-  { id: "tritone-up",  label: "Tritone up",  hint: "Ko'tariluvchi ikki nota" },
-  { id: "sparkle",     label: "Sparkle",     hint: "Tez kaskad" },
-  { id: "bloom",       label: "Bloom",       hint: "Keng harmonik gullash" },
-  { id: "awakening",   label: "Awakening",   hint: "Sekin ko'tariluvchi ton" },
-  { id: "crystal-seq", label: "Crystal seq", hint: "4 ta kristall nota" },
-  { id: "fanfare",     label: "Soft fanfare", hint: "Karnay akkord" },
-  { id: "pulse",       label: "Pulse",       hint: "Yurak urishi" },
-  { id: "major-triad", label: "Major triad", hint: "Akkord + uchqun" },
-  { id: "calm-chord",  label: "Calm chord",  hint: "Tinch akkord" },
+  { id: "major-arp",        label: "Major arpeggio", hint: "C-E-G-C" },
+  { id: "bell-tower",       label: "Bell tower",     hint: "3 ta qatorlangan qo'ng'iroq" },
+  { id: "choir-oh",         label: "Choir",          hint: "Yumshoq xor 'oh'" },
+  { id: "soft-fanfare",     label: "Soft fanfare",   hint: "Yumshoq karnay" },
+  { id: "music-box",        label: "Music box",      hint: "Musiqa qutisi melodiyasi" },
+  { id: "string-chord",     label: "String chord",   hint: "Torli akkord" },
+  { id: "whistle-melody",   label: "Whistle melody", hint: "Hushtak melodiyasi" },
+  { id: "sparkle-cascade",  label: "Sparkle",        hint: "Tez kaskad uchqunlar" },
+  { id: "wind-chimes",      label: "Wind chimes",    hint: "Shamol qo'ng'iroqlari" },
+  { id: "pluck-cascade",    label: "Pluck cascade",  hint: "Ko'tariluvchi cherta" },
+  { id: "ascending-sweep",  label: "Sweep up",       hint: "Ko'tariluvchi sweep" },
+  { id: "triumph-stack",    label: "Triumph stack",  hint: "G'olibona akkord stack" },
+  { id: "pad-swell",        label: "Pad swell",      hint: "Yumshoq pad" },
+  { id: "bell-sparkle",     label: "Bell + sparkle", hint: "Qo'ng'iroq + uchqun" },
+  { id: "reverse-chime",    label: "Reverse chime",  hint: "Teskari chime" },
+  { id: "stack-chord",      label: "Stacked chord",  hint: "Stack 5 nota" },
+  { id: "marimba-phrase",   label: "Marimba phrase", hint: "Marimba 3 nota" },
+  { id: "crystal-seq",      label: "Crystal seq",    hint: "Kristall ketma-ket" },
+  { id: "vibe-phrase",      label: "Vibe phrase",    hint: "Vibraphone 3 nota" },
+  { id: "sus-resolve",      label: "Sus → resolve",  hint: "Sus akkord → asosiy" },
 ];
 
-export function playComplete(v: CompleteVariant) {
-  switch (v) {
-    case "achievement":
-      // C5 E5 G5 C6 arpeggio
-      play([
-        { freq: 523.25, attack: 0.005, decay: 0.50, peak: 0.30 },
-        { freq: 659.25, attack: 0.005, decay: 0.50, peak: 0.28, delay: 0.10 },
-        { freq: 783.99, attack: 0.005, decay: 0.55, peak: 0.28, delay: 0.20 },
-        { freq: 1046.5, attack: 0.005, decay: 0.70, peak: 0.30, delay: 0.30 },
-        { freq: 1046.5, detune: 8, attack: 0.006, decay: 0.70, peak: 0.20, delay: 0.30 },
-      ]);
-      break;
-    case "tritone-up":
-      // Ascending perfect fourth
-      play([
-        { freq: 987.77,                attack: 0.005, decay: 0.35, peak: 0.30 }, // B5
-        { freq: 987.77, detune: 6,     attack: 0.006, decay: 0.36, peak: 0.20 },
-        { freq: 1318.51, delay: 0.12,  attack: 0.005, decay: 0.45, peak: 0.32 }, // E6
-        { freq: 1318.51, detune: 6, delay: 0.12, attack: 0.006, decay: 0.46, peak: 0.20 },
-      ]);
-      break;
-    case "sparkle":
-      play([
-        { freq: 2093,  attack: 0.003, decay: 0.30, peak: 0.22, delay: 0.00 },
-        { freq: 2637,  attack: 0.003, decay: 0.28, peak: 0.20, delay: 0.05 },
-        { freq: 3136,  attack: 0.003, decay: 0.26, peak: 0.18, delay: 0.10 },
-        { freq: 3520,  attack: 0.003, decay: 0.24, peak: 0.16, delay: 0.15 },
-        { freq: 4186,  attack: 0.003, decay: 0.22, peak: 0.14, delay: 0.20 },
-        { freq: 1046.5,                attack: 0.008, decay: 0.55, peak: 0.18, delay: 0.00 },
-      ]);
-      break;
-    case "bloom":
-      play([
-        { freq: 440,                   attack: 0.040, decay: 0.90, peak: 0.30 }, // A4
-        { freq: 554.37,                attack: 0.060, decay: 0.95, peak: 0.22 }, // C#5
-        { freq: 659.25,                attack: 0.080, decay: 1.00, peak: 0.22 }, // E5
-        { freq: 880,                   attack: 0.100, decay: 1.05, peak: 0.18 }, // A5
-        { freq: 220,                   attack: 0.050, decay: 1.10, peak: 0.20 }, // A3
-      ]);
-      break;
-    case "awakening":
-      play([
-        { freq: 220, freqEnd: 660, glideTo: 0.40, attack: 0.080, decay: 0.80, peak: 0.28 },
-        { freq: 110, freqEnd: 330, glideTo: 0.40, attack: 0.090, decay: 0.85, peak: 0.22 },
-        { freq: 660, attack: 0.200, decay: 0.50, peak: 0.14, delay: 0.30 },
-      ]);
-      break;
-    case "crystal-seq":
-      play([
-        { freq: 1318.51, attack: 0.003, decay: 0.45, peak: 0.24, delay: 0.00 },
-        { freq: 1567.98, attack: 0.003, decay: 0.45, peak: 0.22, delay: 0.10 },
-        { freq: 1975.53, attack: 0.003, decay: 0.45, peak: 0.20, delay: 0.20 },
-        { freq: 2637.02, attack: 0.003, decay: 0.50, peak: 0.20, delay: 0.30 },
-      ]);
-      break;
-    case "fanfare":
-      play([
-        { freq: 392, type: "triangle", attack: 0.015, decay: 0.55, peak: 0.26 }, // G4
-        { freq: 523.25, type: "triangle", attack: 0.015, decay: 0.55, peak: 0.24, delay: 0.06 }, // C5
-        { freq: 659.25, type: "triangle", attack: 0.015, decay: 0.60, peak: 0.22, delay: 0.12 }, // E5
-        { freq: 783.99, type: "triangle", attack: 0.015, decay: 0.65, peak: 0.20, delay: 0.18 }, // G5
-      ]);
-      break;
-    case "pulse":
-      play([
-        { freq: 440, attack: 0.010, decay: 0.40, peak: 0.30 },
-        { freq: 220, attack: 0.012, decay: 0.45, peak: 0.20 },
-        { freq: 440, attack: 0.010, decay: 0.50, peak: 0.32, delay: 0.18 },
-        { freq: 880, attack: 0.012, decay: 0.50, peak: 0.18, delay: 0.18 },
-      ]);
-      break;
-    case "major-triad":
-      // C-E-G simultaneously + high sparkle
-      play([
-        { freq: 523.25, attack: 0.008, decay: 0.80, peak: 0.26 },
-        { freq: 659.25, attack: 0.008, decay: 0.80, peak: 0.22 },
-        { freq: 783.99, attack: 0.008, decay: 0.80, peak: 0.20 },
-        { freq: 1046.5, attack: 0.005, decay: 0.40, peak: 0.14, delay: 0.05 },
-        { freq: 1567.98, attack: 0.005, decay: 0.35, peak: 0.10, delay: 0.10 },
-      ]);
-      break;
-    case "calm-chord":
-      // Sustained C-E-G with very gentle attack
-      play([
-        { freq: 392,    attack: 0.060, decay: 1.20, peak: 0.22 }, // G4
-        { freq: 523.25, attack: 0.080, decay: 1.20, peak: 0.22 }, // C5
-        { freq: 659.25, attack: 0.100, decay: 1.20, peak: 0.20 }, // E5
-        { freq: 261.63, attack: 0.060, decay: 1.30, peak: 0.18 }, // C4
-      ]);
-      break;
-  }
-}
+const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
+  "major-arp": {
+    voices: [
+      { freq: 523.25, attack: 0.005, decay: 0.45, peak: 0.30, delay: 0.00 },
+      { freq: 659.25, attack: 0.005, decay: 0.45, peak: 0.28, delay: 0.10 },
+      { freq: 783.99, attack: 0.005, decay: 0.50, peak: 0.28, delay: 0.20 },
+      { freq: 1046.5, attack: 0.005, decay: 0.65, peak: 0.30, delay: 0.30 },
+    ],
+  },
+  "bell-tower": {
+    voices: [
+      ...bell(440, 0.28, 0.80).voices!.map((v) => ({ ...v, delay: 0.00 })),
+      ...bell(660, 0.24, 0.70).voices!.map((v) => ({ ...v, delay: 0.18 })),
+      ...bell(880, 0.20, 0.65).voices!.map((v) => ({ ...v, delay: 0.36 })),
+    ],
+  },
+  "choir-oh": {
+    voices: [
+      { freq: 220, attack: 0.080, decay: 1.10, peak: 0.20 },
+      { freq: 277.18, attack: 0.090, decay: 1.10, peak: 0.20 },
+      { freq: 329.63, attack: 0.100, decay: 1.10, peak: 0.18 },
+      { freq: 440, attack: 0.080, decay: 1.10, peak: 0.16 },
+      { freq: 110, attack: 0.070, decay: 1.20, peak: 0.18 },
+    ],
+  },
+  "soft-fanfare": {
+    voices: [
+      { freq: 392, type: "triangle", attack: 0.015, decay: 0.55, peak: 0.26 },
+      { freq: 523.25, type: "triangle", attack: 0.015, decay: 0.55, peak: 0.24, delay: 0.06 },
+      { freq: 659.25, type: "triangle", attack: 0.015, decay: 0.60, peak: 0.22, delay: 0.12 },
+      { freq: 783.99, type: "triangle", attack: 0.015, decay: 0.65, peak: 0.20, delay: 0.18 },
+    ],
+  },
+  "music-box": {
+    voices: [
+      ...pluck(1046.5, 0.22, 0.35).voices!.map((v) => ({ ...v, delay: 0.00 })),
+      ...pluck(987.77, 0.20, 0.32).voices!.map((v) => ({ ...v, delay: 0.18 })),
+      ...pluck(880,    0.20, 0.32).voices!.map((v) => ({ ...v, delay: 0.36 })),
+      ...pluck(523.25, 0.22, 0.50).voices!.map((v) => ({ ...v, delay: 0.54 })),
+    ],
+  },
+  "string-chord": {
+    voices: [
+      { freq: 392,    type: "sawtooth", attack: 0.080, decay: 0.90, peak: 0.10 },
+      { freq: 523.25, type: "sawtooth", attack: 0.080, decay: 0.90, peak: 0.10 },
+      { freq: 659.25, type: "sawtooth", attack: 0.080, decay: 0.90, peak: 0.09 },
+      { freq: 392,    detune: 8, attack: 0.085, decay: 0.92, peak: 0.07 },
+      { freq: 523.25, detune: 8, attack: 0.085, decay: 0.92, peak: 0.07 },
+    ],
+  },
+  "whistle-melody": {
+    voices: [
+      { freq: 1320, freqEnd: 1760, glideTo: 0.10, attack: 0.030, decay: 0.25, peak: 0.22 },
+      { freq: 1760, freqEnd: 2093, glideTo: 0.10, attack: 0.030, decay: 0.30, peak: 0.20, delay: 0.20 },
+    ],
+  },
+  "sparkle-cascade": {
+    voices: [
+      { freq: 2349, attack: 0.001, decay: 0.18, peak: 0.18, delay: 0.00 },
+      { freq: 2637, attack: 0.001, decay: 0.18, peak: 0.16, delay: 0.04 },
+      { freq: 3136, attack: 0.001, decay: 0.16, peak: 0.16, delay: 0.08 },
+      { freq: 3520, attack: 0.001, decay: 0.15, peak: 0.14, delay: 0.12 },
+      { freq: 4186, attack: 0.001, decay: 0.14, peak: 0.12, delay: 0.16 },
+      { freq: 4698, attack: 0.001, decay: 0.13, peak: 0.10, delay: 0.20 },
+    ],
+  },
+  "wind-chimes": {
+    voices: [
+      ...bell(1760, 0.18, 0.50).voices!.map((v) => ({ ...v, delay: 0.00 })),
+      ...bell(2349, 0.16, 0.45).voices!.map((v) => ({ ...v, delay: 0.07 })),
+      ...bell(2093, 0.14, 0.45).voices!.map((v) => ({ ...v, delay: 0.16 })),
+      ...bell(2637, 0.14, 0.45).voices!.map((v) => ({ ...v, delay: 0.26 })),
+    ],
+  },
+  "pluck-cascade": {
+    voices: [
+      ...pluck(440,  0.28, 0.30).voices!.map((v) => ({ ...v, delay: 0.00 })),
+      ...pluck(587.33, 0.26, 0.30).voices!.map((v) => ({ ...v, delay: 0.08 })),
+      ...pluck(659.25, 0.26, 0.30).voices!.map((v) => ({ ...v, delay: 0.16 })),
+      ...pluck(880,    0.28, 0.40).voices!.map((v) => ({ ...v, delay: 0.24 })),
+    ],
+  },
+  "ascending-sweep": {
+    voices: [
+      { freq: 220, freqEnd: 1320, glideTo: 0.40, attack: 0.040, decay: 0.30, peak: 0.22 },
+      { freq: 110, freqEnd: 660,  glideTo: 0.40, attack: 0.050, decay: 0.35, peak: 0.18 },
+    ],
+    noises: [{ duration: 0.40, filterType: "bandpass", freq: 600, freqEnd: 4000, q: 2.0, peak: 0.10, attack: 0.030, decay: 0.36 }],
+  },
+  "triumph-stack": {
+    voices: [
+      { freq: 261.63, type: "triangle", attack: 0.005, decay: 0.90, peak: 0.20 },
+      { freq: 329.63, type: "triangle", attack: 0.005, decay: 0.90, peak: 0.20 },
+      { freq: 392,    type: "triangle", attack: 0.005, decay: 0.90, peak: 0.20 },
+      { freq: 523.25, type: "triangle", attack: 0.005, decay: 0.90, peak: 0.20 },
+      { freq: 1046.5, attack: 0.005, decay: 0.50, peak: 0.14, delay: 0.10 },
+      { freq: 1567.98, attack: 0.005, decay: 0.40, peak: 0.10, delay: 0.18 },
+    ],
+  },
+  "pad-swell": {
+    voices: [
+      { freq: 261.63, attack: 0.250, decay: 1.40, peak: 0.18 },
+      { freq: 329.63, attack: 0.260, decay: 1.40, peak: 0.16 },
+      { freq: 392,    attack: 0.270, decay: 1.40, peak: 0.16 },
+      { freq: 523.25, attack: 0.280, decay: 1.40, peak: 0.14 },
+      { freq: 130.81, attack: 0.220, decay: 1.50, peak: 0.16 },
+    ],
+  },
+  "bell-sparkle": {
+    voices: [
+      ...bell(880, 0.30, 0.90).voices!,
+      { freq: 3520, attack: 0.001, decay: 0.10, peak: 0.12, delay: 0.05 },
+      { freq: 4698, attack: 0.001, decay: 0.10, peak: 0.10, delay: 0.10 },
+      { freq: 5274, attack: 0.001, decay: 0.10, peak: 0.08, delay: 0.15 },
+    ],
+  },
+  "reverse-chime": {
+    // Simulated reverse: very slow attack, sharp release
+    voices: [
+      { freq: 1760, attack: 0.350, decay: 0.05, peak: 0.30 },
+      { freq: 1320, attack: 0.350, decay: 0.05, peak: 0.22 },
+      { freq: 880,  attack: 0.380, decay: 0.05, peak: 0.18 },
+    ],
+  },
+  "stack-chord": {
+    // C E G B D (major 9th)
+    voices: [
+      { freq: 261.63, attack: 0.010, decay: 0.90, peak: 0.20 },
+      { freq: 329.63, attack: 0.010, decay: 0.90, peak: 0.18 },
+      { freq: 392,    attack: 0.010, decay: 0.90, peak: 0.18 },
+      { freq: 493.88, attack: 0.010, decay: 0.90, peak: 0.16 },
+      { freq: 587.33, attack: 0.010, decay: 0.90, peak: 0.14 },
+    ],
+  },
+  "marimba-phrase": {
+    voices: [
+      ...marimba(523.25, 0.30, 0.20).voices!.map((v) => ({ ...v, delay: 0.00 })),
+      ...marimba(659.25, 0.30, 0.20).voices!.map((v) => ({ ...v, delay: 0.12 })),
+      ...marimba(880,    0.32, 0.25).voices!.map((v) => ({ ...v, delay: 0.24 })),
+    ],
+    noises: [
+      { duration: 0.006, filterType: "bandpass", freq: 2200, q: 1.2, peak: 0.10, attack: 0.0005, decay: 0.005, delay: 0.00 },
+      { duration: 0.006, filterType: "bandpass", freq: 2200, q: 1.2, peak: 0.10, attack: 0.0005, decay: 0.005, delay: 0.12 },
+      { duration: 0.006, filterType: "bandpass", freq: 2200, q: 1.2, peak: 0.10, attack: 0.0005, decay: 0.005, delay: 0.24 },
+    ],
+  },
+  "crystal-seq": {
+    voices: [
+      { freq: 1318.51, attack: 0.001, decay: 0.40, peak: 0.22, delay: 0.00 },
+      { freq: 1567.98, attack: 0.001, decay: 0.40, peak: 0.20, delay: 0.10 },
+      { freq: 1975.53, attack: 0.001, decay: 0.40, peak: 0.20, delay: 0.20 },
+      { freq: 2637.02, attack: 0.001, decay: 0.45, peak: 0.18, delay: 0.30 },
+    ],
+  },
+  "vibe-phrase": {
+    voices: [
+      ...vibe(440, 0.26, 0.50).voices!.map((v) => ({ ...v, delay: 0.00 })),
+      ...vibe(554.37, 0.24, 0.50).voices!.map((v) => ({ ...v, delay: 0.14 })),
+      ...vibe(659.25, 0.24, 0.60).voices!.map((v) => ({ ...v, delay: 0.28 })),
+    ],
+  },
+  "sus-resolve": {
+    voices: [
+      // Sus4 first (C F G)
+      { freq: 261.63, attack: 0.020, decay: 0.40, peak: 0.20 },
+      { freq: 349.23, attack: 0.020, decay: 0.40, peak: 0.20 },
+      { freq: 392,    attack: 0.020, decay: 0.40, peak: 0.18 },
+      // Resolve to major (C E G)
+      { freq: 261.63, attack: 0.020, decay: 0.80, peak: 0.20, delay: 0.30 },
+      { freq: 329.63, attack: 0.020, decay: 0.80, peak: 0.20, delay: 0.30 },
+      { freq: 392,    attack: 0.020, decay: 0.80, peak: 0.18, delay: 0.30 },
+    ],
+  },
+};
+
+export function playComplete(v: CompleteVariant) { playSpec(COMPLETE_SPECS[v]); }
 
 /* ════════════════════════════════════════════════════════════
-   New task created — 10 Apple-style variants
+   New task created — 20 variants
    ════════════════════════════════════════════════════════════ */
 
 export type CreateVariant =
-  | "brush" | "sigh" | "drop-in" | "wisp" | "bubble"
-  | "pat" | "touch" | "snap" | "card" | "ping";
+  | "plus-rise" | "subtle-whoosh" | "pencil" | "paper-flip" | "page-turn"
+  | "pen-click" | "magnet-snap" | "drawer" | "air-puff" | "spray"
+  | "bounce" | "snap" | "slide" | "light-bell" | "bubble-small"
+  | "twinkle-small" | "slip" | "card-swipe" | "light-tick" | "touch-ding";
 
 export const CREATE_VARIANTS: { id: CreateVariant; label: string; hint: string }[] = [
-  { id: "brush",   label: "Brush",   hint: "Yengil cho'tka" },
-  { id: "sigh",    label: "Sigh",    hint: "Yumshoq nafas" },
-  { id: "drop-in", label: "Drop in", hint: "Yumshoq tushish" },
-  { id: "wisp",    label: "Wisp",    hint: "Yengil havo" },
-  { id: "bubble",  label: "Bubble",  hint: "Yumshoq pufakcha" },
-  { id: "pat",     label: "Pat",     hint: "Yumshoq taq" },
-  { id: "touch",   label: "Touch",   hint: "Tegish" },
-  { id: "snap",    label: "Snap",    hint: "Yengil chart" },
-  { id: "card",    label: "Card",    hint: "Qog'oz harakat" },
-  { id: "ping",    label: "Ping",    hint: "Qisqa kristall" },
+  { id: "plus-rise",     label: "Plus rise",     hint: "Tez ko'tariluvchi" },
+  { id: "subtle-whoosh", label: "Subtle whoosh", hint: "Sokin shovqin" },
+  { id: "pencil",        label: "Pencil",        hint: "Qalam tirnashi" },
+  { id: "paper-flip",    label: "Paper flip",    hint: "Qog'oz aylanishi" },
+  { id: "page-turn",     label: "Page turn",     hint: "Sahifa burilishi" },
+  { id: "pen-click",     label: "Pen click",     hint: "Ruchka klik" },
+  { id: "magnet-snap",   label: "Magnet snap",   hint: "Magnit yopishish" },
+  { id: "drawer",        label: "Drawer",        hint: "Tortma" },
+  { id: "air-puff",      label: "Air puff",      hint: "Havo uflanishi" },
+  { id: "spray",         label: "Spray",         hint: "Sepish" },
+  { id: "bounce",        label: "Bounce",        hint: "Sakrash" },
+  { id: "snap",          label: "Snap",          hint: "Barmoq chartlatish" },
+  { id: "slide",         label: "Slide",         hint: "Yumshoq slayd" },
+  { id: "light-bell",    label: "Light bell",    hint: "Yengil qo'ng'iroq" },
+  { id: "bubble-small",  label: "Small bubble",  hint: "Mayda pufakcha" },
+  { id: "twinkle-small", label: "Small twinkle", hint: "Mayda uchqun" },
+  { id: "slip",          label: "Slip",          hint: "Sirpanish" },
+  { id: "card-swipe",    label: "Card swipe",    hint: "Karta urilishi" },
+  { id: "light-tick",    label: "Light tick",    hint: "Yengil tik" },
+  { id: "touch-ding",    label: "Touch ding",    hint: "Tegish ding" },
 ];
 
-export function playCreate(v: CreateVariant) {
-  switch (v) {
-    case "brush":
-      playWithNoise(
-        [],
-        { duration: 0.18, filterType: "bandpass", freq: 600, freqEnd: 2400, q: 1.5, peak: 0.32, attack: 0.020, decay: 0.16 }
-      );
-      break;
-    case "sigh":
-      playWithNoise(
-        [{ freq: 880, freqEnd: 660, attack: 0.020, decay: 0.18, peak: 0.10 }],
-        { duration: 0.22, filterType: "lowpass", freq: 1800, freqEnd: 600, q: 0.8, peak: 0.22, attack: 0.030, decay: 0.20 }
-      );
-      break;
-    case "drop-in":
-      play([
-        { freq: 660, freqEnd: 330, attack: 0.005, decay: 0.20, peak: 0.30 },
-        { freq: 330, freqEnd: 165, attack: 0.008, decay: 0.30, peak: 0.18 },
-        { freq: 1320, attack: 0.003, decay: 0.10, peak: 0.10 },
-      ]);
-      break;
-    case "wisp":
-      playWithNoise(
-        [],
-        { duration: 0.16, filterType: "highpass", freq: 2400, freqEnd: 5000, q: 0.7, peak: 0.20, attack: 0.020, decay: 0.14 }
-      );
-      break;
-    case "bubble":
-      play([
-        { freq: 300, freqEnd: 600, glideTo: 0.05, attack: 0.005, decay: 0.10, peak: 0.32 },
-        { freq: 600, freqEnd: 400, glideTo: 0.06, attack: 0.008, decay: 0.12, peak: 0.18, delay: 0.05 },
-      ]);
-      break;
-    case "pat":
-      playWithNoise(
-        [{ freq: 180, attack: 0.003, decay: 0.06, peak: 0.20 }],
-        { duration: 0.04, filterType: "lowpass", freq: 600, peak: 0.30, attack: 0.001, decay: 0.038 }
-      );
-      break;
-    case "touch":
-      play([
-        { freq: 1760, attack: 0.002, decay: 0.06, peak: 0.16 },
-        { freq: 880,  attack: 0.003, decay: 0.08, peak: 0.10 },
-      ]);
-      break;
-    case "snap":
-      playWithNoise(
-        [{ freq: 220, attack: 0.002, decay: 0.05, peak: 0.18 }],
-        { duration: 0.03, filterType: "highpass", freq: 3000, peak: 0.24, attack: 0.001, decay: 0.028 }
-      );
-      break;
-    case "card":
-      playWithNoise(
-        [],
-        { duration: 0.12, filterType: "bandpass", freq: 800, freqEnd: 200, q: 1.0, peak: 0.30, attack: 0.005, decay: 0.11 }
-      );
-      break;
-    case "ping":
-      play([
-        { freq: 2349, attack: 0.002, decay: 0.20, peak: 0.18 },
-        { freq: 4698, attack: 0.002, decay: 0.15, peak: 0.08 },
-      ]);
-      break;
-  }
-}
+const CREATE_SPECS: Record<CreateVariant, SoundSpec> = {
+  "plus-rise": {
+    voices: [
+      { freq: 440, freqEnd: 880, glideTo: 0.08, attack: 0.005, decay: 0.10, peak: 0.26 },
+      { freq: 880, freqEnd: 1760, glideTo: 0.08, attack: 0.005, decay: 0.08, peak: 0.14 },
+    ],
+  },
+  "subtle-whoosh": {
+    noises: [{ duration: 0.20, filterType: "bandpass", freq: 400, freqEnd: 2200, q: 1.2, peak: 0.28, attack: 0.020, decay: 0.18 }],
+  },
+  "pencil": {
+    noises: [{ duration: 0.12, filterType: "bandpass", freq: 1500, freqEnd: 3000, q: 2.0, peak: 0.20, attack: 0.005, decay: 0.11 }],
+  },
+  "paper-flip": {
+    noises: [
+      { duration: 0.04, filterType: "highpass", freq: 2000, peak: 0.20, attack: 0.005, decay: 0.035, delay: 0.00 },
+      { duration: 0.04, filterType: "highpass", freq: 2000, peak: 0.16, attack: 0.005, decay: 0.035, delay: 0.05 },
+    ],
+  },
+  "page-turn": {
+    noises: [{ duration: 0.18, filterType: "bandpass", freq: 1200, freqEnd: 600, q: 1.0, peak: 0.26, attack: 0.010, decay: 0.16 }],
+  },
+  "pen-click": {
+    voices: [
+      { freq: 1800, attack: 0.001, decay: 0.018, peak: 0.18, delay: 0.00 },
+      { freq: 1600, attack: 0.001, decay: 0.018, peak: 0.18, delay: 0.06 },
+    ],
+    noises: [
+      { duration: 0.010, filterType: "highpass", freq: 4000, peak: 0.22, attack: 0.0005, decay: 0.009, delay: 0.00 },
+      { duration: 0.010, filterType: "highpass", freq: 4000, peak: 0.20, attack: 0.0005, decay: 0.009, delay: 0.06 },
+    ],
+  },
+  "magnet-snap": {
+    voices: [{ freq: 660, freqEnd: 220, glideTo: 0.025, attack: 0.001, decay: 0.07, peak: 0.30 }],
+    noises: [{ duration: 0.010, filterType: "highpass", freq: 3500, peak: 0.24, attack: 0.0005, decay: 0.009 }],
+  },
+  "drawer": {
+    noises: [{ duration: 0.16, filterType: "lowpass", freq: 1200, freqEnd: 500, q: 0.8, peak: 0.32, attack: 0.020, decay: 0.14 }],
+  },
+  "air-puff": {
+    noises: [{ duration: 0.09, filterType: "lowpass", freq: 1200, freqEnd: 400, q: 0.7, peak: 0.30, attack: 0.010, decay: 0.08 }],
+  },
+  "spray": {
+    noises: [{ duration: 0.12, filterType: "highpass", freq: 2500, freqEnd: 5000, q: 0.8, peak: 0.22, attack: 0.010, decay: 0.11 }],
+  },
+  "bounce": {
+    voices: [
+      { freq: 440, freqEnd: 880, glideTo: 0.05, attack: 0.001, decay: 0.06, peak: 0.30 },
+      { freq: 880, freqEnd: 440, glideTo: 0.05, attack: 0.001, decay: 0.06, peak: 0.20, delay: 0.06 },
+      { freq: 440, freqEnd: 660, glideTo: 0.04, attack: 0.001, decay: 0.05, peak: 0.14, delay: 0.14 },
+    ],
+  },
+  "snap": {
+    voices: [{ freq: 200, attack: 0.001, decay: 0.04, peak: 0.20 }],
+    noises: [{ duration: 0.020, filterType: "highpass", freq: 3000, peak: 0.30, attack: 0.0005, decay: 0.018 }],
+  },
+  "slide": {
+    noises: [{ duration: 0.14, filterType: "bandpass", freq: 800, freqEnd: 1800, q: 1.0, peak: 0.26, attack: 0.015, decay: 0.12 }],
+  },
+  "light-bell": bell(2349, 0.18, 0.35),
+  "bubble-small": {
+    voices: [
+      { freq: 360, freqEnd: 640, glideTo: 0.012, attack: 0.001, decay: 0.04, peak: 0.28 },
+    ],
+  },
+  "twinkle-small": {
+    voices: [
+      { freq: 2640, attack: 0.001, decay: 0.10, peak: 0.16, delay: 0.00 },
+      { freq: 3520, attack: 0.001, decay: 0.10, peak: 0.14, delay: 0.05 },
+    ],
+  },
+  "slip": {
+    noises: [{ duration: 0.12, filterType: "bandpass", freq: 600, freqEnd: 1600, q: 1.5, peak: 0.20, attack: 0.010, decay: 0.11 }],
+  },
+  "card-swipe": {
+    noises: [{ duration: 0.10, filterType: "bandpass", freq: 1200, freqEnd: 400, q: 0.8, peak: 0.30, attack: 0.005, decay: 0.09 }],
+  },
+  "light-tick": {
+    voices: [{ freq: 1320, attack: 0.001, decay: 0.025, peak: 0.20 }],
+  },
+  "touch-ding": {
+    voices: [
+      { freq: 1760, attack: 0.002, decay: 0.18, peak: 0.20 },
+      { freq: 1760, detune: 8, attack: 0.003, decay: 0.20, peak: 0.14 },
+    ],
+  },
+};
+
+export function playCreate(v: CreateVariant) { playSpec(CREATE_SPECS[v]); }
 
 /* ════════════════════════════════════════════════════════════
-   Persistence (localStorage)
+   Persistence
    ════════════════════════════════════════════════════════════ */
 
 const KEYS = {
