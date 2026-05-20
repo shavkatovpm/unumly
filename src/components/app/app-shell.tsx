@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePlans } from "@/lib/plans-store";
+import { refreshPlans, usePlans } from "@/lib/plans-store";
+import { migrateLocalStorageOnce } from "@/lib/migrate-localstorage";
 import { startOfDay, toDateInputValue } from "@/lib/dates";
 import { Sidebar } from "./sidebar";
 import { MobileBottomNav } from "./mobile-bottom-nav";
@@ -35,6 +36,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => {
     setHasMounted(true);
+  }, []);
+
+  // One-time localStorage → DB migration (only runs if the user had local
+  // plans from before backend was enabled). After import, refresh the
+  // store from server so the new rows appear.
+  useEffect(() => {
+    void (async () => {
+      const { imported } = await migrateLocalStorageOnce();
+      if (imported > 0) await refreshPlans();
+    })();
   }, []);
 
   // Telegram WebApp init — agar ilova Telegram Mini App ichida ishlasa,

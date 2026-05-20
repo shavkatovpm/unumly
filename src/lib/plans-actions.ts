@@ -76,6 +76,31 @@ export type CreatePlanInput = {
   priority?: PlanPriority;
 };
 
+/** Upsert by id — used by ideas-store to mirror a scheduled idea as a plan. */
+export async function upsertPlan(input: CreatePlanInput & { id: string }): Promise<Plan> {
+  const user = await requireUser();
+  const existing = await prisma.plan.findFirst({
+    where: { id: input.id, userId: user.id },
+    select: { id: true, order: true },
+  });
+  if (existing) {
+    const row = await prisma.plan.update({
+      where: { id: input.id },
+      data: {
+        title: input.title.trim(),
+        notes: input.notes,
+        scope: input.scope ?? "DAILY",
+        priority: input.priority,
+        scheduledFor: input.scheduledFor,
+        time: input.time,
+        duration: input.duration,
+      },
+    });
+    return toPlan(row);
+  }
+  return createPlan(input);
+}
+
 export async function createPlan(input: CreatePlanInput): Promise<Plan> {
   const user = await requireUser();
   const last = await prisma.plan.findFirst({

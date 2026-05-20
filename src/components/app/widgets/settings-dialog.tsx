@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Volume2, VolumeX, X } from "lucide-react";
+import { LogOut, Volume2, VolumeX, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   loadSelection,
@@ -21,6 +22,17 @@ export function SettingsDialog({
 }) {
   const [enabled, setEnabled] = useState(true);
   const [volume, setVolume] = useState(0.2);
+  const [signingOut, setSigningOut] = useState(false);
+  const router = useRouter();
+
+  async function signOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await fetch("/api/auth/signout", { method: "POST" });
+    } catch { /**/ }
+    router.replace("/kirish");
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -130,6 +142,28 @@ export function SettingsDialog({
           </div>
         </section>
 
+        {/* ── Akkaunt ── */}
+        <section>
+          <p className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.18em] text-faint">
+            Akkaunt
+          </p>
+          <button
+            type="button"
+            onClick={signOut}
+            disabled={signingOut}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-md border border-border bg-surface px-3.5 py-3 transition-colors hover:bg-danger-soft hover:text-danger disabled:opacity-50",
+            )}
+          >
+            <LogOut className="size-4" />
+            <div className="text-left">
+              <p className="text-[13.5px] font-medium">Chiqish</p>
+              <p className="text-[11.5px] text-faint">
+                Sessiyani yopib /kirish sahifasiga qaytadi
+              </p>
+            </div>
+          </button>
+        </section>
       </div>
     </Dialog>
   );
