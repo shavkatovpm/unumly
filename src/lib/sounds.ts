@@ -19,10 +19,11 @@ function getCtx(): AudioContext | null {
 }
 
 let _master = 0.25;
-// Internal trim — scales actual output so the user-facing 0..100% feels
-// natural. Adjust this if synth voices sound too loud/quiet relative
-// to the slider value (user still sees the original percent).
-const GLOBAL_GAIN_TRIM = 0.70;
+// Per-event gain trim. Some events (like task done / pen-click) sound louder
+// than others at the same master volume; trim them down without touching
+// the user-visible percentage.
+const COMPLETE_GAIN_TRIM = 0.70;
+const CREATE_GAIN_TRIM   = 1.00;
 export function setMasterVolume(v: number) { _master = Math.max(0, Math.min(1, v)); }
 export function getMasterVolume() { return _master; }
 
@@ -102,12 +103,12 @@ function scheduleNoise(ctx: AudioContext, out: GainNode, t0: number, n: NoiseSpe
   src.stop(start + n.duration);
 }
 
-function playSpec(spec: SoundSpec) {
+function playSpec(spec: SoundSpec, gainScale = 1) {
   const ctx = getCtx();
   if (!ctx) return;
   const t = ctx.currentTime;
   const out = ctx.createGain();
-  out.gain.value = _master * GLOBAL_GAIN_TRIM;
+  out.gain.value = _master * gainScale;
   out.connect(ctx.destination);
   for (const v of spec.voices ?? []) scheduleVoice(ctx, out, t, v);
   for (const n of spec.noises ?? []) scheduleNoise(ctx, out, t, n);
@@ -704,12 +705,12 @@ function _refreshMaster() {
 export function playOnComplete() {
   if (!_isEnabled()) return;
   _refreshMaster();
-  playSpec(CREATE_SPECS[PICK_ON_COMPLETE]);
+  playSpec(CREATE_SPECS[PICK_ON_COMPLETE], COMPLETE_GAIN_TRIM);
 }
 
 /** Play the "new task created" sound. Call right when the user submits a new task. */
 export function playOnCreate() {
   if (!_isEnabled()) return;
   _refreshMaster();
-  playSpec(CHECK_SPECS[PICK_ON_CREATE]);
+  playSpec(CHECK_SPECS[PICK_ON_CREATE], CREATE_GAIN_TRIM);
 }
