@@ -77,6 +77,91 @@ export async function sendLoginSuccess(chatId: number | string, appUrl: string) 
   });
 }
 
+/* ─── Reminder helpers ────────────────────────────────────── */
+
+/**
+ * Send a task reminder to a user. Returns the Telegram message id so we
+ * can edit it later (when the plan status changes from the app).
+ */
+export async function sendTaskReminder(opts: {
+  chatId: number | string;
+  planId: string;
+  title: string;
+  time?: string | null;
+  priority?: "LOW" | "MEDIUM" | "HIGH" | null;
+  appUrl: string;
+}): Promise<number> {
+  const PRIORITY_ICON: Record<string, string> = {
+    HIGH:   "🔴",
+    MEDIUM: "🟡",
+    LOW:    "🟢",
+  };
+  const icon = opts.priority ? (PRIORITY_ICON[opts.priority] ?? "") : "";
+  const timeText = opts.time ? ` · ${opts.time}` : "";
+
+  const res = await fetch(`${BASE}/bot${token()}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: opts.chatId,
+      text: `⏰ *Eslatma*${timeText}\n\n${icon ? icon + " " : ""}${escapeMarkdown(opts.title)}`,
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "✓ Bajardim",  callback_data: `done:${opts.planId}` },
+          { text: "→ Kirish",    web_app: { url: opts.appUrl } },
+        ]],
+      },
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`sendTaskReminder failed (${res.status}): ${body}`);
+  }
+  const data = (await res.json()) as { result?: { message_id?: number } };
+  const id = data?.result?.message_id;
+  if (typeof id !== "number") throw new Error("sendTaskReminder: missing message_id");
+  return id;
+}
+
+/** Mark a reminder as completed: remove buttons, prepend ✅. Best-effort. */
+export async function markReminderDone(opts: {
+  chatId: number | string;
+  messageId: number;
+  title: string;
+  time?: string | null;
+  via: "bot" | "app";
+}) {
+  const timeText = opts.time ? ` · ${opts.time}` : "";
+  const note = opts.via === "bot" ? "Botdan bajarildi" : "Ilovada bajarildi";
+  const res = await fetch(`${BASE}/bot${token()}/editMessageText`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: opts.chatId,
+      message_id: opts.messageId,
+      text: `✅ *Bajarildi*${timeText}\n\n${escapeMarkdown(opts.title)}\n\n_${note}_`,
+      parse_mode: "Markdown",
+    }),
+  });
+  // Telegram returns 400 on no-op (same text); ignore those
+  if (!res.ok && res.status !== 400) {
+    console.error("markReminderDone:", await res.text().catch(() => res.status));
+  }
+}
+
+export async function answerCallbackQuery(id: string, text?: string) {
+  await fetch(`${BASE}/bot${token()}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callback_query_id: id, text }),
+  });
+}
+
+function escapeMarkdown(s: string): string {
+  return s.replace(/([_*[\]()`])/g, "\\$1");
+}
+
 /* ─── Webhook setup helper (call once after deploy) ───────── */
 
 export async function setWebhook(url: string, secretToken: string) {

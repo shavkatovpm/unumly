@@ -109,6 +109,14 @@ model Plan {
   time         String?       @db.VarChar(5)  // "HH:MM"
   duration     Int?                            // minutes (defaults to 60 visually)
 
+  // Precomputed UTC instant when this plan should fire a Telegram reminder.
+  // Set when both `scheduledFor` and `time` are present; null otherwise.
+  // The cron query filters tasks by `notifyAt` to avoid scanning everything.
+  notifyAt     DateTime?
+
+  // Set when the reminder has actually been sent.
+  notifiedAt   DateTime?
+
   completedAt  DateTime?
   deletedAt    DateTime?     // soft delete; purged after 30 days
   order        Int           @default(0)
@@ -117,8 +125,27 @@ model Plan {
   updatedAt    DateTime      @updatedAt
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  botMessages  BotMessage[]
 
   @@index([userId, scope, scheduledFor])
   @@index([userId, status])
   @@index([userId, deletedAt])
+  @@index([notifyAt, notifiedAt, status])
+}
+
+// Telegram messages we sent for a given plan (reminder + inline buttons).
+// Stored so we can edit them when the plan's status changes from the app
+// (e.g. user marks DONE on web → remove the "Bajardim" button from the
+// chat message and replace it with a "✅ Bajarildi" footer).
+model BotMessage {
+  id        String   @id @default(cuid())
+  planId    String
+  chatId    BigInt
+  messageId Int
+  createdAt DateTime @default(now())
+
+  plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, chatId, messageId])
+  @@index([planId])
 }

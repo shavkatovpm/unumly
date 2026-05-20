@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LogOut, Volume2, VolumeX, X } from "lucide-react";
+import { Bell, LogOut, Volume2, VolumeX, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -11,6 +11,11 @@ import {
   saveVolume,
   setMasterVolume,
 } from "@/lib/sounds";
+import {
+  getNotificationPrefs,
+  updateNotificationPrefs,
+  type NotificationPrefs,
+} from "@/lib/user-settings-actions";
 import { Dialog } from "./dialog";
 
 export function SettingsDialog({

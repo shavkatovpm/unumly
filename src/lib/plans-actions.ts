@@ -4,6 +4,8 @@ import type { Plan as DbPlan } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
+import { computeNotifyAt } from "@/lib/notify-time";
+import { markReminderDone } from "@/lib/telegram-bot";
 import type { Plan, PlanScope, PlanStatus, PlanPriority } from "@/lib/types";
 
 const TRASH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -94,6 +96,9 @@ export async function upsertPlan(input: CreatePlanInput & { id: string }): Promi
         scheduledFor: input.scheduledFor,
         time: input.time,
         duration: input.duration,
+        notifyAt: computeNotifyAt(input.scheduledFor, input.time),
+        // Re-arm: if time changed, allow re-sending the reminder
+        notifiedAt: null,
       },
     });
     return toPlan(row);
@@ -123,6 +128,7 @@ export async function createPlan(input: CreatePlanInput): Promise<Plan> {
       time: input.time,
       duration: input.duration,
       order: nextOrder,
+      notifyAt: computeNotifyAt(input.scheduledFor, input.time),
     },
   });
   return toPlan(row);
@@ -145,6 +151,13 @@ export async function updatePlan(id: string, patch: UpdatePlanPatch): Promise<Pl
   const user = await requireUser();
   const existing = await prisma.plan.findFirst({ where: { id, userId: user.id } });
   if (!existing) throw new Error("NOT_FOUND");
+
+  // Recompute notifyAt when scheduledFor or time changes
+  const nextScheduledFor = patch.scheduledFor ?? existing.scheduledFor;
+  const nextTime = patch.time === undefined ? existing.time : patch.time;
+  const reschedule =
+    patch.scheduledFor !== undefined || patch.time !== undefined;
+
   const row = await prisma.plan.update({
     where: { id },
     data: {
@@ -155,6 +168,10 @@ export async function updatePlan(id: string, patch: UpdatePlanPatch): Promise<Pl
           : patch.completedAt === null
           ? null
           : new Date(patch.completedAt),
+      ...(reschedule && {
+        notifyAt: computeNotifyAt(nextScheduledFor, nextTime),
+        notifiedAt: null, // re-arm reminder
+      }),
     },
   });
   return toPlan(row);
@@ -173,7 +190,39 @@ export async function togglePlanStatus(id: string): Promise<Plan> {
       completedAt: nowDone ? new Date() : null,
     },
   });
+
+  // If we just marked DONE from the app, edit any sent bot reminders to
+  // remove the "Bajardim" button.
+  if (nowDone) {
+    void clearReminderButtons(id, "app").catch((err) =>
+      console.error("clearReminderButtons failed", err)
+    );
+  }
+
   return toPlan(row);
+}
+
+/** Edit all bot-sent reminders for a plan to show "Bajarildi" + remove buttons. */
+async function clearReminderButtons(planId: string, via: "bot" | "app") {
+  const [plan, messages] = await Promise.all([
+    prisma.plan.findUnique({ where: { id: planId } }),
+    prisma.botMessage.findMany({ where: { planId } }),
+  ]);
+  if (!plan || messages.length === 0) return;
+
+  await Promise.allSettled(
+    messages.map((m) =>
+      markReminderDone({
+        chatId: Number(m.chatId),
+        messageId: m.messageId,
+        title: plan.title,
+        time: plan.time,
+        via,
+      })
+    )
+  );
+  // Drop tracking — message is now in "final" state, no further edits needed
+  await prisma.botMessage.deleteMany({ where: { planId } });
 }
 
 /* ─── Soft delete / restore / purge ───────────────────────── */
@@ -184,6 +233,8 @@ export async function removePlan(id: string): Promise<void> {
     where: { id, userId: user.id },
     data: { deletedAt: new Date() },
   });
+  // Silence any pending bot reminders for this plan
+  await prisma.botMessage.deleteMany({ where: { planId: id } });
 }
 
 export async function removeManyPlans(ids: string[]): Promise<void> {

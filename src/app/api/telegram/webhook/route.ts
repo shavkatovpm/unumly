@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { askForContact } from "@/lib/telegram-bot";
+import { answerCallbackQuery, askForContact, markReminderDone } from "@/lib/telegram-bot";
 import { normalisePhone } from "@/lib/phone";
 import { issueAndSendOtp } from "@/lib/otp";
 
@@ -10,6 +10,14 @@ const SECRET_HEADER = "x-telegram-bot-api-secret-token";
 
 type TgUpdate = {
   message?: TgMessage;
+  callback_query?: TgCallbackQuery;
+};
+
+type TgCallbackQuery = {
+  id: string;
+  from: TgFrom;
+  message?: { message_id: number; chat: { id: number } };
+  data?: string;
 };
 
 type TgMessage = {
@@ -51,6 +59,11 @@ export async function POST(req: Request) {
     update = (await req.json()) as TgUpdate;
   } catch {
     return new NextResponse("bad request", { status: 400 });
+  }
+
+  // Inline button press (Bajardim / Kirish)
+  if (update.callback_query) {
+    return handleCallback(update.callback_query);
   }
 
   const msg = update.message;
@@ -147,6 +160,68 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error("webhook error", err);
     // Always 200 to Telegram so it doesn't retry
+    return NextResponse.json({ ok: false });
+  }
+}
+
+/* ─── Callback query: "Bajardim" inline button ───────────── */
+
+async function handleCallback(cq: TgCallbackQuery) {
+  try {
+    const data = cq.data ?? "";
+    const [action, planId] = data.split(":");
+
+    if (action !== "done" || !planId) {
+      await answerCallbackQuery(cq.id);
+      return NextResponse.json({ ok: true });
+    }
+
+    // Confirm sender owns the plan (defence in depth)
+    const plan = await prisma.plan.findUnique({
+      where: { id: planId },
+      include: { user: true },
+    });
+    if (!plan) {
+      await answerCallbackQuery(cq.id, "Reja topilmadi");
+      return NextResponse.json({ ok: true });
+    }
+    if (Number(plan.user.telegramId) !== cq.from.id) {
+      await answerCallbackQuery(cq.id, "Ruxsat yo'q");
+      return NextResponse.json({ ok: true });
+    }
+
+    if (plan.status === "DONE") {
+      await answerCallbackQuery(cq.id, "Allaqachon bajarilgan");
+      return NextResponse.json({ ok: true });
+    }
+
+    // Mark DONE + clear bot reminders (edit the message in-place + drop others)
+    await prisma.plan.update({
+      where: { id: plan.id },
+      data: { status: "DONE", completedAt: new Date() },
+    });
+
+    const messages = await prisma.botMessage.findMany({
+      where: { planId: plan.id },
+    });
+    await Promise.allSettled(
+      messages.map((m) =>
+        markReminderDone({
+          chatId: Number(m.chatId),
+          messageId: m.messageId,
+          title: plan.title,
+          time: plan.time,
+          via: "bot",
+        })
+      )
+    );
+    await prisma.botMessage.deleteMany({ where: { planId: plan.id } });
+
+    await answerCallbackQuery(cq.id, "✅ Bajarildi");
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("callback handler error", err);
+    await answerCallbackQuery(cq.id).catch(() => { /* ignore */ });
     return NextResponse.json({ ok: false });
   }
 }
