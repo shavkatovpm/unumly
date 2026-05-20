@@ -19,6 +19,10 @@ function getCtx(): AudioContext | null {
 }
 
 let _master = 0.25;
+// Internal trim — scales actual output so the user-facing 0..100% feels
+// natural. Adjust this if synth voices sound too loud/quiet relative
+// to the slider value (user still sees the original percent).
+const GLOBAL_GAIN_TRIM = 0.70;
 export function setMasterVolume(v: number) { _master = Math.max(0, Math.min(1, v)); }
 export function getMasterVolume() { return _master; }
 
@@ -103,7 +107,7 @@ function playSpec(spec: SoundSpec) {
   if (!ctx) return;
   const t = ctx.currentTime;
   const out = ctx.createGain();
-  out.gain.value = _master;
+  out.gain.value = _master * GLOBAL_GAIN_TRIM;
   out.connect(ctx.destination);
   for (const v of spec.voices ?? []) scheduleVoice(ctx, out, t, v);
   for (const n of spec.noises ?? []) scheduleNoise(ctx, out, t, n);
