@@ -22,8 +22,26 @@ let _master = 0.2;
 // Per-event gain trim. Some events (like task done / pen-click) sound louder
 // than others at the same master volume; trim them down without touching
 // the user-visible percentage.
-const COMPLETE_GAIN_TRIM = 0.2;
-const CREATE_GAIN_TRIM   = 0.8;
+//
+// Desktop ovoz dinamiklari mobile'dan ko'ra past chiqargani uchun
+// desktop'da default qiymatlar yuqori (master 0.5, complete trim 0.4).
+const COMPLETE_GAIN_TRIM_MOBILE  = 0.2;
+const COMPLETE_GAIN_TRIM_DESKTOP = 0.4;
+const CREATE_GAIN_TRIM           = 0.8;
+const DEFAULT_MASTER_MOBILE      = 0.2;
+const DEFAULT_MASTER_DESKTOP     = 0.5;
+
+function _isDesktop(): boolean {
+  if (typeof window === "undefined") return false;
+  try { return window.matchMedia("(min-width: 768px)").matches; }
+  catch { return false; }
+}
+function _defaultMaster(): number {
+  return _isDesktop() ? DEFAULT_MASTER_DESKTOP : DEFAULT_MASTER_MOBILE;
+}
+function _defaultCompleteTrim(): number {
+  return _isDesktop() ? COMPLETE_GAIN_TRIM_DESKTOP : COMPLETE_GAIN_TRIM_MOBILE;
+}
 export function setMasterVolume(v: number) { _master = Math.max(0, Math.min(1, v)); }
 export function getMasterVolume() { return _master; }
 
@@ -656,9 +674,10 @@ export function loadSelection(): SoundSelection {
   const volume = (() => {
     try {
       const raw = window.localStorage.getItem(KEYS.volume);
-      const v = raw == null ? 0.2 : parseFloat(raw);
-      return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.2;
-    } catch { return 0.2; }
+      const fallback = _defaultMaster();
+      const v = raw == null ? fallback : parseFloat(raw);
+      return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : fallback;
+    } catch { return _defaultMaster(); }
   })();
   return {
     check: read<CheckVariant>(KEYS.check),
@@ -696,21 +715,22 @@ function _refreshMaster() {
   if (typeof window === "undefined") return;
   try {
     const raw = window.localStorage.getItem(KEYS.volume);
-    const v = raw == null ? 0.2 : parseFloat(raw);
+    const v = raw == null ? _defaultMaster() : parseFloat(raw);
     if (Number.isFinite(v)) _master = Math.max(0, Math.min(1, v));
   } catch { /**/ }
 }
 
-/** Returns the user-saved complete trim, or the default. */
+/** Returns the user-saved complete trim, or the device-specific default. */
 function _completeTrim(): number {
-  if (typeof window === "undefined") return COMPLETE_GAIN_TRIM;
+  const fallback = _defaultCompleteTrim();
+  if (typeof window === "undefined") return fallback;
   try {
     const raw = window.localStorage.getItem("unumly:sound:complete-trim");
-    if (!raw) return COMPLETE_GAIN_TRIM;
+    if (!raw) return fallback;
     const v = parseFloat(raw);
     if (Number.isFinite(v)) return Math.max(0, Math.min(1, v));
   } catch { /**/ }
-  return COMPLETE_GAIN_TRIM;
+  return fallback;
 }
 
 /** Save the complete trim from the test page. */
