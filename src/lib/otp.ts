@@ -32,13 +32,16 @@ async function generateUniqueCode(): Promise<string> {
 }
 
 /**
- * Invalidate any prior active codes for this phone, create a new one,
- * persist its hash, and DM the plain code to the user via the bot.
+ * Invalidate any prior active codes for this phone, create a fresh one,
+ * persist its hash, and return the plain code (caller decides how to
+ * deliver it via the bot).
  */
-export async function issueAndSendOtp(user: Pick<User, "telegramId" | "phone">) {
+export async function issueOtp(user: Pick<User, "phone">): Promise<{
+  code: string;
+  expiresInSec: number;
+}> {
   if (!user.phone) throw new Error("user has no phone");
 
-  // Burn any active codes for this phone first
   await prisma.otpCode.updateMany({
     where: { phone: user.phone, used: false, expiresAt: { gt: new Date() } },
     data: { used: true },
@@ -53,6 +56,16 @@ export async function issueAndSendOtp(user: Pick<User, "telegramId" | "phone">) 
     },
   });
 
-  await sendOtpMessage(Number(user.telegramId), code);
   return { code, expiresInSec: OTP_TTL_MS / 1000 };
+}
+
+/**
+ * Convenience: generate + send via the plain OTP template (web-login flow).
+ */
+export async function issueAndSendOtp(
+  user: Pick<User, "telegramId" | "phone">
+) {
+  const { code, expiresInSec } = await issueOtp(user);
+  await sendOtpMessage(Number(user.telegramId), code);
+  return { code, expiresInSec };
 }

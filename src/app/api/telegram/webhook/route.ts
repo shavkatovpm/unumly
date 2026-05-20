@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { answerCallbackQuery, askForContact, markReminderDone } from "@/lib/telegram-bot";
+import {
+  answerCallbackQuery,
+  askForContact,
+  markReminderDone,
+  sendOnboardingComplete,
+  sendStartWelcome,
+} from "@/lib/telegram-bot";
 import { normalisePhone } from "@/lib/phone";
-import { issueAndSendOtp } from "@/lib/otp";
+import { issueAndSendOtp, issueOtp } from "@/lib/otp";
 
 export const runtime = "nodejs";
 
 const SECRET_HEADER = "x-telegram-bot-api-secret-token";
+const APP_URL = "https://www.unumly.uz/bugun";
 
 type TgUpdate = {
   message?: TgMessage;
@@ -108,26 +115,46 @@ export async function POST(req: Request) {
           isPremium: from.is_premium ?? false,
         },
       });
-      await issueAndSendOtp({ telegramId: user.telegramId, phone: user.phone });
+      // First-time onboarding: send the Mini App button + an OTP code
+      // (in case the user is also coming from the website).
+      const { code } = await issueOtp({ phone: user.phone });
+      await sendOnboardingComplete(chatId, APP_URL, code);
       return NextResponse.json({ ok: true });
     }
 
-    // /start — for registered users, send fresh OTP immediately;
-    // for new users, ask for contact first.
+    // /start — branching based on the deep-link parameter:
+    //   "/start login"  → user came from the website's "Kod olish" button
+    //                     → send a fresh OTP code (for web login)
+    //   "/start" (no arg) → user opened the bot directly
+    //                     → greet + Mini App button, no code
+    //   For new users (no phone yet), always ask for contact.
     const text = (msg.text ?? "").trim();
     const isStart = text === "/start" || text.startsWith("/start ");
     if (isStart) {
+      const param = text.startsWith("/start ") ? text.slice(7).trim() : "";
+      const wantsCode = param === "login";
+
       const existing = await prisma.user.findUnique({
         where: { telegramId: BigInt(from.id) },
       });
+
       if (existing?.phone) {
         await prisma.user.update({
           where: { id: existing.id },
           data: { lastSeenAt: new Date() },
         });
-        await issueAndSendOtp({ telegramId: existing.telegramId, phone: existing.phone });
+        if (wantsCode) {
+          await issueAndSendOtp({
+            telegramId: existing.telegramId,
+            phone: existing.phone,
+          });
+        } else {
+          await sendStartWelcome(chatId, APP_URL);
+        }
         return NextResponse.json({ ok: true });
       }
+
+      // New user — onboard regardless of deep-link param
       await prisma.user.upsert({
         where: { telegramId: BigInt(from.id) },
         update: { lastSeenAt: new Date() },
@@ -144,13 +171,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // Any other text from a registered user → send a fresh code (acts as
-    // an implicit "send me a new code" command).
+    // Any other text — gentle nudge (Mini App for registered, contact for new)
     const existing = await prisma.user.findUnique({
       where: { telegramId: BigInt(from.id) },
     });
     if (existing?.phone) {
-      await issueAndSendOtp({ telegramId: existing.telegramId, phone: existing.phone });
+      await sendStartWelcome(chatId, APP_URL);
       return NextResponse.json({ ok: true });
     }
 

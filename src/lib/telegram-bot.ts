@@ -77,6 +77,44 @@ export async function sendLoginSuccess(chatId: number | string, appUrl: string) 
   });
 }
 
+/** Greet a returning registered user — Mini App button, no code. */
+export async function sendStartWelcome(chatId: number | string, appUrl: string) {
+  return sendMessage({
+    chat_id: chatId,
+    text:
+      `👋 Xush kelibsiz!\n\n` +
+      `Pastdagi tugma orqali Unumly ilovasini oching.\n\n` +
+      `_Saytda kirish uchun unumly.uz/kirish sahifasiga o'tib " Telegram'dan kod olish" tugmasini bosing._`,
+    parse_mode: "Markdown",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "🚀 Unumly Mini App", web_app: { url: appUrl } }],
+      ],
+    },
+  });
+}
+
+/** Onboarding completion message — Mini App button alongside the OTP. */
+export async function sendOnboardingComplete(
+  chatId: number | string,
+  appUrl: string,
+  code: string
+) {
+  return sendMessage({
+    chat_id: chatId,
+    text:
+      `✅ Ro'yxatdan o'tdingiz!\n\n` +
+      `Pastdagi tugma orqali ilovani darxol oching.\n\n` +
+      `Saytda kirish kerak bo'lsa — kodingiz:\n\`${code}\` (10 daqiqa amal qiladi)`,
+    parse_mode: "Markdown",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "🚀 Unumly Mini App", web_app: { url: appUrl } }],
+      ],
+    },
+  });
+}
+
 /* ─── Reminder helpers ────────────────────────────────────── */
 
 /**
