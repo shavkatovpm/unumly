@@ -48,13 +48,28 @@ export function TimePickerPopover({
       const el = triggerRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
+      // visualViewport — klaviatura ochiq paytda haqiqiy ko'rinadigan maydon
+      const vv = window.visualViewport;
+      const vvTop = vv?.offsetTop ?? 0;
+      const vvHeight = vv?.height ?? window.innerHeight;
+      const vvWidth = vv?.width ?? window.innerWidth;
+      const visibleBottom = vvTop + vvHeight;
+      const visibleTop = vvTop;
+
       let top = r.bottom + 6;
-      if (top + POPOVER_HEIGHT_APPROX > window.innerHeight - EDGE_MARGIN) {
-        top = Math.max(EDGE_MARGIN, r.top - POPOVER_HEIGHT_APPROX - 6);
+      if (top + POPOVER_HEIGHT_APPROX > visibleBottom - EDGE_MARGIN) {
+        // Tepada joy bormi?
+        const aboveTop = r.top - POPOVER_HEIGHT_APPROX - 6;
+        if (aboveTop >= visibleTop + EDGE_MARGIN) {
+          top = aboveTop;
+        } else {
+          // Ko'rinadigan maydon ostiga clamp qilamiz
+          top = Math.max(visibleTop + EDGE_MARGIN, visibleBottom - POPOVER_HEIGHT_APPROX - EDGE_MARGIN);
+        }
       }
       let left = r.left;
-      if (left + POPOVER_WIDTH > window.innerWidth - EDGE_MARGIN) {
-        left = window.innerWidth - POPOVER_WIDTH - EDGE_MARGIN;
+      if (left + POPOVER_WIDTH > vvWidth - EDGE_MARGIN) {
+        left = vvWidth - POPOVER_WIDTH - EDGE_MARGIN;
       }
       left = Math.max(EDGE_MARGIN, left);
       setPos({ top, left });

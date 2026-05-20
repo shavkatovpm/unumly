@@ -130,16 +130,6 @@ export function SettingsDialog({
           </div>
         </section>
 
-        <p className="text-[11px] leading-relaxed text-faint">
-          Boshqa varyantlarni eshitish uchun{" "}
-          <a
-            href="/test/ovoz"
-            className="text-muted underline decoration-faint/60 underline-offset-2 hover:text-foreground"
-          >
-            /test/ovoz
-          </a>{" "}
-          sahifasiga o&apos;ting.
-        </p>
       </div>
     </Dialog>
   );

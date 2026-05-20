@@ -676,8 +676,8 @@ export function saveVolume(v: number) { try { window.localStorage.setItem(KEYS.v
    Disabled if user toggled sounds off (KEYS.enabled === "0").
    ════════════════════════════════════════════════════════════ */
 
-// Hardcoded user picks (set from /test/ovoz session).
-// Note: the IDs are unique across categories, so we can cross-reference.
+// Hardcoded user picks. Note: the IDs are unique across categories,
+// so we can cross-reference between CHECK_SPECS and CREATE_SPECS.
 const PICK_ON_COMPLETE: CreateVariant = "pen-click";
 const PICK_ON_CREATE:   CheckVariant  = "tap-soft";
 

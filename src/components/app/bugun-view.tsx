@@ -430,18 +430,10 @@ export function BugunView() {
                   <button
                     ref={mobileTimeBtnRef}
                     type="button"
-                    onClick={() => {
-                      // Klaviatura yopilishini kutib popover ochamiz —
-                      // aks holda popover viewport o'zgarish davomida noto'g'ri
-                      // joyga chiqib, keyin "tushadi"
-                      const input = mobileInputRef.current;
-                      if (input && document.activeElement === input) {
-                        input.blur();
-                        setTimeout(() => setShowTime((v) => !v), 250);
-                      } else {
-                        setShowTime((v) => !v);
-                      }
-                    }}
+                    // onMouseDown preventDefault — input fokusini saqlab qoladi
+                    // (klaviatura yopilmaydi, viewport o'zgarmaydi, popover sakramaydi)
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setShowTime((v) => !v)}
                     className={cn(
                       "flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-[13px] tabular-nums transition-colors",
                       isTimePast
@@ -458,7 +450,13 @@ export function BugunView() {
                   <button
                     type="button"
                     onClick={openDetailForCurrent}
-                    className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] text-muted transition-colors hover:border-border-strong hover:text-foreground"
+                    disabled={!title.trim()}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] transition-colors",
+                      !title.trim()
+                        ? "cursor-not-allowed text-faint/60"
+                        : "text-muted hover:border-border-strong hover:text-foreground"
+                    )}
                   >
                     <Pencil className="size-3.5" />
                     Batafsil
