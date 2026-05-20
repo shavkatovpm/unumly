@@ -177,7 +177,7 @@ export default function RootLayout({
                 "@type": "Organization",
                 name: "Unumly",
                 url: "https://unumly.uz",
-                logo: "https://unumly.uz/opengraph-image",
+                logo: "https://unumly.uz/logo.png",
                 sameAs: [],
               },
               {
