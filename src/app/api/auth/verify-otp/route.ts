@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
-import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { normalisePhone } from "@/lib/phone";
 import { createSession } from "@/lib/auth";
+import { hashCode } from "@/lib/otp";
 
 export const runtime = "nodejs";
 
 const MAX_ATTEMPTS = 5;
-
-function hashCode(code: string): string {
-  return createHash("sha256").update(code).digest("hex");
-}
 
 export async function POST(req: Request) {
   let body: unknown;
@@ -20,23 +15,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
-  const data = body as { phone?: unknown; code?: unknown };
-  if (typeof data.phone !== "string" || typeof data.code !== "string") {
-    return NextResponse.json({ error: "missing_fields" }, { status: 400 });
+  const codeRaw = (body as { code?: unknown })?.code;
+  if (typeof codeRaw !== "string") {
+    return NextResponse.json({ error: "missing_code" }, { status: 400 });
   }
-  const phone = normalisePhone(data.phone);
-  if (!phone) {
-    return NextResponse.json({ error: "invalid_phone" }, { status: 400 });
-  }
-  const code = data.code.replace(/\D/g, "");
+  const code = codeRaw.replace(/\D/g, "");
   if (code.length !== 6) {
     return NextResponse.json({ error: "invalid_code_format" }, { status: 400 });
   }
 
-  // Find the latest unused, non-expired code for this phone
   const otp = await prisma.otpCode.findFirst({
     where: {
-      phone,
+      codeHash: hashCode(code),
       used: false,
       expiresAt: { gt: new Date() },
     },
@@ -44,31 +34,18 @@ export async function POST(req: Request) {
   });
 
   if (!otp) {
-    return NextResponse.json({ error: "no_active_code" }, { status: 400 });
-  }
-
-  // Too many wrong attempts → burn this code
-  if (otp.attempts >= MAX_ATTEMPTS) {
-    await prisma.otpCode.update({
-      where: { id: otp.id },
-      data: { used: true },
-    });
-    return NextResponse.json({ error: "too_many_attempts" }, { status: 429 });
-  }
-
-  if (otp.codeHash !== hashCode(code)) {
-    await prisma.otpCode.update({
-      where: { id: otp.id },
-      data: { attempts: { increment: 1 } },
-    });
     return NextResponse.json(
-      { error: "invalid_code", attemptsLeft: MAX_ATTEMPTS - otp.attempts - 1 },
+      { error: "invalid_code", attemptsLeft: null },
       { status: 401 }
     );
   }
 
-  // Valid! Mark code used + create session
-  const user = await prisma.user.findUnique({ where: { phone } });
+  if (otp.attempts >= MAX_ATTEMPTS) {
+    await prisma.otpCode.update({ where: { id: otp.id }, data: { used: true } });
+    return NextResponse.json({ error: "too_many_attempts" }, { status: 429 });
+  }
+
+  const user = await prisma.user.findUnique({ where: { phone: otp.phone } });
   if (!user) {
     return NextResponse.json({ error: "user_not_found" }, { status: 404 });
   }

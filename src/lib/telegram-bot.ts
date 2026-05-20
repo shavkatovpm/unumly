@@ -56,17 +56,10 @@ export async function sendOtpMessage(chatId: number | string, code: string) {
     chat_id: chatId,
     text:
       `🔐 *Unumly kirish kodi*\n\n` +
-      `Kod: \`${code}\`\n\n` +
-      `5 daqiqa ichida saytda kiriting. Agar bu siz emassiz — bu xabarni e'tiborsiz qoldiring.`,
+      `\`${code}\`\n\n` +
+      `Kodni unumly.uz/kirish sahifasiga kiriting. 10 daqiqa amal qiladi.\n` +
+      `Agar bu siz emassiz — e'tiborsiz qoldiring.`,
     parse_mode: "Markdown",
-  });
-}
-
-export async function sendWelcome(chatId: number | string) {
-  return sendMessage({
-    chat_id: chatId,
-    text:
-      "✅ Tayyor! Endi unumly.uz/kirish ga o'tib telefon raqamingizni kiritsangiz, men sizga kod yuboraman.",
   });
 }
 

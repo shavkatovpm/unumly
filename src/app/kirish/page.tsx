@@ -27,7 +27,7 @@ export default async function KirishPage({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 py-10">
-      {/* In Mini App: auto-login via initData (skip the OTP flow entirely) */}
+      {/* In Mini App: auto-login via initData (skips OTP entirely) */}
       <MiniAppAutoLogin redirectTo={next} />
 
       <header className="mb-8 text-center">
@@ -38,7 +38,6 @@ export default async function KirishPage({
           Telegram orqali kiring
         </h1>
         <p className="mt-3 text-[13.5px] leading-relaxed text-muted">
-          Telefon raqamingizni kiriting — sizga{" "}
           <a
             href={`https://t.me/${botUsername}`}
             target="_blank"
@@ -47,24 +46,15 @@ export default async function KirishPage({
           >
             @{botUsername}
           </a>{" "}
-          orqali bir martalik kod yuboriladi.
+          dan bir martalik kod olib, shu yerga kiriting.
         </p>
       </header>
 
       <OtpLoginForm botUsername={botUsername} redirectTo={next} />
 
       <p className="mt-8 max-w-sm text-center text-[11.5px] leading-relaxed text-faint">
-        Ro&apos;yxatdan o&apos;tish: Telegram&apos;da{" "}
-        <a
-          href={`https://t.me/${botUsername}?start=signup`}
-          target="_blank"
-          rel="noreferrer"
-          className="underline decoration-faint/60 underline-offset-2 hover:text-foreground"
-        >
-          @{botUsername}
-        </a>{" "}
-        ni oching → /start → telefon raqamni ulashing. Keyin shu yerga
-        qaytib kiring.
+        Birinchi marta? Tugmani bossangiz bot ochiladi, <strong>/start</strong>{" "}
+        bosib telefon raqamingizni ulashasiz — kod darxol DM'ga keladi.
       </p>
 
       <nav className="mt-10">

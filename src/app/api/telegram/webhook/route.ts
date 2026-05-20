@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { askForContact, sendWelcome } from "@/lib/telegram-bot";
+import { askForContact } from "@/lib/telegram-bot";
 import { normalisePhone } from "@/lib/phone";
+import { issueAndSendOtp } from "@/lib/otp";
 
 export const runtime = "nodejs";
 
@@ -61,12 +62,10 @@ export async function POST(req: Request) {
   const chatId = msg.chat.id;
 
   try {
-    // Contact share → upsert user with phone
+    // Contact share → upsert user with phone, then immediately send OTP
     if (msg.contact) {
-      // Only accept the user's OWN contact (user_id must match sender)
       const c = msg.contact;
       if (c.user_id !== from.id) {
-        // Different person's contact — ignore politely
         await askForContact(chatId);
         return NextResponse.json({ ok: true });
       }
@@ -75,7 +74,7 @@ export async function POST(req: Request) {
         await askForContact(chatId);
         return NextResponse.json({ ok: true });
       }
-      await prisma.user.upsert({
+      const user = await prisma.user.upsert({
         where: { telegramId: BigInt(from.id) },
         update: {
           phone,
@@ -96,14 +95,26 @@ export async function POST(req: Request) {
           isPremium: from.is_premium ?? false,
         },
       });
-      await sendWelcome(chatId);
+      await issueAndSendOtp({ telegramId: user.telegramId, phone: user.phone });
       return NextResponse.json({ ok: true });
     }
 
-    // /start (or any first message) → ask for contact
+    // /start — for registered users, send fresh OTP immediately;
+    // for new users, ask for contact first.
     const text = (msg.text ?? "").trim();
-    if (text === "/start" || text.startsWith("/start ")) {
-      // Ensure the user exists (without phone yet) so /start counts as engagement
+    const isStart = text === "/start" || text.startsWith("/start ");
+    if (isStart) {
+      const existing = await prisma.user.findUnique({
+        where: { telegramId: BigInt(from.id) },
+      });
+      if (existing?.phone) {
+        await prisma.user.update({
+          where: { id: existing.id },
+          data: { lastSeenAt: new Date() },
+        });
+        await issueAndSendOtp({ telegramId: existing.telegramId, phone: existing.phone });
+        return NextResponse.json({ ok: true });
+      }
       await prisma.user.upsert({
         where: { telegramId: BigInt(from.id) },
         update: { lastSeenAt: new Date() },
@@ -120,7 +131,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // Anything else — gentle reminder
+    // Any other text from a registered user → send a fresh code (acts as
+    // an implicit "send me a new code" command).
+    const existing = await prisma.user.findUnique({
+      where: { telegramId: BigInt(from.id) },
+    });
+    if (existing?.phone) {
+      await issueAndSendOtp({ telegramId: existing.telegramId, phone: existing.phone });
+      return NextResponse.json({ ok: true });
+    }
+
+    // New user typed something other than /start → onboard them
     await askForContact(chatId);
     return NextResponse.json({ ok: true });
   } catch (err) {
