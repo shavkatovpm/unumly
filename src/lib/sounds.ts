@@ -18,7 +18,7 @@ function getCtx(): AudioContext | null {
   return _ctx;
 }
 
-let _master = 1;
+let _master = 0.3;
 // Per-event gain trim. Some events (like task done / pen-click) sound louder
 // than others at the same master volume; trim them down without touching
 // the user-visible percentage.
@@ -656,9 +656,9 @@ export function loadSelection(): SoundSelection {
   const volume = (() => {
     try {
       const raw = window.localStorage.getItem(KEYS.volume);
-      const v = raw == null ? 1 : parseFloat(raw);
-      return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
-    } catch { return 1; }
+      const v = raw == null ? 0.3 : parseFloat(raw);
+      return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.3;
+    } catch { return 0.3; }
   })();
   return {
     check: read<CheckVariant>(KEYS.check),
@@ -696,7 +696,7 @@ function _refreshMaster() {
   if (typeof window === "undefined") return;
   try {
     const raw = window.localStorage.getItem(KEYS.volume);
-    const v = raw == null ? 1 : parseFloat(raw);
+    const v = raw == null ? 0.3 : parseFloat(raw);
     if (Number.isFinite(v)) _master = Math.max(0, Math.min(1, v));
   } catch { /**/ }
 }
