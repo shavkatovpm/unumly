@@ -336,6 +336,7 @@ export function BugunView() {
                               onRemove={askRemove}
                               onOpen={setDetailId}
                               isNew={p.id === justCreatedId}
+                              large
                             />
                           ))}
                         </ul>

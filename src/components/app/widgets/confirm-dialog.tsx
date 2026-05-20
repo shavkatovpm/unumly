@@ -24,7 +24,12 @@ export function ConfirmDialog({
   onClose: () => void;
 }) {
   return (
-    <Dialog open={open} onClose={onClose} className="max-w-sm">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      className="max-w-sm"
+      mobilePlacement="center"
+    >
       <div className="px-5 pb-4 pt-5">
         <p className="text-[14.5px] font-semibold tracking-[-0.01em] text-foreground">
           {title}

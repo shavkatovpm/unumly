@@ -20,12 +20,14 @@ export function TaskRow({
   onRemove,
   onOpen,
   isNew = false,
+  large = false,
 }: {
   plan: Plan;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
   onOpen?: (id: string) => void;
   isNew?: boolean;
+  large?: boolean;
 }) {
   const done = plan.status === "DONE";
   const priorityDot = plan.priority ? PRIORITY_DOT[plan.priority] : "bg-faint/40";
@@ -85,7 +87,7 @@ export function TaskRow({
         visualDone && "bg-subtle/30",
         isNew && "task-pop",
         onOpen && "cursor-pointer",
-        !pendingDone && "max-h-[78px] py-3 sm:max-h-[64px] sm:py-2"
+        !pendingDone && (large ? "max-h-[96px] py-4 sm:max-h-[64px] sm:py-2" : "max-h-[78px] py-3 sm:max-h-[64px] sm:py-2")
       )}
       style={pendingDone ? {
         maxHeight: 0,
@@ -123,7 +125,8 @@ export function TaskRow({
 
       <span
         className={cn(
-          "min-w-0 flex-1 truncate text-[17px] leading-snug sm:text-[13.5px]",
+          "min-w-0 flex-1 truncate leading-snug sm:text-[13.5px]",
+          large ? "text-[22px]" : "text-[17px]",
           done && "text-faint line-through decoration-faint/60"
         )}
       >

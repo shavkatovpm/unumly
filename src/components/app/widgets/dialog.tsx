@@ -8,11 +8,14 @@ export function Dialog({
   onClose,
   children,
   className,
+  mobilePlacement = "bottom",
 }: {
   open: boolean;
   onClose: () => void;
   children: React.ReactNode;
   className?: string;
+  /** "bottom" = bottom-sheet on mobile (default), "center" = centered modal on mobile too. */
+  mobilePlacement?: "bottom" | "center";
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -31,9 +34,16 @@ export function Dialog({
 
   if (!open) return null;
 
+  const centered = mobilePlacement === "center";
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4 fade-in"
+      className={cn(
+        "fixed inset-0 z-50 flex justify-center fade-in",
+        centered
+          ? "items-center p-4"
+          : "items-end p-0 sm:items-center sm:p-4"
+      )}
       role="dialog"
       aria-modal="true"
     >
@@ -45,8 +55,9 @@ export function Dialog({
         ref={cardRef}
         className={cn(
           "rise-in relative z-10 w-full max-w-md overflow-hidden border border-border bg-surface shadow-2xl",
-          // Mobile: bottom-sheet style, rounded only on top
-          "rounded-t-2xl sm:rounded-xl",
+          centered
+            ? "rounded-xl"
+            : "rounded-t-2xl sm:rounded-xl",
           className
         )}
       >

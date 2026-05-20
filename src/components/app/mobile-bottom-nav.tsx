@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/color-store";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 type CustomItem = { id: string; label: string };
 

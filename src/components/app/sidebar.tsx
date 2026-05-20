@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 import {
   Calendar as CalendarIcon,
   CheckCircle2,
+  ChevronRight,
   ClipboardList,
   Inbox,
   ListChecks,
@@ -32,6 +33,7 @@ type IconCmp = ComponentType<{ className?: string; strokeWidth?: number }>;
 type CustomItem = { id: string; label: string };
 
 const STORAGE_CUSTOM = "unumly:sidebar:custom";
+const STORAGE_ARXIV_OPEN = "unumly:sidebar:arxiv";
 
 function readJSON<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -95,6 +97,31 @@ export function Sidebar({
   // Add-custom inline input
   const [addingCustom, setAddingCustom] = useState(false);
   const [newLabel, setNewLabel] = useState("");
+
+  // Arxiv section collapsible — default closed, persisted
+  const [arxivOpen, setArxivOpen] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const v = window.localStorage.getItem(STORAGE_ARXIV_OPEN);
+      if (v === "1") setArxivOpen(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  function toggleArxiv() {
+    setArxivOpen((v) => {
+      const next = !v;
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(STORAGE_ARXIV_OPEN, next ? "1" : "0");
+        }
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
   function isActive(href: string) {
     return pathname === href || pathname.startsWith(href + "/");
@@ -206,7 +233,11 @@ export function Sidebar({
         </Section>
 
         {/* ── Arxiv ─────────────────────────────── */}
-        <Section label="Arxiv">
+        <CollapsibleSection
+          label="Arxiv"
+          open={arxivOpen}
+          onToggle={toggleArxiv}
+        >
           <SidebarLink
             href="/bajarilgan"
             label="Bajarilgan"
@@ -221,7 +252,7 @@ export function Sidebar({
             active={isActive("/ochirilgan")}
             onNavigate={closeOnMobile}
           />
-        </Section>
+        </CollapsibleSection>
 
         {/* ── Maxsus ──────────────────────────── */}
         <Section
@@ -377,6 +408,45 @@ function Section({
         {action}
       </div>
       <nav className="space-y-px">{children}</nav>
+    </div>
+  );
+}
+
+function CollapsibleSection({
+  label,
+  open,
+  onToggle,
+  children,
+}: {
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="group/section px-3 pb-3">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left transition-colors hover:bg-hover/60"
+      >
+        <ChevronRight
+          className={cn(
+            "size-3 text-faint transition-transform duration-200",
+            open && "rotate-90"
+          )}
+        />
+        <p className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-faint">
+          {label}
+        </p>
+      </button>
+      <div
+        className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+        style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+      >
+        <nav className="space-y-px overflow-hidden pt-1">{children}</nav>
+      </div>
     </div>
   );
 }
