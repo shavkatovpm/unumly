@@ -6,11 +6,13 @@ import {
   togglePlanStatus,
   removePlan,
   useCompletedPlans,
+  useHydrated,
 } from "@/lib/plans-store";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { formatUzDate } from "@/lib/dates";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
+import { ListLoader } from "./widgets/list-loader";
 
 const PRIORITY_DOT: Record<NonNullable<Plan["priority"]>, string> = {
   HIGH: "bg-priority-high",
@@ -25,6 +27,7 @@ function dayKey(iso?: string): string {
 
 export function BajarilganView() {
   const completed = useCompletedPlans();
+  const hydrated = useHydrated();
   const { askRemove, confirmEl } = useConfirmRemove(completed, removePlan, {
     description:
       '"{title}" o\'chiriladi va 30 kun davomida "O\'chirilgan" bo\'limida saqlanadi.',
@@ -68,7 +71,9 @@ export function BajarilganView() {
       </header>
 
       <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:pb-8">
-        {completed.length === 0 ? (
+        {completed.length === 0 && !hydrated ? (
+          <ListLoader />
+        ) : completed.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border px-6 py-16 text-center">
             <CheckCircle2 className="mx-auto size-6 text-faint" strokeWidth={1.5} />
             <p className="mt-3 text-[13.5px] text-muted">

@@ -6,10 +6,12 @@ import {
   purgePlan,
   restorePlan,
   useDeletedPlans,
+  useHydrated,
 } from "@/lib/plans-store";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
+import { ListLoader } from "./widgets/list-loader";
 
 const PRIORITY_DOT: Record<NonNullable<Plan["priority"]>, string> = {
   HIGH: "bg-priority-high",
@@ -30,6 +32,7 @@ function daysLeft(deletedAt?: string): number {
 
 export function OchirilganView() {
   const deleted = useDeletedPlans();
+  const hydrated = useHydrated();
   const { askRemove, confirmEl } = useConfirmRemove(deleted, purgePlan, {
     title: "Butunlay o'chirish",
     description:
@@ -64,7 +67,9 @@ export function OchirilganView() {
       </header>
 
       <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:pb-8">
-        {deleted.length === 0 ? (
+        {deleted.length === 0 && !hydrated ? (
+          <ListLoader />
+        ) : deleted.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border px-6 py-16 text-center">
             <Trash2 className="mx-auto size-6 text-faint" strokeWidth={1.5} />
             <p className="mt-3 text-[13.5px] text-muted">

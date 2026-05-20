@@ -44,6 +44,7 @@ function hydrateOnce() {
     .catch(() => {
       // Unauthenticated or network — leave cache empty
       hydrated = true;
+      emit();
     })
     .finally(() => {
       hydrating = false;
@@ -60,6 +61,68 @@ export async function refreshPlans(): Promise<void> {
   } catch {
     /* swallow */
   }
+}
+
+/* ─── Background polling (cross-device sync) ──────────────── */
+
+const POLL_INTERVAL_MS = 20 * 1000;
+let pollTimer: number | null = null;
+let pollSubscribers = 0;
+
+function startPolling() {
+  if (pollTimer !== null || typeof window === "undefined") return;
+  pollTimer = window.setInterval(() => {
+    if (document.visibilityState !== "visible") return;
+    void actions
+      .listPlans()
+      .then((rows) => {
+        if (rowsEqual(rows, memoryState)) return;
+        memoryState = rows;
+        emit();
+      })
+      .catch(() => { /* unauthenticated or transient */ });
+  }, POLL_INTERVAL_MS);
+}
+
+function stopPolling() {
+  if (pollTimer !== null) {
+    window.clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function rowsEqual(a: Plan[], b: Plan[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    if (
+      x.id !== y.id ||
+      x.title !== y.title ||
+      x.status !== y.status ||
+      x.scheduledFor !== y.scheduledFor ||
+      x.time !== y.time ||
+      x.duration !== y.duration ||
+      x.priority !== y.priority ||
+      x.completedAt !== y.completedAt ||
+      x.deletedAt !== y.deletedAt
+    ) return false;
+  }
+  return true;
+}
+
+function maybeRefreshOnVisible() {
+  if (document.visibilityState !== "visible") return;
+  // On tab focus, fetch immediately rather than waiting for the next tick
+  void actions
+    .listPlans()
+    .then((rows) => {
+      if (!rowsEqual(rows, memoryState)) {
+        memoryState = rows;
+        emit();
+      }
+    })
+    .catch(() => { /* ignore */ });
 }
 
 function subscribe(cb: () => void) {
@@ -298,14 +361,27 @@ export function getPlanById(id: string): Plan | undefined {
 
 /* ─── React hooks ─────────────────────────────────────────── */
 
+function useStoreLifecycle() {
+  useEffect(() => {
+    hydrateOnce();
+    pollSubscribers++;
+    startPolling();
+    document.addEventListener("visibilitychange", maybeRefreshOnVisible);
+    return () => {
+      pollSubscribers--;
+      document.removeEventListener("visibilitychange", maybeRefreshOnVisible);
+      if (pollSubscribers <= 0) {
+        pollSubscribers = 0;
+        stopPolling();
+      }
+    };
+  }, []);
+}
+
 /** Active (non-deleted) plans only. Use this for Bugun/Agenda/Kalendar/Reja. */
 export function usePlans() {
   const all = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-
-  useEffect(() => {
-    hydrateOnce();
-  }, []);
-
+  useStoreLifecycle();
   const plans = useMemo(() => all.filter((p) => !p.deletedAt), [all]);
 
   return {
@@ -323,11 +399,7 @@ export function usePlans() {
 
 export function useCompletedPlans() {
   const all = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-
-  useEffect(() => {
-    hydrateOnce();
-  }, []);
-
+  useStoreLifecycle();
   return useMemo(
     () => all.filter((p) => p.status === "DONE" && !p.deletedAt),
     [all]
@@ -336,10 +408,15 @@ export function useCompletedPlans() {
 
 export function useDeletedPlans() {
   const all = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-
-  useEffect(() => {
-    hydrateOnce();
-  }, []);
-
+  useStoreLifecycle();
   return useMemo(() => all.filter((p) => !!p.deletedAt), [all]);
+}
+
+/** Whether the initial hydrate-from-server has completed (success or failure). */
+export function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => hydrated,
+    () => false
+  );
 }

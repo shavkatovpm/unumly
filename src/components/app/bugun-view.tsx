@@ -13,7 +13,7 @@ import {
   Sunset,
   X,
 } from "lucide-react";
-import { usePlans } from "@/lib/plans-store";
+import { useHydrated, usePlans } from "@/lib/plans-store";
 import {
   formatUzDate,
   occupiedTimeSlots,
@@ -27,10 +27,12 @@ import { TaskRow } from "./widgets/task-row";
 import { TimePickerPopover } from "./widgets/time-picker-popover";
 import { TaskDetail } from "./widgets/task-detail";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
+import { ListLoader } from "./widgets/list-loader";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 
 export function BugunView() {
   const { plans, create, update, toggleStatus, remove } = usePlans();
+  const hydrated = useHydrated();
   const { askRemove, confirmEl } = useConfirmRemove(plans, remove, {
     description:
       '"{title}" o\'chiriladi va 30 kun davomida "O\'chirilgan" bo\'limida saqlanadi.',
@@ -301,7 +303,9 @@ export function BugunView() {
           className="rise-in mt-6"
           style={{ animationDelay: "120ms" }}
         >
-          {total === 0 ? (
+          {total === 0 && !hydrated ? (
+            <ListLoader />
+          ) : total === 0 ? (
             <div className="rounded-lg border border-dashed border-border px-6 py-16 text-center">
               <p className="text-[13.5px] text-muted">
                 Ro&apos;yxat bo&apos;sh.{" "}
