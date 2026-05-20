@@ -20,7 +20,7 @@ export function SettingsDialog({
   onClose: () => void;
 }) {
   const [enabled, setEnabled] = useState(true);
-  const [volume, setVolume] = useState(0.3);
+  const [volume, setVolume] = useState(0.2);
 
   useEffect(() => {
     if (!open) return;
@@ -104,17 +104,15 @@ export function SettingsDialog({
                 !enabled && "opacity-50"
               )}
             >
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="volume-slider"
-                  className="text-[13px] text-muted"
-                >
-                  Volume
-                </label>
+              <label
+                htmlFor="volume-slider"
+                className="flex items-baseline gap-2 text-[13px] text-muted"
+              >
+                Volume
                 <span className="font-mono text-[11.5px] tabular-nums text-muted">
-                  {Math.round(volume * 100)}%
+                  · {Math.round(volume * 100)}%
                 </span>
-              </div>
+              </label>
               <input
                 id="volume-slider"
                 type="range"
@@ -124,7 +122,7 @@ export function SettingsDialog({
                 value={volume}
                 disabled={!enabled}
                 onChange={(e) => changeVolume(parseFloat(e.target.value))}
-                className="range-slider mt-3"
+                className="range-slider mt-4"
               />
             </div>
           </div>

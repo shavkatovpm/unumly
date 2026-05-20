@@ -18,12 +18,12 @@ function getCtx(): AudioContext | null {
   return _ctx;
 }
 
-let _master = 0.3;
+let _master = 0.2;
 // Per-event gain trim. Some events (like task done / pen-click) sound louder
 // than others at the same master volume; trim them down without touching
 // the user-visible percentage.
-const COMPLETE_GAIN_TRIM = 0.4;
-const CREATE_GAIN_TRIM   = 0.9;
+const COMPLETE_GAIN_TRIM = 0.3;
+const CREATE_GAIN_TRIM   = 0.8;
 export function setMasterVolume(v: number) { _master = Math.max(0, Math.min(1, v)); }
 export function getMasterVolume() { return _master; }
 
@@ -117,11 +117,11 @@ function playSpec(spec: SoundSpec, gainScale = 1) {
 /* ─── Synth helpers (sound-design building blocks) ────────── */
 
 // Marimba: triangle fundamental + 4th partial sine + brief noise click
-function marimba(freq: number, peak = 0.3, decay = 0.18): SoundSpec {
+function marimba(freq: number, peak = 0.2, decay = 0.18): SoundSpec {
   return {
     voices: [
       { freq, type: "triangle", attack: 0.001, decay, peak },
-      { freq: freq * 4, attack: 0.001, decay: decay * 1, peak: peak * 0.35 },
+      { freq: freq * 4, attack: 0.001, decay: decay * 1, peak: peak * 0.25 },
     ],
     noises: [{ duration: 0.008, filterType: "bandpass", freq: 2200, q: 1.2, peak: peak * 1, attack: 0.0005, decay: 0.007 }],
   };
@@ -132,12 +132,12 @@ function vibe(freq: number, peak = 0.28, decay = 15): SoundSpec {
     voices: [
       { freq, attack: 0.003, decay, peak },
       { freq, detune: 7, attack: 0.004, decay: decay * 1.05, peak: peak * 0.7 },
-      { freq: freq * 2, attack: 0.002, decay: decay * 1, peak: peak * 0.3 },
+      { freq: freq * 2, attack: 0.002, decay: decay * 1, peak: peak * 0.2 },
     ],
   };
 }
 // Bell: inharmonic partials (1, 2.76, 5.4) typical bell mode ratios
-function bell(freq: number, peak = 0.3, decay = 0.7): SoundSpec {
+function bell(freq: number, peak = 0.2, decay = 0.7): SoundSpec {
   return {
     voices: [
       { freq, attack: 0.003, decay, peak },
@@ -147,7 +147,7 @@ function bell(freq: number, peak = 0.3, decay = 0.7): SoundSpec {
   };
 }
 // Pluck: sharp attack, exp decay, octave overtone
-function pluck(freq: number, peak = 0.3, decay = 0.30): SoundSpec {
+function pluck(freq: number, peak = 0.2, decay = 0.20): SoundSpec {
   return {
     voices: [
       { freq, attack: 0.001, decay, peak },
@@ -190,7 +190,7 @@ export const CHECK_VARIANTS: { id: CheckVariant; label: string; hint: string }[]
 ];
 
 const CHECK_SPECS: Record<CheckVariant, SoundSpec> = {
-  "marimba":       marimba(880, 0.32, 0.18),
+  "marimba":       marimba(880, 0.22, 0.18),
   "glock":         {
     voices: [
       { freq: 2093, attack: 0.001, decay: 10, peak: 0.22 }, // C7
@@ -200,7 +200,7 @@ const CHECK_SPECS: Record<CheckVariant, SoundSpec> = {
   },
   "kalimba":       {
     voices: [
-      { freq: 660,  attack: 0.002, decay: 0.30, peak: 0.30 },
+      { freq: 660,  attack: 0.002, decay: 0.20, peak: 0.20 },
       { freq: 1320, attack: 0.002, decay: 0.18, peak: 0.14 },
       { freq: 1980, attack: 0.002, decay: 0.10, peak: 0.06 },
     ],
@@ -208,7 +208,7 @@ const CHECK_SPECS: Record<CheckVariant, SoundSpec> = {
   "triangle-bell": bell(2640, 0.18, 15),
   "tongue-drum":   {
     voices: [
-      { freq: 220, type: "triangle", attack: 0.002, decay: 0.35, peak: 0.34 },
+      { freq: 220, type: "triangle", attack: 0.002, decay: 0.25, peak: 0.24 },
       { freq: 440, attack: 0.002, decay: 0.20, peak: 0.14 },
       { freq: 110, attack: 0.005, decay: 15, peak: 0.18 },
     ],
@@ -217,11 +217,11 @@ const CHECK_SPECS: Record<CheckVariant, SoundSpec> = {
     voices: [{ freq: 180, freqEnd: 60, glideTo: 0.05, attack: 0.001, decay: 0.08, peak: 10 }],
     noises: [{ duration: 0.010, filterType: "lowpass", freq: 1000, peak: 0.16, attack: 0.0005, decay: 0.009 }],
   },
-  "pluck":         pluck(523.25, 0.32, 0.28),
+  "pluck":         pluck(523.25, 0.22, 0.28),
   "harp":          {
     voices: [
-      { freq: 880,  attack: 0.001, decay: 0.35, peak: 0.30 },
-      { freq: 1320, attack: 0.001, decay: 0.30, peak: 0.18 },
+      { freq: 880,  attack: 0.001, decay: 0.25, peak: 0.20 },
+      { freq: 1320, attack: 0.001, decay: 0.20, peak: 0.18 },
       { freq: 1760, attack: 0.001, decay: 0.22, peak: 0.10 },
     ],
   },
@@ -230,7 +230,7 @@ const CHECK_SPECS: Record<CheckVariant, SoundSpec> = {
   },
   "bubble":        {
     voices: [
-      { freq: 320, freqEnd: 720, glideTo: 0.018, attack: 0.001, decay: 0.05, peak: 0.36 },
+      { freq: 320, freqEnd: 720, glideTo: 0.018, attack: 0.001, decay: 0.05, peak: 0.26 },
       { freq: 720, freqEnd: 500, glideTo: 0.05, attack: 0.002, decay: 0.06, peak: 0.18, delay: 0.018 },
     ],
   },
@@ -239,7 +239,7 @@ const CHECK_SPECS: Record<CheckVariant, SoundSpec> = {
     noises: [{ duration: 0.012, filterType: "bandpass", freq: 600, q: 1.5, peak: 0.20, attack: 0.0005, decay: 0.011 }],
   },
   "puff":          {
-    noises: [{ duration: 0.10, filterType: "lowpass", freq: 1400, freqEnd: 600, q: 0.7, peak: 0.32, attack: 0.010, decay: 0.09 }],
+    noises: [{ duration: 0.10, filterType: "lowpass", freq: 1400, freqEnd: 600, q: 0.7, peak: 0.22, attack: 0.010, decay: 0.09 }],
   },
   "ice-tap":       {
     voices: [
@@ -264,7 +264,7 @@ const CHECK_SPECS: Record<CheckVariant, SoundSpec> = {
     ],
     noises: [{ duration: 0.010, filterType: "lowpass", freq: 800, peak: 0.18, attack: 0.0005, decay: 0.009 }],
   },
-  "ping":          bell(1760, 0.20, 0.30),
+  "ping":          bell(1760, 0.20, 0.20),
   "tap-soft":      {
     voices: [{ freq: 540, attack: 0.001, decay: 0.06, peak: 0.20 }],
     noises: [{ duration: 0.012, filterType: "bandpass", freq: 1500, q: 1.0, peak: 0.16, attack: 0.0005, decay: 0.011 }],
@@ -277,7 +277,7 @@ const CHECK_SPECS: Record<CheckVariant, SoundSpec> = {
     ],
   },
   "mini-drum":     {
-    voices: [{ freq: 220, freqEnd: 110, glideTo: 0.04, attack: 0.001, decay: 0.10, peak: 0.36 }],
+    voices: [{ freq: 220, freqEnd: 110, glideTo: 0.04, attack: 0.001, decay: 0.10, peak: 0.26 }],
     noises: [{ duration: 0.015, filterType: "bandpass", freq: 1200, q: 1.0, peak: 0.20, attack: 0.0005, decay: 0.014 }],
   },
 };
@@ -320,17 +320,17 @@ export const COMPLETE_VARIANTS: { id: CompleteVariant; label: string; hint: stri
 const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
   "major-arp": {
     voices: [
-      { freq: 523.25, attack: 0.005, decay: 15, peak: 0.30, delay: 0.00 },
+      { freq: 523.25, attack: 0.005, decay: 15, peak: 0.20, delay: 0.00 },
       { freq: 659.25, attack: 0.005, decay: 15, peak: 0.28, delay: 0.10 },
       { freq: 783.99, attack: 0.005, decay: 10, peak: 0.28, delay: 0.20 },
-      { freq: 1046.5, attack: 0.005, decay: 15, peak: 0.30, delay: 0.30 },
+      { freq: 1046.5, attack: 0.005, decay: 15, peak: 0.20, delay: 0.20 },
     ],
   },
   "bell-tower": {
     voices: [
       ...bell(440, 0.28, 0.80).voices!.map((v) => ({ ...v, delay: 0.00 })),
       ...bell(660, 0.24, 0.70).voices!.map((v) => ({ ...v, delay: 0.18 })),
-      ...bell(880, 0.20, 15).voices!.map((v) => ({ ...v, delay: 0.36 })),
+      ...bell(880, 0.20, 15).voices!.map((v) => ({ ...v, delay: 0.26 })),
     ],
   },
   "choir-oh": {
@@ -352,9 +352,9 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
   },
   "music-box": {
     voices: [
-      ...pluck(1046.5, 0.22, 0.35).voices!.map((v) => ({ ...v, delay: 0.00 })),
-      ...pluck(987.77, 0.20, 0.32).voices!.map((v) => ({ ...v, delay: 0.18 })),
-      ...pluck(880,    0.20, 0.32).voices!.map((v) => ({ ...v, delay: 0.36 })),
+      ...pluck(1046.5, 0.22, 0.25).voices!.map((v) => ({ ...v, delay: 0.00 })),
+      ...pluck(987.77, 0.20, 0.22).voices!.map((v) => ({ ...v, delay: 0.18 })),
+      ...pluck(880,    0.20, 0.22).voices!.map((v) => ({ ...v, delay: 0.26 })),
       ...pluck(523.25, 0.22, 10).voices!.map((v) => ({ ...v, delay: 14 })),
     ],
   },
@@ -370,7 +370,7 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
   "whistle-melody": {
     voices: [
       { freq: 1320, freqEnd: 1760, glideTo: 0.10, attack: 0.030, decay: 1, peak: 0.22 },
-      { freq: 1760, freqEnd: 2093, glideTo: 0.10, attack: 0.030, decay: 0.30, peak: 0.20, delay: 0.20 },
+      { freq: 1760, freqEnd: 2093, glideTo: 0.10, attack: 0.030, decay: 0.20, peak: 0.20, delay: 0.20 },
     ],
   },
   "sparkle-cascade": {
@@ -393,18 +393,18 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
   },
   "pluck-cascade": {
     voices: [
-      ...pluck(440,  0.28, 0.30).voices!.map((v) => ({ ...v, delay: 0.00 })),
-      ...pluck(587.33, 0.26, 0.30).voices!.map((v) => ({ ...v, delay: 0.08 })),
-      ...pluck(659.25, 0.26, 0.30).voices!.map((v) => ({ ...v, delay: 0.16 })),
+      ...pluck(440,  0.28, 0.20).voices!.map((v) => ({ ...v, delay: 0.00 })),
+      ...pluck(587.33, 0.26, 0.20).voices!.map((v) => ({ ...v, delay: 0.08 })),
+      ...pluck(659.25, 0.26, 0.20).voices!.map((v) => ({ ...v, delay: 0.16 })),
       ...pluck(880,    0.28, 10).voices!.map((v) => ({ ...v, delay: 0.24 })),
     ],
   },
   "ascending-sweep": {
     voices: [
-      { freq: 220, freqEnd: 1320, glideTo: 10, attack: 0.040, decay: 0.30, peak: 0.22 },
-      { freq: 110, freqEnd: 660,  glideTo: 10, attack: 0.050, decay: 0.35, peak: 0.18 },
+      { freq: 220, freqEnd: 1320, glideTo: 10, attack: 0.040, decay: 0.20, peak: 0.22 },
+      { freq: 110, freqEnd: 660,  glideTo: 10, attack: 0.050, decay: 0.25, peak: 0.18 },
     ],
-    noises: [{ duration: 10, filterType: "bandpass", freq: 600, freqEnd: 4000, q: 2.0, peak: 0.10, attack: 0.030, decay: 0.36 }],
+    noises: [{ duration: 10, filterType: "bandpass", freq: 600, freqEnd: 4000, q: 2.0, peak: 0.10, attack: 0.030, decay: 0.26 }],
   },
   "triumph-stack": {
     voices: [
@@ -427,7 +427,7 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
   },
   "bell-sparkle": {
     voices: [
-      ...bell(880, 0.30, 0.90).voices!,
+      ...bell(880, 0.20, 0.90).voices!,
       { freq: 3520, attack: 0.001, decay: 0.10, peak: 0.12, delay: 0.05 },
       { freq: 4698, attack: 0.001, decay: 0.10, peak: 0.10, delay: 0.10 },
       { freq: 5274, attack: 0.001, decay: 0.10, peak: 0.08, delay: 0.15 },
@@ -436,9 +436,9 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
   "reverse-chime": {
     // Simulated reverse: very slow attack, sharp release
     voices: [
-      { freq: 1760, attack: 0.350, decay: 0.05, peak: 0.30 },
-      { freq: 1320, attack: 0.350, decay: 0.05, peak: 0.22 },
-      { freq: 880,  attack: 0.380, decay: 0.05, peak: 0.18 },
+      { freq: 1760, attack: 0.250, decay: 0.05, peak: 0.20 },
+      { freq: 1320, attack: 0.250, decay: 0.05, peak: 0.22 },
+      { freq: 880,  attack: 0.280, decay: 0.05, peak: 0.18 },
     ],
   },
   "stack-chord": {
@@ -453,9 +453,9 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
   },
   "marimba-phrase": {
     voices: [
-      ...marimba(523.25, 0.30, 0.20).voices!.map((v) => ({ ...v, delay: 0.00 })),
-      ...marimba(659.25, 0.30, 0.20).voices!.map((v) => ({ ...v, delay: 0.12 })),
-      ...marimba(880,    0.32, 1).voices!.map((v) => ({ ...v, delay: 0.24 })),
+      ...marimba(523.25, 0.20, 0.20).voices!.map((v) => ({ ...v, delay: 0.00 })),
+      ...marimba(659.25, 0.20, 0.20).voices!.map((v) => ({ ...v, delay: 0.12 })),
+      ...marimba(880,    0.22, 1).voices!.map((v) => ({ ...v, delay: 0.24 })),
     ],
     noises: [
       { duration: 0.006, filterType: "bandpass", freq: 2200, q: 1.2, peak: 0.10, attack: 0.0005, decay: 0.005, delay: 0.00 },
@@ -468,7 +468,7 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
       { freq: 1318.51, attack: 0.001, decay: 10, peak: 0.22, delay: 0.00 },
       { freq: 1567.98, attack: 0.001, decay: 10, peak: 0.20, delay: 0.10 },
       { freq: 1975.53, attack: 0.001, decay: 10, peak: 0.20, delay: 0.20 },
-      { freq: 2637.02, attack: 0.001, decay: 15, peak: 0.18, delay: 0.30 },
+      { freq: 2637.02, attack: 0.001, decay: 15, peak: 0.18, delay: 0.20 },
     ],
   },
   "vibe-phrase": {
@@ -485,9 +485,9 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
       { freq: 349.23, attack: 0.020, decay: 10, peak: 0.20 },
       { freq: 392,    attack: 0.020, decay: 10, peak: 0.18 },
       // Resolve to major (C E G)
-      { freq: 261.63, attack: 0.020, decay: 0.80, peak: 0.20, delay: 0.30 },
-      { freq: 329.63, attack: 0.020, decay: 0.80, peak: 0.20, delay: 0.30 },
-      { freq: 392,    attack: 0.020, decay: 0.80, peak: 0.18, delay: 0.30 },
+      { freq: 261.63, attack: 0.020, decay: 0.80, peak: 0.20, delay: 0.20 },
+      { freq: 329.63, attack: 0.020, decay: 0.80, peak: 0.20, delay: 0.20 },
+      { freq: 392,    attack: 0.020, decay: 0.80, peak: 0.18, delay: 0.20 },
     ],
   },
 };
@@ -560,33 +560,33 @@ const CREATE_SPECS: Record<CreateVariant, SoundSpec> = {
     ],
   },
   "magnet-snap": {
-    voices: [{ freq: 660, freqEnd: 220, glideTo: 0.025, attack: 0.001, decay: 0.07, peak: 0.30 }],
+    voices: [{ freq: 660, freqEnd: 220, glideTo: 0.025, attack: 0.001, decay: 0.07, peak: 0.20 }],
     noises: [{ duration: 0.010, filterType: "highpass", freq: 3500, peak: 0.24, attack: 0.0005, decay: 0.009 }],
   },
   "drawer": {
-    noises: [{ duration: 0.16, filterType: "lowpass", freq: 1200, freqEnd: 500, q: 0.8, peak: 0.32, attack: 0.020, decay: 0.14 }],
+    noises: [{ duration: 0.16, filterType: "lowpass", freq: 1200, freqEnd: 500, q: 0.8, peak: 0.22, attack: 0.020, decay: 0.14 }],
   },
   "air-puff": {
-    noises: [{ duration: 0.09, filterType: "lowpass", freq: 1200, freqEnd: 400, q: 0.7, peak: 0.30, attack: 0.010, decay: 0.08 }],
+    noises: [{ duration: 0.09, filterType: "lowpass", freq: 1200, freqEnd: 400, q: 0.7, peak: 0.20, attack: 0.010, decay: 0.08 }],
   },
   "spray": {
     noises: [{ duration: 0.12, filterType: "highpass", freq: 2500, freqEnd: 5000, q: 0.8, peak: 0.22, attack: 0.010, decay: 0.11 }],
   },
   "bounce": {
     voices: [
-      { freq: 440, freqEnd: 880, glideTo: 0.05, attack: 0.001, decay: 0.06, peak: 0.30 },
+      { freq: 440, freqEnd: 880, glideTo: 0.05, attack: 0.001, decay: 0.06, peak: 0.20 },
       { freq: 880, freqEnd: 440, glideTo: 0.05, attack: 0.001, decay: 0.06, peak: 0.20, delay: 0.06 },
       { freq: 440, freqEnd: 660, glideTo: 0.04, attack: 0.001, decay: 0.05, peak: 0.14, delay: 0.14 },
     ],
   },
   "snap": {
     voices: [{ freq: 200, attack: 0.001, decay: 0.04, peak: 0.20 }],
-    noises: [{ duration: 0.020, filterType: "highpass", freq: 3000, peak: 0.30, attack: 0.0005, decay: 0.018 }],
+    noises: [{ duration: 0.020, filterType: "highpass", freq: 3000, peak: 0.20, attack: 0.0005, decay: 0.018 }],
   },
   "slide": {
     noises: [{ duration: 0.14, filterType: "bandpass", freq: 800, freqEnd: 1800, q: 1.0, peak: 0.26, attack: 0.015, decay: 0.12 }],
   },
-  "light-bell": bell(2349, 0.18, 0.35),
+  "light-bell": bell(2349, 0.18, 0.25),
   "bubble-small": {
     voices: [
       { freq: 360, freqEnd: 640, glideTo: 0.012, attack: 0.001, decay: 0.04, peak: 0.28 },
@@ -602,7 +602,7 @@ const CREATE_SPECS: Record<CreateVariant, SoundSpec> = {
     noises: [{ duration: 0.12, filterType: "bandpass", freq: 600, freqEnd: 1600, q: 1.5, peak: 0.20, attack: 0.010, decay: 0.11 }],
   },
   "card-swipe": {
-    noises: [{ duration: 0.10, filterType: "bandpass", freq: 1200, freqEnd: 400, q: 0.8, peak: 0.30, attack: 0.005, decay: 0.09 }],
+    noises: [{ duration: 0.10, filterType: "bandpass", freq: 1200, freqEnd: 400, q: 0.8, peak: 0.20, attack: 0.005, decay: 0.09 }],
   },
   "light-tick": {
     voices: [{ freq: 1320, attack: 0.001, decay: 0.025, peak: 0.20 }],
@@ -656,9 +656,9 @@ export function loadSelection(): SoundSelection {
   const volume = (() => {
     try {
       const raw = window.localStorage.getItem(KEYS.volume);
-      const v = raw == null ? 0.3 : parseFloat(raw);
-      return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.3;
-    } catch { return 0.3; }
+      const v = raw == null ? 0.2 : parseFloat(raw);
+      return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.2;
+    } catch { return 0.2; }
   })();
   return {
     check: read<CheckVariant>(KEYS.check),
@@ -696,16 +696,51 @@ function _refreshMaster() {
   if (typeof window === "undefined") return;
   try {
     const raw = window.localStorage.getItem(KEYS.volume);
-    const v = raw == null ? 0.3 : parseFloat(raw);
+    const v = raw == null ? 0.2 : parseFloat(raw);
     if (Number.isFinite(v)) _master = Math.max(0, Math.min(1, v));
   } catch { /**/ }
+}
+
+/** Returns the user-saved complete trim, or the default. */
+function _completeTrim(): number {
+  if (typeof window === "undefined") return COMPLETE_GAIN_TRIM;
+  try {
+    const raw = window.localStorage.getItem("unumly:sound:complete-trim");
+    if (!raw) return COMPLETE_GAIN_TRIM;
+    const v = parseFloat(raw);
+    if (Number.isFinite(v)) return Math.max(0, Math.min(1, v));
+  } catch { /**/ }
+  return COMPLETE_GAIN_TRIM;
+}
+
+/** Save the complete trim from the test page. */
+export function saveCompleteTrim(v: number) {
+  try { window.localStorage.setItem("unumly:sound:complete-trim", String(v)); }
+  catch { /**/ }
+}
+export function loadCompleteTrim(): number {
+  return _completeTrim();
 }
 
 /** Play the "task done" sound. Call at the moment the user taps the checkbox. */
 export function playOnComplete() {
   if (!_isEnabled()) return;
   _refreshMaster();
-  playSpec(CREATE_SPECS[PICK_ON_COMPLETE], COMPLETE_GAIN_TRIM);
+  playSpec(CREATE_SPECS[PICK_ON_COMPLETE], _completeTrim());
+}
+
+/** Play pen-click at an arbitrary trim — test page only. */
+export function playPenClickTrimmed(trim: number) {
+  if (!_isEnabled()) return;
+  _refreshMaster();
+  playSpec(CREATE_SPECS["pen-click"], Math.max(0, Math.min(1, trim)));
+}
+
+/** Play soft-tap at an arbitrary trim — test page only. */
+export function playSoftTapTrimmed(trim: number) {
+  if (!_isEnabled()) return;
+  _refreshMaster();
+  playSpec(CHECK_SPECS["tap-soft"], Math.max(0, Math.min(1, trim)));
 }
 
 /** Play the "new task created" sound. Call right when the user submits a new task. */
