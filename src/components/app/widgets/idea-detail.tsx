@@ -122,13 +122,13 @@ export function IdeaDetail({
   const activeCat = categories.find((c) => c.id === categoryId);
 
   return (
-    <Dialog open={open} onClose={onClose}>
+    <Dialog open={open} onClose={onClose} mobilePlacement="top">
       <form
         onSubmit={(e) => {
           e.preventDefault();
           save();
         }}
-        className="flex max-h-[85vh] flex-col"
+        className="flex min-h-0 flex-1 flex-col"
       >
         <header className="flex items-center justify-between border-b border-border px-4 py-2.5">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-faint">
