@@ -18,7 +18,7 @@ function getCtx(): AudioContext | null {
   return _ctx;
 }
 
-let _master = 0.4;
+let _master = 0.25;
 export function setMasterVolume(v: number) { _master = Math.max(0, Math.min(1, v)); }
 export function getMasterVolume() { return _master; }
 
@@ -122,12 +122,12 @@ function marimba(freq: number, peak = 0.3, decay = 0.18): SoundSpec {
   };
 }
 // Vibraphone: pure sine + 2x harmonic + slight detune layer + slow tremolo not modeled
-function vibe(freq: number, peak = 0.28, decay = 0.45): SoundSpec {
+function vibe(freq: number, peak = 0.28, decay = 0.255): SoundSpec {
   return {
     voices: [
       { freq, attack: 0.003, decay, peak },
       { freq, detune: 7, attack: 0.004, decay: decay * 1.05, peak: peak * 0.7 },
-      { freq: freq * 2, attack: 0.002, decay: decay * 0.4, peak: peak * 0.3 },
+      { freq: freq * 2, attack: 0.002, decay: decay * 0.25, peak: peak * 0.3 },
     ],
   };
 }
@@ -136,8 +136,8 @@ function bell(freq: number, peak = 0.3, decay = 0.7): SoundSpec {
   return {
     voices: [
       { freq, attack: 0.003, decay, peak },
-      { freq: freq * 2.76, attack: 0.003, decay: decay * 0.45, peak: peak * 0.45 },
-      { freq: freq * 5.4, attack: 0.002, decay: decay * 0.40, peak: peak * 0.20 },
+      { freq: freq * 2.76, attack: 0.003, decay: decay * 0.255, peak: peak * 0.255 },
+      { freq: freq * 5.4, attack: 0.002, decay: decay * 0.250, peak: peak * 0.20 },
     ],
   };
 }
@@ -146,7 +146,7 @@ function pluck(freq: number, peak = 0.3, decay = 0.30): SoundSpec {
   return {
     voices: [
       { freq, attack: 0.001, decay, peak },
-      { freq: freq * 2, attack: 0.001, decay: decay * 0.55, peak: peak * 0.4 },
+      { freq: freq * 2, attack: 0.001, decay: decay * 0.55, peak: peak * 0.25 },
     ],
   };
 }
@@ -188,7 +188,7 @@ const CHECK_SPECS: Record<CheckVariant, SoundSpec> = {
   "marimba":       marimba(880, 0.32, 0.18),
   "glock":         {
     voices: [
-      { freq: 2093, attack: 0.001, decay: 0.40, peak: 0.22 }, // C7
+      { freq: 2093, attack: 0.001, decay: 0.250, peak: 0.22 }, // C7
       { freq: 4186, attack: 0.001, decay: 0.22, peak: 0.10 },
     ],
     noises: [{ duration: 0.005, filterType: "highpass", freq: 4500, peak: 0.10, attack: 0.0005, decay: 0.004 }],
@@ -200,16 +200,16 @@ const CHECK_SPECS: Record<CheckVariant, SoundSpec> = {
       { freq: 1980, attack: 0.002, decay: 0.10, peak: 0.06 },
     ],
   },
-  "triangle-bell": bell(2640, 0.18, 0.45),
+  "triangle-bell": bell(2640, 0.18, 0.255),
   "tongue-drum":   {
     voices: [
       { freq: 220, type: "triangle", attack: 0.002, decay: 0.35, peak: 0.34 },
       { freq: 440, attack: 0.002, decay: 0.20, peak: 0.14 },
-      { freq: 110, attack: 0.005, decay: 0.45, peak: 0.18 },
+      { freq: 110, attack: 0.005, decay: 0.255, peak: 0.18 },
     ],
   },
   "kicklet":       {
-    voices: [{ freq: 180, freqEnd: 60, glideTo: 0.05, attack: 0.001, decay: 0.08, peak: 0.40 }],
+    voices: [{ freq: 180, freqEnd: 60, glideTo: 0.05, attack: 0.001, decay: 0.08, peak: 0.250 }],
     noises: [{ duration: 0.010, filterType: "lowpass", freq: 1000, peak: 0.16, attack: 0.0005, decay: 0.009 }],
   },
   "pluck":         pluck(523.25, 0.32, 0.28),
@@ -230,7 +230,7 @@ const CHECK_SPECS: Record<CheckVariant, SoundSpec> = {
     ],
   },
   "cork-mini":     {
-    voices: [{ freq: 160, freqEnd: 90, glideTo: 0.04, attack: 0.001, decay: 0.08, peak: 0.40 }],
+    voices: [{ freq: 160, freqEnd: 90, glideTo: 0.04, attack: 0.001, decay: 0.08, peak: 0.250 }],
     noises: [{ duration: 0.012, filterType: "bandpass", freq: 600, q: 1.5, peak: 0.20, attack: 0.0005, decay: 0.011 }],
   },
   "puff":          {
@@ -254,7 +254,7 @@ const CHECK_SPECS: Record<CheckVariant, SoundSpec> = {
   },
   "bonk":          {
     voices: [
-      { freq: 140, type: "triangle", attack: 0.001, decay: 0.10, peak: 0.42 },
+      { freq: 140, type: "triangle", attack: 0.001, decay: 0.10, peak: 0.252 },
       { freq: 280, attack: 0.002, decay: 0.06, peak: 0.12 },
     ],
     noises: [{ duration: 0.010, filterType: "lowpass", freq: 800, peak: 0.18, attack: 0.0005, decay: 0.009 }],
@@ -315,17 +315,17 @@ export const COMPLETE_VARIANTS: { id: CompleteVariant; label: string; hint: stri
 const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
   "major-arp": {
     voices: [
-      { freq: 523.25, attack: 0.005, decay: 0.45, peak: 0.30, delay: 0.00 },
-      { freq: 659.25, attack: 0.005, decay: 0.45, peak: 0.28, delay: 0.10 },
+      { freq: 523.25, attack: 0.005, decay: 0.255, peak: 0.30, delay: 0.00 },
+      { freq: 659.25, attack: 0.005, decay: 0.255, peak: 0.28, delay: 0.10 },
       { freq: 783.99, attack: 0.005, decay: 0.50, peak: 0.28, delay: 0.20 },
-      { freq: 1046.5, attack: 0.005, decay: 0.45, peak: 0.30, delay: 0.30 },
+      { freq: 1046.5, attack: 0.005, decay: 0.255, peak: 0.30, delay: 0.30 },
     ],
   },
   "bell-tower": {
     voices: [
       ...bell(440, 0.28, 0.80).voices!.map((v) => ({ ...v, delay: 0.00 })),
       ...bell(660, 0.24, 0.70).voices!.map((v) => ({ ...v, delay: 0.18 })),
-      ...bell(880, 0.20, 0.45).voices!.map((v) => ({ ...v, delay: 0.36 })),
+      ...bell(880, 0.20, 0.255).voices!.map((v) => ({ ...v, delay: 0.36 })),
     ],
   },
   "choir-oh": {
@@ -341,8 +341,8 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
     voices: [
       { freq: 392, type: "triangle", attack: 0.015, decay: 0.55, peak: 0.26 },
       { freq: 523.25, type: "triangle", attack: 0.015, decay: 0.55, peak: 0.24, delay: 0.06 },
-      { freq: 659.25, type: "triangle", attack: 0.015, decay: 0.40, peak: 0.22, delay: 0.12 },
-      { freq: 783.99, type: "triangle", attack: 0.015, decay: 0.45, peak: 0.20, delay: 0.18 },
+      { freq: 659.25, type: "triangle", attack: 0.015, decay: 0.250, peak: 0.22, delay: 0.12 },
+      { freq: 783.99, type: "triangle", attack: 0.015, decay: 0.255, peak: 0.20, delay: 0.18 },
     ],
   },
   "music-box": {
@@ -381,9 +381,9 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
   "wind-chimes": {
     voices: [
       ...bell(1760, 0.18, 0.50).voices!.map((v) => ({ ...v, delay: 0.00 })),
-      ...bell(2349, 0.16, 0.45).voices!.map((v) => ({ ...v, delay: 0.07 })),
-      ...bell(2093, 0.14, 0.45).voices!.map((v) => ({ ...v, delay: 0.16 })),
-      ...bell(2637, 0.14, 0.45).voices!.map((v) => ({ ...v, delay: 0.26 })),
+      ...bell(2349, 0.16, 0.255).voices!.map((v) => ({ ...v, delay: 0.07 })),
+      ...bell(2093, 0.14, 0.255).voices!.map((v) => ({ ...v, delay: 0.16 })),
+      ...bell(2637, 0.14, 0.255).voices!.map((v) => ({ ...v, delay: 0.26 })),
     ],
   },
   "pluck-cascade": {
@@ -391,15 +391,15 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
       ...pluck(440,  0.28, 0.30).voices!.map((v) => ({ ...v, delay: 0.00 })),
       ...pluck(587.33, 0.26, 0.30).voices!.map((v) => ({ ...v, delay: 0.08 })),
       ...pluck(659.25, 0.26, 0.30).voices!.map((v) => ({ ...v, delay: 0.16 })),
-      ...pluck(880,    0.28, 0.40).voices!.map((v) => ({ ...v, delay: 0.24 })),
+      ...pluck(880,    0.28, 0.250).voices!.map((v) => ({ ...v, delay: 0.24 })),
     ],
   },
   "ascending-sweep": {
     voices: [
-      { freq: 220, freqEnd: 1320, glideTo: 0.40, attack: 0.040, decay: 0.30, peak: 0.22 },
-      { freq: 110, freqEnd: 660,  glideTo: 0.40, attack: 0.050, decay: 0.35, peak: 0.18 },
+      { freq: 220, freqEnd: 1320, glideTo: 0.250, attack: 0.040, decay: 0.30, peak: 0.22 },
+      { freq: 110, freqEnd: 660,  glideTo: 0.250, attack: 0.050, decay: 0.35, peak: 0.18 },
     ],
-    noises: [{ duration: 0.40, filterType: "bandpass", freq: 600, freqEnd: 4000, q: 2.0, peak: 0.10, attack: 0.030, decay: 0.36 }],
+    noises: [{ duration: 0.250, filterType: "bandpass", freq: 600, freqEnd: 4000, q: 2.0, peak: 0.10, attack: 0.030, decay: 0.36 }],
   },
   "triumph-stack": {
     voices: [
@@ -408,7 +408,7 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
       { freq: 392,    type: "triangle", attack: 0.005, decay: 0.90, peak: 0.20 },
       { freq: 523.25, type: "triangle", attack: 0.005, decay: 0.90, peak: 0.20 },
       { freq: 1046.5, attack: 0.005, decay: 0.50, peak: 0.14, delay: 0.10 },
-      { freq: 1567.98, attack: 0.005, decay: 0.40, peak: 0.10, delay: 0.18 },
+      { freq: 1567.98, attack: 0.005, decay: 0.250, peak: 0.10, delay: 0.18 },
     ],
   },
   "pad-swell": {
@@ -460,25 +460,25 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
   },
   "crystal-seq": {
     voices: [
-      { freq: 1318.51, attack: 0.001, decay: 0.40, peak: 0.22, delay: 0.00 },
-      { freq: 1567.98, attack: 0.001, decay: 0.40, peak: 0.20, delay: 0.10 },
-      { freq: 1975.53, attack: 0.001, decay: 0.40, peak: 0.20, delay: 0.20 },
-      { freq: 2637.02, attack: 0.001, decay: 0.45, peak: 0.18, delay: 0.30 },
+      { freq: 1318.51, attack: 0.001, decay: 0.250, peak: 0.22, delay: 0.00 },
+      { freq: 1567.98, attack: 0.001, decay: 0.250, peak: 0.20, delay: 0.10 },
+      { freq: 1975.53, attack: 0.001, decay: 0.250, peak: 0.20, delay: 0.20 },
+      { freq: 2637.02, attack: 0.001, decay: 0.255, peak: 0.18, delay: 0.30 },
     ],
   },
   "vibe-phrase": {
     voices: [
       ...vibe(440, 0.26, 0.50).voices!.map((v) => ({ ...v, delay: 0.00 })),
       ...vibe(554.37, 0.24, 0.50).voices!.map((v) => ({ ...v, delay: 0.14 })),
-      ...vibe(659.25, 0.24, 0.40).voices!.map((v) => ({ ...v, delay: 0.28 })),
+      ...vibe(659.25, 0.24, 0.250).voices!.map((v) => ({ ...v, delay: 0.28 })),
     ],
   },
   "sus-resolve": {
     voices: [
       // Sus4 first (C F G)
-      { freq: 261.63, attack: 0.020, decay: 0.40, peak: 0.20 },
-      { freq: 349.23, attack: 0.020, decay: 0.40, peak: 0.20 },
-      { freq: 392,    attack: 0.020, decay: 0.40, peak: 0.18 },
+      { freq: 261.63, attack: 0.020, decay: 0.250, peak: 0.20 },
+      { freq: 349.23, attack: 0.020, decay: 0.250, peak: 0.20 },
+      { freq: 392,    attack: 0.020, decay: 0.250, peak: 0.18 },
       // Resolve to major (C E G)
       { freq: 261.63, attack: 0.020, decay: 0.80, peak: 0.20, delay: 0.30 },
       { freq: 329.63, attack: 0.020, decay: 0.80, peak: 0.20, delay: 0.30 },
@@ -634,7 +634,7 @@ export type SoundSelection = {
 
 export function loadSelection(): SoundSelection {
   if (typeof window === "undefined") {
-    return { check: null, complete: null, create: null, enabled: true, volume: 0.4 };
+    return { check: null, complete: null, create: null, enabled: true, volume: 0.25 };
   }
   function read<T extends string>(key: string): T | null {
     try {
@@ -651,9 +651,9 @@ export function loadSelection(): SoundSelection {
   const volume = (() => {
     try {
       const raw = window.localStorage.getItem(KEYS.volume);
-      const v = raw == null ? 0.4 : parseFloat(raw);
-      return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.4;
-    } catch { return 0.4; }
+      const v = raw == null ? 0.25 : parseFloat(raw);
+      return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.25;
+    } catch { return 0.25; }
   })();
   return {
     check: read<CheckVariant>(KEYS.check),
@@ -691,7 +691,7 @@ function _refreshMaster() {
   if (typeof window === "undefined") return;
   try {
     const raw = window.localStorage.getItem(KEYS.volume);
-    const v = raw == null ? 0.4 : parseFloat(raw);
+    const v = raw == null ? 0.25 : parseFloat(raw);
     if (Number.isFinite(v)) _master = Math.max(0, Math.min(1, v));
   } catch { /**/ }
 }

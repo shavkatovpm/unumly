@@ -20,7 +20,7 @@ export function SettingsDialog({
   onClose: () => void;
 }) {
   const [enabled, setEnabled] = useState(true);
-  const [volume, setVolume] = useState(0.4);
+  const [volume, setVolume] = useState(0.25);
 
   useEffect(() => {
     if (!open) return;
