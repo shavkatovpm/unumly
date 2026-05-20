@@ -469,15 +469,13 @@ export function AgendaView() {
           {groups.length === 0 && !hydrated ? (
             <ListLoader />
           ) : groups.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border px-6 py-16 text-center">
-              <p className="text-[13.5px] text-muted">
-                Yaqin kunlarda hech narsa yo&apos;q.
+            <div className="rounded-lg border border-dashed border-border px-6 py-12 text-center sm:py-14">
+              <p className="text-[15px] font-medium text-foreground sm:text-[16px]">
+                Keyinroq qilinadigan rejalar
               </p>
-              <p className="mt-1 hidden text-[11px] text-faint md:block">
-                Yuqoridagi maydondan ertangi yoki keyingi kunlarga reja qo&apos;shing.
-              </p>
-              <p className="mt-1 text-[11px] text-faint md:hidden">
-                Pastdagi <span className="font-mono">+</span> tugmasi orqali ertangi yoki keyingi kunlarga reja qo&apos;shing.
+              <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-muted">
+                Bugun emas, lekin ertaga, bu hafta yoki keyinroq bajarish
+                kerak bo&apos;lgan ishlarni shu yerga yozing.
               </p>
             </div>
           ) : (
