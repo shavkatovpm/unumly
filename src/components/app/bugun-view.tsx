@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
-  ChevronDown,
   Clock,
   Coffee,
   Pencil,
@@ -28,10 +27,14 @@ import { TaskRow } from "./widgets/task-row";
 import { TimePickerPopover } from "./widgets/time-picker-popover";
 import { TaskDetail } from "./widgets/task-detail";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 export function BugunView() {
   const { plans, create, update, toggleStatus, remove } = usePlans();
-  const { askRemove, confirmEl } = useConfirmRemove(plans, remove);
+  const { askRemove, confirmEl } = useConfirmRemove(plans, remove, {
+    description:
+      '"{title}" o\'chiriladi va 30 kun davomida "O\'chirilgan" bo\'limida saqlanadi.',
+  });
   const today = useMemo(() => startOfDay(), []);
   const todayIso = useMemo(() => toDateInputValue(today), [today]);
 
@@ -64,7 +67,6 @@ export function BugunView() {
   const total = todays.length;
   const done = todays.filter((p) => p.status === "DONE").length;
   const active = todays.filter((p) => p.status !== "DONE");
-  const completed = todays.filter((p) => p.status === "DONE");
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   function bucketOf(p: Plan): "morning" | "noon" | "evening" | "anytime" {
@@ -93,7 +95,6 @@ export function BugunView() {
   const [showTime, setShowTime] = useState(false);
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [showCompleted, setShowCompleted] = useState(false);
   const [mobileSheet, setMobileSheet] = useState(false);
   const detailPlan = detailId ? plans.find((p) => p.id === detailId) ?? null : null;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -101,6 +102,8 @@ export function BugunView() {
   const timeBtnRef = useRef<HTMLButtonElement>(null);
   const mobileTimeBtnRef = useRef<HTMLButtonElement>(null);
   const animationTimerRef = useRef<number | null>(null);
+
+  useScrollLock(mobileSheet);
 
   useEffect(() => {
     if (mobileSheet) {
@@ -342,53 +345,6 @@ export function BugunView() {
                 </div>
               )}
 
-              {completed.length > 0 && (
-                <section className="mt-3 overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]">
-                  <button
-                    type="button"
-                    onClick={() => setShowCompleted((v) => !v)}
-                    className={cn(
-                      "flex w-full items-center justify-between bg-subtle/30 px-3 py-1.5 transition-colors hover:bg-subtle/60",
-                      showCompleted && "border-b border-border"
-                    )}
-                    aria-expanded={showCompleted}
-                    aria-controls="bugun-completed-list"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <ChevronDown
-                        className={cn(
-                          "size-3 text-faint transition-transform duration-300",
-                          !showCompleted && "-rotate-90"
-                        )}
-                      />
-                      <p className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-faint">
-                        Bajarilgan
-                      </p>
-                    </div>
-                    <p className="font-mono text-[10.5px] tabular-nums text-faint">
-                      {completed.length}
-                    </p>
-                  </button>
-                  <div
-                    id="bugun-completed-list"
-                    className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-                    style={{ gridTemplateRows: showCompleted ? "1fr" : "0fr" }}
-                  >
-                    <ul className="divide-y divide-border/70 overflow-hidden">
-                      {completed.map((p) => (
-                        <div key={p.id} className="fade-in">
-                          <TaskRow
-                            plan={p}
-                            onToggle={toggleStatus}
-                            onRemove={askRemove}
-                            onOpen={setDetailId}
-                          />
-                        </div>
-                      ))}
-                    </ul>
-                  </div>
-                </section>
-              )}
             </>
           )}
         </div>

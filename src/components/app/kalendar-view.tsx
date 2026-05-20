@@ -42,7 +42,10 @@ function headingFor(view: CalendarView, date: Date): string {
 
 export function KalendarView() {
   const { plans, create, update, toggleStatus, remove, removeMany } = usePlans();
-  const { askRemove, confirmEl } = useConfirmRemove(plans, remove);
+  const { askRemove, confirmEl } = useConfirmRemove(plans, remove, {
+    description:
+      '"{title}" o\'chiriladi va 30 kun davomida "O\'chirilgan" bo\'limida saqlanadi.',
+  });
   const [view, setView] = useState<CalendarView>("hafta");
   const today = useMemo(() => startOfDay(), []);
   const [selected, setSelected] = useState<Date>(today);

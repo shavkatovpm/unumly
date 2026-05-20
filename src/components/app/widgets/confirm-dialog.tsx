@@ -62,7 +62,13 @@ export function ConfirmDialog({
 export function useConfirmRemove(
   items: { id: string; title: string }[],
   remove: (id: string) => void,
-  opts?: { title?: string; itemLabel?: string }
+  opts?: {
+    title?: string;
+    itemLabel?: string;
+    /** Override the body. `{title}` is replaced with the item's title. */
+    description?: string;
+    confirmLabel?: string;
+  }
 ) {
   const [askingId, setAskingId] = useState<string | null>(null);
   const asked = askingId ? items.find((p) => p.id === askingId) ?? null : null;
@@ -73,16 +79,17 @@ export function useConfirmRemove(
 
   const itemLabel = opts?.itemLabel ?? "Rejani";
 
+  const description = asked
+    ? (opts?.description ?? `"{title}" o'chiriladi. Bu amalni qaytarib bo'lmaydi.`)
+        .replace("{title}", asked.title)
+    : undefined;
+
   const element = (
     <ConfirmDialog
       open={!!asked}
       title={opts?.title ?? `${itemLabel} o'chirish`}
-      description={
-        asked
-          ? `"${asked.title}" o'chiriladi. Bu amalni qaytarib bo'lmaydi.`
-          : undefined
-      }
-      confirmLabel="O'chirish"
+      description={description}
+      confirmLabel={opts?.confirmLabel ?? "O'chirish"}
       cancelLabel="Bekor"
       destructive
       onConfirm={() => {

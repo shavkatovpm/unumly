@@ -14,6 +14,7 @@ import {
 import { PriorityPicker } from "@/components/app/widgets/priority-picker";
 import { TaskDetail } from "@/components/app/widgets/task-detail";
 import { ConfirmDialog } from "@/components/app/widgets/confirm-dialog";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 const WEEKDAY_FULL = ["dushanba", "seshanba", "chorshanba", "payshanba", "juma", "shanba", "yakshanba"];
 
@@ -150,6 +151,7 @@ export function HaftaView({
     return () => mq.removeEventListener("change", update);
   }, []);
 
+  useScrollLock(isMobile && !!editing);
 
   // Global mouseup: commit drag (or click) regardless of where cursor releases
   useEffect(() => {

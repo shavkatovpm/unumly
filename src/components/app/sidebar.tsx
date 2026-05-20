@@ -9,6 +9,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Calendar as CalendarIcon,
+  CheckCircle2,
   ClipboardList,
   Inbox,
   ListChecks,
@@ -201,6 +202,24 @@ export function Sidebar({
             icon={Target}
             badge="tez orada"
             disabled
+          />
+        </Section>
+
+        {/* ── Arxiv ─────────────────────────────── */}
+        <Section label="Arxiv">
+          <SidebarLink
+            href="/bajarilgan"
+            label="Bajarilgan"
+            icon={CheckCircle2}
+            active={isActive("/bajarilgan")}
+            onNavigate={closeOnMobile}
+          />
+          <SidebarLink
+            href="/ochirilgan"
+            label="O'chirilgan"
+            icon={Trash2}
+            active={isActive("/ochirilgan")}
+            onNavigate={closeOnMobile}
           />
         </Section>
 

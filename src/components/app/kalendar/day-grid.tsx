@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, Clock, Pencil, X } from "lucide-react";
+import { Check, Clock, Pencil, X } from "lucide-react";
 import type { Plan, PlanPriority } from "@/lib/types";
 import type { CreatePlanInput } from "@/lib/plans-store";
 import { cn } from "@/lib/utils";
 import { isSameDay, toDateInputValue } from "@/lib/dates";
 import { TaskDetail } from "@/components/app/widgets/task-detail";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 function priorityClasses(p: PlanPriority | undefined, done: boolean) {
   if (done) return { border: "border-border-strong", bg: "bg-subtle/80 hover:bg-subtle" };
@@ -57,12 +58,10 @@ export function DayGrid({
     (p) => p.scope === "DAILY" && p.scheduledFor === isoDate
   );
   // Only ACTIVE tasks render on the grid / untimed section.
-  // Completed tasks are collapsed into a separate "Bajarilgan" dropdown.
+  // Completed tasks live in /bajarilgan; deleted tasks live in /ochirilgan.
   const activePlans = dayPlans.filter((p) => p.status !== "DONE");
-  const completedPlans = dayPlans.filter((p) => p.status === "DONE");
   const timed = activePlans.filter((p) => p.time);
   const untimed = activePlans.filter((p) => !p.time);
-  const [showCompleted, setShowCompleted] = useState(false);
 
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -104,6 +103,8 @@ export function DayGrid({
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, []);
+
+  useScrollLock(isMobile && !!editing);
 
 
   useEffect(() => {
@@ -746,78 +747,6 @@ export function DayGrid({
           </div>
         </div>
       </div>
-
-      {/* Bajarilgan dropdown — all completed tasks for this day */}
-      {completedPlans.length > 0 && (
-        <section className="mt-3 overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]">
-          <button
-            type="button"
-            onClick={() => setShowCompleted((v) => !v)}
-            className={cn(
-              "flex w-full items-center justify-between bg-subtle/30 px-3 py-1.5 transition-colors hover:bg-subtle/60",
-              showCompleted && "border-b border-border"
-            )}
-            aria-expanded={showCompleted}
-          >
-            <div className="flex items-center gap-1.5">
-              <ChevronDown
-                className={cn(
-                  "size-3 text-faint transition-transform duration-300",
-                  !showCompleted && "-rotate-90"
-                )}
-              />
-              <p className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-faint">
-                Bajarilgan
-              </p>
-            </div>
-            <p className="font-mono text-[10.5px] tabular-nums text-faint">
-              {completedPlans.length}
-            </p>
-          </button>
-          <div
-            className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-            style={{ gridTemplateRows: showCompleted ? "1fr" : "0fr" }}
-          >
-            <ul className="divide-y divide-border/70 overflow-hidden">
-              {completedPlans
-                .slice()
-                .sort((a, b) => (a.time ?? "z").localeCompare(b.time ?? "z"))
-                .map((p) => (
-                  <li
-                    key={p.id}
-                    onClick={() => setDetailId(p.id)}
-                    className="group fade-in flex cursor-pointer items-center gap-3 bg-subtle/30 px-3 py-2 transition-colors hover:bg-hover/60"
-                  >
-                    {p.time ? (
-                      <span className="flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-faint">
-                        <Clock className="size-2.5" />
-                        {p.time}
-                      </span>
-                    ) : (
-                      <span className="w-[58px] shrink-0 text-center font-mono text-[10.5px] text-faint">
-                        vaqtsiz
-                      </span>
-                    )}
-                    <span className="min-w-0 flex-1 truncate text-[13.5px] text-faint line-through">
-                      {p.title}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggle(p.id);
-                      }}
-                      aria-label="Bekor qilish"
-                      className="grid size-[18px] shrink-0 place-items-center rounded-md border border-accent bg-accent"
-                    >
-                      <Check className="size-2.5 text-background" strokeWidth={4} />
-                    </button>
-                  </li>
-                ))}
-            </ul>
-          </div>
-        </section>
-      )}
 
       <TaskDetail
         plan={detailPlan}

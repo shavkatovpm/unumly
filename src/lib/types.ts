@@ -13,6 +13,7 @@ export type Plan = {
   time?: string;          // HH:MM (24h), optional
   duration?: number;      // minutes, optional (defaults to 60 visually)
   completedAt?: string;   // ISO datetime
+  deletedAt?: string;     // ISO datetime — set when soft-deleted; 30 days later auto-purged
   createdAt: string;      // ISO datetime
   order: number;
 };

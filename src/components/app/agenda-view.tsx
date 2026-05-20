@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Calendar as CalendarIcon, Check, ChevronDown, Clock, Pencil, Plus, X } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Clock, Pencil, Plus, X } from "lucide-react";
 import { usePlans } from "@/lib/plans-store";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ import { MiniMonth } from "./kalendar/mini-month";
 import { TimePickerPopover } from "./widgets/time-picker-popover";
 import { TaskDetail } from "./widgets/task-detail";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 const UZ_WEEKDAYS = [
   "yakshanba", "dushanba", "seshanba", "chorshanba",
@@ -195,10 +196,12 @@ function shortDateLabel(date: Date, today: Date): string {
 
 export function AgendaView() {
   const { plans, create, update, toggleStatus, remove } = usePlans();
-  const { askRemove, confirmEl } = useConfirmRemove(plans, remove);
+  const { askRemove, confirmEl } = useConfirmRemove(plans, remove, {
+    description:
+      '"{title}" o\'chiriladi va 30 kun davomida "O\'chirilgan" bo\'limida saqlanadi.',
+  });
   const [detailId, setDetailId] = useState<string | null>(null);
   const detailPlan = detailId ? plans.find((p) => p.id === detailId) ?? null : null;
-  const [expandedCompleted, setExpandedCompleted] = useState<Set<string>>(new Set());
 
   const today = useMemo(() => startOfDay(), []);
   const todayIso = useMemo(() => toDateInputValue(today), [today]);
@@ -223,6 +226,8 @@ export function AgendaView() {
   const mobileTimeBtnRef = useRef<HTMLButtonElement>(null);
   const calendarWrapRef = useRef<HTMLDivElement>(null);
   const mobileCalendarWrapRef = useRef<HTMLDivElement>(null);
+
+  useScrollLock(mobileSheet);
 
   useEffect(() => {
     return () => {
@@ -460,18 +465,7 @@ export function AgendaView() {
             <div className="space-y-5">
               {groups.map((g) => {
                 const activeItems = g.items.filter((p) => p.status !== "DONE");
-                const completedItems = g.items.filter((p) => p.status === "DONE");
-                const isCompletedOpen = expandedCompleted.has(g.iso);
-                const renderRow = (p: Plan) => (
-                  <AgendaRow
-                    key={p.id}
-                    plan={p}
-                    onToggle={toggleStatus}
-                    onRemove={askRemove}
-                    onOpen={setDetailId}
-                    isNew={p.id === justCreatedId}
-                  />
-                );
+                if (activeItems.length === 0) return null;
                 return (
                   <section key={g.iso}>
                     <header className="mb-2 flex items-baseline gap-3 px-1">
@@ -480,68 +474,22 @@ export function AgendaView() {
                       </h3>
                       <span className="text-[11.5px] text-faint">{formatUzDate(g.date)}</span>
                       <span className="ml-auto font-mono text-[10.5px] tabular-nums text-faint">
-                        {completedItems.length}/{g.items.length}
+                        {activeItems.length}
                       </span>
                     </header>
 
-                    {activeItems.length > 0 && (
-                      <ul className="overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]">
-                        {activeItems.map(renderRow)}
-                      </ul>
-                    )}
-
-                    {completedItems.length > 0 && (
-                      <section
-                        className={cn(
-                          "overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]",
-                          activeItems.length > 0 && "mt-2"
-                        )}
-                      >
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedCompleted((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(g.iso)) next.delete(g.iso);
-                              else next.add(g.iso);
-                              return next;
-                            })
-                          }
-                          className={cn(
-                            "flex w-full items-center justify-between bg-subtle/30 px-3 py-1.5 transition-colors hover:bg-subtle/60",
-                            isCompletedOpen && "border-b border-border"
-                          )}
-                          aria-expanded={isCompletedOpen}
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <ChevronDown
-                              className={cn(
-                                "size-3 text-faint transition-transform duration-300",
-                                !isCompletedOpen && "-rotate-90"
-                              )}
-                            />
-                            <p className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-faint">
-                              Bajarilgan
-                            </p>
-                          </div>
-                          <p className="font-mono text-[10.5px] tabular-nums text-faint">
-                            {completedItems.length}
-                          </p>
-                        </button>
-                        <div
-                          className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-                          style={{ gridTemplateRows: isCompletedOpen ? "1fr" : "0fr" }}
-                        >
-                          <ul className="divide-y divide-border/70 overflow-hidden">
-                            {completedItems.map((p) => (
-                              <div key={p.id} className="fade-in">
-                                {renderRow(p)}
-                              </div>
-                            ))}
-                          </ul>
-                        </div>
-                      </section>
-                    )}
+                    <ul className="overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]">
+                      {activeItems.map((p) => (
+                        <AgendaRow
+                          key={p.id}
+                          plan={p}
+                          onToggle={toggleStatus}
+                          onRemove={askRemove}
+                          onOpen={setDetailId}
+                          isNew={p.id === justCreatedId}
+                        />
+                      ))}
+                    </ul>
                   </section>
                 );
               })}

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Calendar as CalendarIcon,
+  CheckCircle2,
   ClipboardList,
   Inbox,
   ListChecks,
@@ -16,6 +17,7 @@ import {
   Sparkles,
   Sun,
   Target,
+  Trash2,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,7 +45,7 @@ const PRIMARY = [
 ];
 
 // Routes that live inside the Boshqaruv group (used to highlight the tab)
-const BOSHQARUV_ROUTES = ["/reja"];
+const BOSHQARUV_ROUTES = ["/reja", "/bajarilgan", "/ochirilgan"];
 
 export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const pathname = usePathname();
@@ -242,6 +244,27 @@ function BoshqaruvSheet({
           {!hidden.includes("maqsad") && (
             <SheetItem label="Maqsad" icon={Target} badge="tez orada" />
           )}
+        </div>
+
+        {/* Arxiv */}
+        <div className="border-t border-border px-3 py-3">
+          <p className="px-2 pb-2 text-[13px] font-medium uppercase tracking-[0.15em] text-faint">
+            Arxiv
+          </p>
+          <SheetLink
+            href="/bajarilgan"
+            label="Bajarilgan"
+            icon={CheckCircle2}
+            active={isActive("/bajarilgan")}
+            onNavigate={onClose}
+          />
+          <SheetLink
+            href="/ochirilgan"
+            label="O'chirilgan"
+            icon={Trash2}
+            active={isActive("/ochirilgan")}
+            onNavigate={onClose}
+          />
         </div>
 
         {/* Maxsus loyihalar */}
