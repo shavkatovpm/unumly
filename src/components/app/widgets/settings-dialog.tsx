@@ -28,6 +28,7 @@ export function SettingsDialog({
   const [enabled, setEnabled] = useState(true);
   const [volume, setVolume] = useState(0.2);
   const [signingOut, setSigningOut] = useState(false);
+  const [notifs, setNotifs] = useState<NotificationPrefs | null>(null);
   const router = useRouter();
 
   async function signOut() {
@@ -45,7 +46,20 @@ export function SettingsDialog({
     setEnabled(s.enabled);
     setVolume(s.volume);
     setMasterVolume(s.volume);
+    void getNotificationPrefs().then((p) => p && setNotifs(p));
   }, [open]);
+
+  async function toggleNotif(key: keyof NotificationPrefs) {
+    if (!notifs) return;
+    const next = { ...notifs, [key]: !notifs[key] };
+    setNotifs(next);                    // optimistic
+    try {
+      const server = await updateNotificationPrefs({ [key]: next[key] });
+      setNotifs(server);
+    } catch {
+      setNotifs(notifs);                // rollback
+    }
+  }
 
   function toggleEnabled() {
     const next = !enabled;
@@ -147,6 +161,41 @@ export function SettingsDialog({
           </div>
         </section>
 
+        {/* ── Eslatmalar ── */}
+        <section>
+          <p className="mb-3 flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.18em] text-faint">
+            <Bell className="size-3" />
+            Eslatmalar
+          </p>
+          <p className="mb-3 text-[11.5px] leading-relaxed text-faint">
+            Vaqti yetib kelganda bot orqali eslatma yuboriladi. Muhim va
+            o&apos;rta darajadagi rejalar default holatda yoqilgan.
+          </p>
+          <div className="space-y-2">
+            <NotifToggle
+              label="Muhim"
+              dot="bg-priority-high"
+              enabled={notifs?.notifyHigh ?? true}
+              loading={!notifs}
+              onChange={() => toggleNotif("notifyHigh")}
+            />
+            <NotifToggle
+              label="O'rta"
+              dot="bg-priority-medium"
+              enabled={notifs?.notifyMedium ?? true}
+              loading={!notifs}
+              onChange={() => toggleNotif("notifyMedium")}
+            />
+            <NotifToggle
+              label="Past"
+              dot="bg-priority-low"
+              enabled={notifs?.notifyLow ?? false}
+              loading={!notifs}
+              onChange={() => toggleNotif("notifyLow")}
+            />
+          </div>
+        </section>
+
         {/* ── Akkaunt ── */}
         <section>
           <p className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.18em] text-faint">
@@ -171,5 +220,50 @@ export function SettingsDialog({
         </section>
       </div>
     </Dialog>
+  );
+}
+
+function NotifToggle({
+  label,
+  dot,
+  enabled,
+  loading,
+  onChange,
+}: {
+  label: string;
+  dot: string;
+  enabled: boolean;
+  loading: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      disabled={loading}
+      className={cn(
+        "flex w-full items-center justify-between rounded-md border border-border bg-surface px-3.5 py-2.5 transition-colors hover:bg-hover/40",
+        loading && "opacity-60"
+      )}
+    >
+      <div className="flex items-center gap-2.5">
+        <span aria-hidden className={cn("size-2 rounded-full", dot)} />
+        <p className="text-[13.5px] font-medium">{label}</p>
+      </div>
+      <span
+        aria-hidden
+        className={cn(
+          "relative h-5 w-9 rounded-full transition-colors",
+          enabled ? "bg-foreground" : "bg-subtle"
+        )}
+      >
+        <span
+          className={cn(
+            "absolute top-0.5 size-4 rounded-full bg-background shadow transition-[left] duration-200",
+            enabled ? "left-[18px]" : "left-0.5"
+          )}
+        />
+      </span>
+    </button>
   );
 }
