@@ -100,7 +100,7 @@ export function SettingsDialog({
 
             <div
               className={cn(
-                "rounded-md border border-border bg-surface px-3.5 py-3 transition-opacity",
+                "rounded-md border border-border bg-surface px-3.5 pt-3 pb-4 transition-opacity",
                 !enabled && "opacity-50"
               )}
             >
@@ -113,17 +113,19 @@ export function SettingsDialog({
                   · {Math.round(volume * 100)}%
                 </span>
               </label>
-              <input
-                id="volume-slider"
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={volume}
-                disabled={!enabled}
-                onChange={(e) => changeVolume(parseFloat(e.target.value))}
-                className="range-slider mt-12"
-              />
+              <div className="mt-4">
+                <input
+                  id="volume-slider"
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={volume}
+                  disabled={!enabled}
+                  onChange={(e) => changeVolume(parseFloat(e.target.value))}
+                  className="range-slider"
+                />
+              </div>
             </div>
           </div>
         </section>
