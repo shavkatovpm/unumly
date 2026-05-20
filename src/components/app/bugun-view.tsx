@@ -96,6 +96,7 @@ export function BugunView() {
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [mobileSheet, setMobileSheet] = useState(false);
+  const [draftPlan, setDraftPlan] = useState<Plan | null>(null);
   const detailPlan = detailId ? plans.find((p) => p.id === detailId) ?? null : null;
   const inputRef = useRef<HTMLInputElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
@@ -114,19 +115,24 @@ export function BugunView() {
   }, [mobileSheet]);
 
   function openDetailForCurrent() {
-    const t = title.trim() || "Yangi reja";
-    const newId = create({
+    const t = title.trim();
+    if (!t) return;
+    // Draft — Saqlash bosilmaguncha store'ga yozilmaydi
+    const draft: Plan = {
+      id: "__draft__",
       title: t,
       scope: "DAILY",
       scheduledFor: todayIso,
       time: time || undefined,
-    });
+      status: "TODO",
+      createdAt: new Date().toISOString(),
+      order: 0,
+    };
+    setDraftPlan(draft);
     setTitle("");
     setTime("");
     setMobileSheet(false);
     setShowTime(false);
-    // Open the detail dialog for further editing (priority, notes, duration, ...)
-    setDetailId(newId);
   }
 
   useEffect(() => {
@@ -352,12 +358,21 @@ export function BugunView() {
       </div>
 
       <TaskDetail
-        plan={detailPlan}
+        plan={detailPlan ?? draftPlan}
         plans={plans}
-        open={!!detailPlan}
-        onClose={() => setDetailId(null)}
+        open={!!detailPlan || !!draftPlan}
+        onClose={() => {
+          setDetailId(null);
+          setDraftPlan(null);
+        }}
         onUpdate={update}
         onRemove={askRemove}
+        draft={!!draftPlan && !detailPlan}
+        onCreate={(input) => {
+          const id = create(input);
+          setDraftPlan(null);
+          return id;
+        }}
       />
 
       {/* Mobile FAB — bottom-right circular "+" button */}

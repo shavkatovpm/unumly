@@ -203,6 +203,7 @@ export function AgendaView() {
       '"{title}" o\'chiriladi va 30 kun davomida "O\'chirilgan" bo\'limida saqlanadi.',
   });
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [draftPlan, setDraftPlan] = useState<Plan | null>(null);
   const detailPlan = detailId ? plans.find((p) => p.id === detailId) ?? null : null;
 
   const today = useMemo(() => startOfDay(), []);
@@ -256,19 +257,24 @@ export function AgendaView() {
   }, [mobileSheet]);
 
   function openDetailForCurrent() {
-    const t = title.trim() || "Yangi reja";
-    const newId = create({
+    const t = title.trim();
+    if (!t) return;
+    const draft: Plan = {
+      id: "__draft__",
       title: t,
       scope: "DAILY",
       scheduledFor: toDateInputValue(date),
       time: time || undefined,
-    });
+      status: "TODO",
+      createdAt: new Date().toISOString(),
+      order: 0,
+    };
+    setDraftPlan(draft);
     setTitle("");
     setTime("");
     setShowCalendar(false);
     setShowTime(false);
     setMobileSheet(false);
-    setDetailId(newId);
   }
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -502,12 +508,21 @@ export function AgendaView() {
       </div>
 
       <TaskDetail
-        plan={detailPlan}
+        plan={detailPlan ?? draftPlan}
         plans={plans}
-        open={!!detailPlan}
-        onClose={() => setDetailId(null)}
+        open={!!detailPlan || !!draftPlan}
+        onClose={() => {
+          setDetailId(null);
+          setDraftPlan(null);
+        }}
         onUpdate={update}
         onRemove={askRemove}
+        draft={!!draftPlan && !detailPlan}
+        onCreate={(input) => {
+          const id = create(input);
+          setDraftPlan(null);
+          return id;
+        }}
       />
 
       {/* Mobile FAB — bottom-right circular "+" button */}

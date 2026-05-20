@@ -30,6 +30,8 @@ export function TaskDetail({
   onClose,
   onUpdate,
   onRemove,
+  draft = false,
+  onCreate,
 }: {
   plan: Plan | null;
   plans?: Plan[];
@@ -37,6 +39,9 @@ export function TaskDetail({
   onClose: () => void;
   onUpdate: (id: string, patch: Partial<Plan>) => void;
   onRemove: (id: string) => void;
+  /** Yangi reja yaratish rejimi — plan store'ga faqat Saqlash bosilganda yoziladi */
+  draft?: boolean;
+  onCreate?: (input: Omit<Plan, "id" | "createdAt" | "order" | "status">) => string;
 }) {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
@@ -111,14 +116,27 @@ export function TaskDetail({
           ? maxDuration
           : undefined
         : duration;
-    onUpdate(plan!.id, {
-      title: title.trim() || plan!.title,
-      notes: notes.trim() || undefined,
-      scheduledFor: effectiveDateIso,
-      time: time || undefined,
-      duration: safeDuration,
-      priority,
-    });
+    if (draft && onCreate) {
+      // Draft rejimi — yangi reja yaratamiz
+      onCreate({
+        title: title.trim() || plan!.title || "Yangi reja",
+        notes: notes.trim() || undefined,
+        scope: plan!.scope,
+        scheduledFor: effectiveDateIso,
+        time: time || undefined,
+        duration: safeDuration,
+        priority,
+      });
+    } else {
+      onUpdate(plan!.id, {
+        title: title.trim() || plan!.title,
+        notes: notes.trim() || undefined,
+        scheduledFor: effectiveDateIso,
+        time: time || undefined,
+        duration: safeDuration,
+        priority,
+      });
+    }
     onClose();
   }
 
@@ -138,7 +156,7 @@ export function TaskDetail({
       >
         <header className="flex items-center justify-between border-b border-border px-4 py-2.5">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-faint">
-            Reja tafsilotlari
+            {draft ? "Yangi reja" : "Reja tafsilotlari"}
           </p>
           <button
             type="button"
@@ -310,14 +328,18 @@ export function TaskDetail({
         </div>
 
         <footer className="flex items-center justify-between border-t border-border bg-subtle/30 px-4 py-2.5">
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-faint transition-colors hover:bg-danger-soft hover:text-danger"
-          >
-            <Trash2 className="size-3" />
-            O&apos;chirish
-          </button>
+          {draft ? (
+            <span />
+          ) : (
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-faint transition-colors hover:bg-danger-soft hover:text-danger"
+            >
+              <Trash2 className="size-3" />
+              O&apos;chirish
+            </button>
+          )}
           <div className="flex items-center gap-2">
             <button
               type="button"
