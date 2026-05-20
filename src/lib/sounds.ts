@@ -26,7 +26,7 @@ let _master = 0.2;
 // Desktop ovoz dinamiklari mobile'dan ko'ra past chiqargani uchun
 // desktop'da default qiymatlar yuqori (master 0.5, complete trim 0.4).
 const COMPLETE_GAIN_TRIM_MOBILE  = 0.2;
-const COMPLETE_GAIN_TRIM_DESKTOP = 0.4;
+const COMPLETE_GAIN_TRIM_DESKTOP = 0.5;
 const CREATE_GAIN_TRIM           = 0.8;
 const DEFAULT_MASTER_MOBILE      = 0.2;
 const DEFAULT_MASTER_DESKTOP     = 0.5;
