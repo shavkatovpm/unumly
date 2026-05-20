@@ -386,8 +386,14 @@ export function AgendaView() {
             <button
               type="button"
               onClick={openDetailForCurrent}
+              disabled={!title.trim()}
               title="Batafsil sozlash (priority, izoh, davom...)"
-              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-faint transition-colors hover:bg-hover hover:text-foreground"
+              className={cn(
+                "flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] transition-colors",
+                !title.trim()
+                  ? "cursor-not-allowed text-faint/40"
+                  : "text-faint hover:bg-hover hover:text-foreground"
+              )}
             >
               <Pencil className="size-3" />
               batafsil
