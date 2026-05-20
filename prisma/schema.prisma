@@ -26,6 +26,10 @@ model User {
   photoUrl     String?            // profile photo from Telegram
   languageCode String?            // 2-letter code
 
+  // Phone number (E.164 format, e.g. +998901234567) — shared by user via bot
+  // 'Share contact' button; used to send OTP codes for login.
+  phone        String?  @unique
+
   // Booleans we may use later (notification settings, premium status)
   isPremium    Boolean  @default(false)
   notifyLow    Boolean  @default(false)   // notify even on LOW-priority plans
@@ -38,6 +42,21 @@ model User {
   plans        Plan[]
 
   @@index([telegramId])
+  @@index([phone])
+}
+
+// One-time login codes sent via Telegram bot. Generated when the user
+// requests OTP on the web; the bot delivers them via DM.
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String                          // E.164 format
+  codeHash  String                          // SHA-256 of the 6-digit code
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([phone, used, expiresAt])
 }
 
 // ───────────────────────── Plans ─────────────────────────

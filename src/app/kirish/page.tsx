@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
-import { TelegramLoginWidget } from "@/components/auth/telegram-login-widget";
+import { OtpLoginForm } from "@/components/auth/otp-login-form";
 import { MiniAppAutoLogin } from "@/components/auth/mini-app-autologin";
 
 export const metadata: Metadata = {
@@ -23,48 +23,51 @@ export default async function KirishPage({
   const user = await getSessionUser();
   if (user) redirect(next);
 
-  const botUsername = process.env.TELEGRAM_BOT_USERNAME || "";
-  const configured = botUsername.length > 0;
+  const botUsername = process.env.TELEGRAM_BOT_USERNAME || "unumlybot";
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 py-10">
+      {/* In Mini App: auto-login via initData (skip the OTP flow entirely) */}
       <MiniAppAutoLogin redirectTo={next} />
 
-      <header className="mb-10 text-center">
+      <header className="mb-8 text-center">
         <p className="font-mono text-[10.5px] uppercase tracking-[0.22em] text-faint">
           Kirish
         </p>
-        <h1 className="mt-3 text-balance text-[28px] font-medium leading-tight tracking-[-0.02em] sm:text-[36px]">
+        <h1 className="mt-3 text-balance text-[28px] font-medium leading-tight tracking-[-0.02em] sm:text-[34px]">
           Telegram orqali kiring
         </h1>
-        <p className="mt-4 text-[14px] leading-relaxed text-muted">
-          Alohida ro&apos;yxatdan o&apos;tish shart emas. Telegram tugmasini
-          bosing — rejalaringiz akkauntingizga bog&apos;lanadi va istalgan
-          qurilmadan ochiladi.
+        <p className="mt-3 text-[13.5px] leading-relaxed text-muted">
+          Telefon raqamingizni kiriting — sizga{" "}
+          <a
+            href={`https://t.me/${botUsername}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-foreground underline decoration-faint/60 underline-offset-2"
+          >
+            @{botUsername}
+          </a>{" "}
+          orqali bir martalik kod yuboriladi.
         </p>
       </header>
 
-      <div className="flex flex-col items-center gap-4">
-        {configured ? (
-          <TelegramLoginWidget botUsername={botUsername} redirectTo={next} />
-        ) : (
-          <div className="rounded-md border border-dashed border-border bg-surface/40 px-5 py-4 text-center">
-            <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-faint">
-              Bot sozlanmagan
-            </p>
-            <p className="mt-2 text-[13px] text-muted">
-              Administrator <code className="rounded bg-subtle px-1 py-0.5 font-mono text-[12px]">TELEGRAM_BOT_USERNAME</code>{" "}
-              env-ni sozlashi kerak.
-            </p>
-          </div>
-        )}
+      <OtpLoginForm botUsername={botUsername} redirectTo={next} />
 
-        <p className="text-center text-[12px] text-faint">
-          Telegram&apos;da Unumly bot ochilsa, login avtomatik amalga oshadi.
-        </p>
-      </div>
+      <p className="mt-8 max-w-sm text-center text-[11.5px] leading-relaxed text-faint">
+        Ro&apos;yxatdan o&apos;tish: Telegram&apos;da{" "}
+        <a
+          href={`https://t.me/${botUsername}?start=signup`}
+          target="_blank"
+          rel="noreferrer"
+          className="underline decoration-faint/60 underline-offset-2 hover:text-foreground"
+        >
+          @{botUsername}
+        </a>{" "}
+        ni oching → /start → telefon raqamni ulashing. Keyin shu yerga
+        qaytib kiring.
+      </p>
 
-      <nav className="mt-12">
+      <nav className="mt-10">
         <Link
           href="/"
           className="font-mono text-[11px] uppercase tracking-[0.2em] text-faint hover:text-foreground"
