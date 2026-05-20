@@ -81,7 +81,7 @@ export function KalendarView() {
   const isToday = isSameDay(selected, today);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div className="flex flex-col overflow-hidden" style={{ height: "var(--tg-vh, 100vh)" }}>
       {/* Header */}
       <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
         <div className="flex min-w-0 items-center gap-1.5 md:gap-3">

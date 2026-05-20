@@ -37,6 +37,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setHasMounted(true);
   }, []);
 
+  // Telegram WebApp init — agar ilova Telegram Mini App ichida ishlasa,
+  // viewport'ni to'liq kengaytirish va swipe-to-close ni o'chirish.
+  // Klaviatura ochilganda webview o'z scroll'i bilan asosiy elementlarni
+  // siljitishini kamaytiradi.
+  useEffect(() => {
+    let attempts = 0;
+    function init() {
+      const tg = (window as unknown as { Telegram?: { WebApp?: {
+        ready: () => void;
+        expand: () => void;
+        isExpanded: boolean;
+        viewportStableHeight?: number;
+        viewportHeight?: number;
+        onEvent?: (event: string, handler: () => void) => void;
+        disableVerticalSwipes?: () => void;
+      } } }).Telegram?.WebApp;
+      if (!tg) {
+        if (attempts++ < 30) setTimeout(init, 100);
+        return;
+      }
+      tg.ready();
+      tg.expand();
+      try { tg.disableVerticalSwipes?.(); } catch { /* old clients */ }
+
+      function syncViewport() {
+        if (!tg) return;
+        const stable = tg.viewportStableHeight ?? tg.viewportHeight ?? window.innerHeight;
+        document.documentElement.style.setProperty("--tg-vh", `${stable}px`);
+      }
+      syncViewport();
+      tg.onEvent?.("viewportChanged", syncViewport);
+    }
+    init();
+  }, []);
+
   function toggle(next: boolean) {
     setOpen(next);
     // Persist only the desktop preference (mobile always starts closed)

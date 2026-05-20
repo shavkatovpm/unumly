@@ -155,14 +155,14 @@ function AgendaRow({
       >
         <span
           className={cn(
-            "grid size-[18px] place-items-center rounded-md border transition-all duration-200",
+            "grid size-[21px] place-items-center rounded-md border transition-all duration-200",
             visualDone
               ? "border-accent bg-accent check-fill"
               : "border-border-strong group-hover/check:border-accent"
           )}
         >
           {visualDone && (
-            <Check className="size-3 text-background check-pop" strokeWidth={5} />
+            <Check className="size-[14px] text-background check-pop" strokeWidth={5} />
           )}
         </span>
       </button>
@@ -325,7 +325,8 @@ export function AgendaView() {
   return (
     <div
       data-scroll-lock-on-focus
-      className="flex h-screen flex-col overflow-y-auto"
+      className="flex flex-col overflow-y-auto"
+      style={{ height: "var(--tg-vh, 100vh)" }}
     >
       {/* Header */}
       <header className="flex h-12 items-center justify-between gap-2 border-b border-border px-4 md:px-6">

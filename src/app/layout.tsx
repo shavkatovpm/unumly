@@ -164,6 +164,7 @@ export default function RootLayout({
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
+        <script src="https://telegram.org/js/telegram-web-app.js" async />
       </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
         {/* JSON-LD: Organization + WebSite + SoftwareApplication */}

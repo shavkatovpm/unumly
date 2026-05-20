@@ -184,6 +184,10 @@ function BoshqaruvSheet({
   const [custom, setCustom] = useState<CustomItem[]>([]);
   const [hidden, setHidden] = useState<string[]>([]);
 
+  // Lock background scroll while sheet is open — also locks any
+  // [data-scroll-lock-on-focus] containers (Bugun/Agenda/Kalendar).
+  useScrollLock(true);
+
   useEffect(() => {
     setCustom(readJSON<CustomItem[]>(STORAGE_CUSTOM, []));
     setHidden(readJSON<string[]>(STORAGE_HIDDEN, []));
@@ -207,31 +211,42 @@ function BoshqaruvSheet({
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 32, stiffness: 320 }}
-        className="fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
+        drag="y"
+        dragDirectionLock
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.5 }}
+        dragMomentum={false}
+        onDragEnd={(_, info) => {
+          // Swipe-down to close: enough distance OR enough velocity
+          if (info.offset.y > 80 || info.velocity.y > 500) {
+            onClose();
+          }
+        }}
+        className="fixed inset-x-0 bottom-0 z-50 max-h-[92vh] touch-none rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
-        {/* Drag handle */}
+        {/* Drag handle — also doubles as a tap-to-close target */}
         <button
           onClick={onClose}
           aria-label="Yopish"
-          className="flex w-full items-center justify-center py-2.5"
+          className="flex w-full items-center justify-center py-2"
         >
           <span className="h-1 w-10 rounded-full bg-faint/60" />
         </button>
 
-        <header className="flex items-center justify-between border-b border-border px-5 pb-4">
-          <p className="text-[20px] font-semibold tracking-[-0.01em]">Boshqaruv</p>
+        <header className="flex items-center justify-between border-b border-border px-4 pb-2.5">
+          <p className="text-[16px] font-semibold tracking-[-0.01em]">Boshqaruv</p>
           <button
             onClick={onClose}
             aria-label="Yopish"
-            className="grid size-11 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"
+            className="grid size-9 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"
           >
-            <X className="size-5" />
+            <X className="size-4" />
           </button>
         </header>
 
         {/* Boshqaruv links */}
-        <div className="px-3 py-3">
+        <div className="px-3 py-2.5">
           <SheetLink
             href="/reja"
             label="Reja"
@@ -248,8 +263,8 @@ function BoshqaruvSheet({
         </div>
 
         {/* Arxiv */}
-        <div className="border-t border-border px-3 py-3">
-          <p className="px-2 pb-2 text-[13px] font-medium uppercase tracking-[0.15em] text-faint">
+        <div className="border-t border-border px-3 py-2.5">
+          <p className="px-2 pb-1 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
             Arxiv
           </p>
           <SheetLink
@@ -270,8 +285,8 @@ function BoshqaruvSheet({
 
         {/* Maxsus loyihalar */}
         {custom.length > 0 && (
-          <div className="border-t border-border px-3 py-3">
-            <p className="px-2 pb-2 text-[13px] font-medium uppercase tracking-[0.15em] text-faint">
+          <div className="border-t border-border px-3 py-2.5">
+            <p className="px-2 pb-1 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
               Maxsus
             </p>
             {custom.map((c) => (
@@ -281,27 +296,27 @@ function BoshqaruvSheet({
         )}
 
         {/* Profile + theme + settings */}
-        <div className="border-t border-border bg-subtle/30 p-4">
-          <div className="flex items-center gap-4 rounded-lg bg-background p-4">
-            <div className="grid size-14 place-items-center rounded-md bg-foreground text-[18px] font-medium text-background">
+        <div className="border-t border-border bg-subtle/30 p-3">
+          <div className="flex items-center gap-3 rounded-lg bg-background p-3">
+            <div className="grid size-10 place-items-center rounded-md bg-foreground text-[14px] font-medium text-background">
               U
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[18px] font-medium">Sizning ish stolingiz</p>
-              <p className="text-[14px] text-faint">Lokal rejim</p>
+              <p className="text-[14px] font-medium">Sizning ish stolingiz</p>
+              <p className="text-[11px] text-faint">Lokal rejim</p>
             </div>
             <button
               onClick={toggle}
               aria-label={isDark ? "Yorug' rejim" : "Qorong'u rejim"}
-              className="grid size-12 place-items-center rounded-md text-muted hover:bg-hover hover:text-foreground"
+              className="grid size-9 place-items-center rounded-md text-muted hover:bg-hover hover:text-foreground"
             >
-              {isDark ? <Sun className="size-[22px]" /> : <Moon className="size-[22px]" />}
+              {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </button>
             <button
               aria-label="Sozlamalar"
-              className="grid size-12 place-items-center rounded-md text-muted hover:bg-hover hover:text-foreground"
+              className="grid size-9 place-items-center rounded-md text-muted hover:bg-hover hover:text-foreground"
             >
-              <Settings className="size-[22px]" />
+              <Settings className="size-4" />
             </button>
           </div>
         </div>
@@ -328,13 +343,13 @@ function SheetLink({
       href={href}
       onClick={onNavigate}
       className={cn(
-        "flex items-center gap-4 rounded-md px-4 py-4 text-[19px] transition-colors",
+        "flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] transition-colors",
         active
           ? "bg-subtle text-foreground"
           : "text-muted hover:bg-hover hover:text-foreground"
       )}
     >
-      <Icon className="size-[22px] shrink-0 text-faint" strokeWidth={2} />
+      <Icon className="size-[18px] shrink-0 text-faint" strokeWidth={2} />
       <span className="flex-1 font-medium">{label}</span>
     </Link>
   );
@@ -353,12 +368,12 @@ function SheetItem({
     <button
       type="button"
       disabled
-      className="flex w-full cursor-not-allowed items-center gap-4 rounded-md px-4 py-4 text-left text-[19px] text-faint/80"
+      className="flex w-full cursor-not-allowed items-center gap-3 rounded-md px-3 py-2.5 text-left text-[15px] text-faint/80"
     >
-      <Icon className="size-[22px] shrink-0 text-faint/70" strokeWidth={2} />
+      <Icon className="size-[18px] shrink-0 text-faint/70" strokeWidth={2} />
       <span className="flex-1">{label}</span>
       {badge && (
-        <span className="rounded bg-subtle px-2 py-0.5 font-mono text-[13px] uppercase tracking-wider text-faint">
+        <span className="rounded bg-subtle px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-faint">
           {badge}
         </span>
       )}

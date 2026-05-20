@@ -98,7 +98,8 @@ export function Sidebar({
   const [addingCustom, setAddingCustom] = useState(false);
   const [newLabel, setNewLabel] = useState("");
 
-  // Arxiv section collapsible — default closed, persisted
+  // Arxiv section collapsible — default closed, persisted.
+  // Auto-closes when user navigates away from an Arxiv route.
   const [arxivOpen, setArxivOpen] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -109,6 +110,29 @@ export function Sidebar({
       /* ignore */
     }
   }, []);
+
+  const onArxivRoute =
+    pathname === "/bajarilgan" ||
+    pathname.startsWith("/bajarilgan/") ||
+    pathname === "/ochirilgan" ||
+    pathname.startsWith("/ochirilgan/");
+
+  // When user navigates away from an Arxiv route, collapse the section.
+  useEffect(() => {
+    if (!onArxivRoute && arxivOpen) {
+      setArxivOpen(false);
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(STORAGE_ARXIV_OPEN, "0");
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    // We only want to react to pathname changes, not to arxivOpen toggles.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
   function toggleArxiv() {
     setArxivOpen((v) => {
       const next = !v;

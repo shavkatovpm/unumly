@@ -168,7 +168,8 @@ export function BugunView() {
   return (
     <div
       data-scroll-lock-on-focus
-      className="flex h-screen flex-col overflow-y-auto"
+      className="flex flex-col overflow-y-auto"
+      style={{ height: "var(--tg-vh, 100vh)" }}
     >
       {/* Header */}
       <header className="flex h-12 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
@@ -336,7 +337,6 @@ export function BugunView() {
                               onRemove={askRemove}
                               onOpen={setDetailId}
                               isNew={p.id === justCreatedId}
-                              large
                             />
                           ))}
                         </ul>
