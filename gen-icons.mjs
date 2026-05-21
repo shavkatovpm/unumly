@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import pngToIco from "png-to-ico";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -53,11 +54,18 @@ async function main() {
     .png({ quality: 95 })
     .toFile(path.join(projectRoot, "public", "logo.png"));
 
-  // ─── src/app/icon.png — favicon 32x32 ───
+  // ─── src/app/icon.png — favicon 192x192 (Google ≥48 + PWA std) ───
   await sharp(base)
-    .resize(32, 32)
-    .png({ quality: 100 })
+    .resize(192, 192)
+    .png({ quality: 95 })
     .toFile(path.join(appDir, "icon.png"));
+
+  // ─── src/app/favicon.ico — multi-resolution (16/32/48) of the round logo ───
+  const icoSources = await Promise.all(
+    [16, 32, 48].map((s) => sharp(base).resize(s, s).png().toBuffer())
+  );
+  const ico = await pngToIco(icoSources);
+  await fs.writeFile(path.join(appDir, "favicon.ico"), ico);
 
   // ─── src/app/apple-icon.png — 180x180 ───
   await sharp(base)
@@ -97,7 +105,8 @@ async function main() {
 
   console.log("✓ Generated:");
   console.log("  public/logo.png             (512x512 transparent circle)");
-  console.log("  src/app/icon.png            (32x32 favicon)");
+  console.log("  src/app/icon.png            (192x192 favicon PNG)");
+  console.log("  src/app/favicon.ico         (16/32/48 ICO of round logo)");
   console.log("  src/app/apple-icon.png      (180x180 iOS touch)");
   console.log("  src/app/opengraph-image.png (1200x630 OG)");
   console.log("  src/app/twitter-image.png   (1200x630 Twitter)");

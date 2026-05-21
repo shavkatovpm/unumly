@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Unumly — Kunlik ishlarni rejalashtirish ilovasi",
+    name: "Unumly: Kunlik ishlarni rejalashtirish ilovasi",
     short_name: "Unumly",
     description:
       "Kunlik, haftalik, oylik va yillik vazifalarni rejalashtirish, boshqarish va bajarish uchun o'zbekcha minimalistik ilova.",
@@ -13,17 +13,9 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "uz",
     orientation: "portrait-primary",
     icons: [
-      {
-        src: "/icon",
-        sizes: "32x32",
-        type: "image/png",
-      },
-      {
-        src: "/apple-icon",
-        sizes: "180x180",
-        type: "image/png",
-        purpose: "any",
-      },
+      { src: "/icon.png",       sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/apple-icon.png", sizes: "180x180", type: "image/png", purpose: "any" },
+      { src: "/logo.png",       sizes: "512x512", type: "image/png", purpose: "any" },
     ],
     categories: ["productivity", "lifestyle"],
   };
