@@ -83,8 +83,7 @@ export async function sendStartWelcome(chatId: number | string, appUrl: string) 
     chat_id: chatId,
     text:
       `👋 Xush kelibsiz!\n\n` +
-      `Pastdagi tugma orqali Unumly ilovasini oching.\n\n` +
-      `_Saytda kirish uchun unumly.uz/kirish sahifasiga o'tib " Telegram'dan kod olish" tugmasini bosing._`,
+      `Pastdagi tugma orqali Unumly ilovasini oching.`,
     parse_mode: "Markdown",
     reply_markup: {
       inline_keyboard: [
