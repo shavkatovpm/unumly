@@ -1,0 +1,40 @@
+# Unumly
+
+> Unumly: o'zbek tilidagi minimalistik productivity ilovasi. Kunlik, haftalik, oylik va yillik vazifalarni rejalashtirish, boshqarish va bajarish uchun mo'ljallangan. Brauzer orqali ishlaydi, ro'yxatdan o'tish shart emas, ma'lumotlar localStorage'da saqlanadi.
+
+## Unumly nima?
+
+Unumly: bu O'zbekistondagi foydalanuvchilar uchun yaratilgan vaqt va vazifa boshqarish ilovasi. Asosiy maqsad: kunlik ishlarni soddagina rejalashtirish, kalendarda ko'rish, drag-and-drop bilan ko'chirish va bajarilganligini belgilash.
+
+Asosiy farqlovchi xususiyatlar:
+- O'zbek tilida (boshqa rejalashtirish ilovalarining ko'pchiligi ingliz tilida)
+- Lokal saqlash: barcha rejalar foydalanuvchi qurilmasida qoladi
+- Hech qanday ro'yxatdan o'tish, login yoki to'lov yo'q
+- Minimalistik, ortiqcha bezaksiz dizayn
+
+## Asosiy sahifalar
+
+- [Bosh sahifa](https://unumly.uz/): Ilovaning umumiy taqdimi va kirish nuqtasi
+- [Haqida](https://unumly.uz/haqida): Ilova haqida batafsil, FAQ, imkoniyatlar ro'yxati
+- [Blog](https://unumly.uz/blog): Vaqt boshqarish va rejalashtirish bo'yicha o'zbekcha maqolalar
+
+## Blog maqolalari
+
+- [Kunlik rejalashtirish: 5 ta qadam](https://unumly.uz/blog/kunlik-rejalashtirish): Samarali kun rejasini tuzish bo'yicha qadamba-qadam qo'llanma
+- [Time blocking: vaqt blok usuli](https://unumly.uz/blog/time-blocking): Kunni vaqt bloklariga bo'lish texnikasi
+- [Pomodoro texnikasi](https://unumly.uz/blog/pomodoro-texnikasi): 25 daqiqalik fokus sessiyalari bilan ishlash
+
+## Asosiy imkoniyatlar
+
+- **Bugun**: bir kunlik vazifalar, vaqt belgilash, muhimlik darajasi
+- **Agenda**: yaqin kunlardagi rejalarni bir nuqtadan ko'rish
+- **Kalendar**: kun, hafta, oy, yil ko'rinishlari; drag-and-drop bilan ko'chirish
+- **Reja**: kategoriyalar bo'yicha uzoq muddatli rejalar, Tab yoki Kanban ko'rinishi
+
+## Ma'lumotlar
+
+- Til: O'zbek (lotin)
+- Mintaqa: O'zbekiston
+- Narx: Bepul
+- Texnologiya: Next.js, brauzerda ishlaydi
+- Saqlash: localStorage (lokal qurilma xotirasi)

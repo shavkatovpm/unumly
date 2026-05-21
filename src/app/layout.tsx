@@ -72,7 +72,7 @@ try {
 export const metadata: Metadata = {
   metadataBase: new URL("https://unumly.uz"),
   title: {
-    default: "Unumly — Kunlik ishlarni rejalashtirish ilovasi",
+    default: "Unumly: Kunlik ishlarni rejalashtirish ilovasi",
     template: "%s · Unumly",
   },
   description:
@@ -106,7 +106,7 @@ export const metadata: Metadata = {
     locale: "uz_UZ",
     url: "https://unumly.uz",
     siteName: "Unumly",
-    title: "Unumly — Kunlik ishlarni rejalashtirish ilovasi",
+    title: "Unumly: Kunlik ishlarni rejalashtirish ilovasi",
     description:
       "Vaqtingizni unumli boshqaring: rejalashtiring, boshqaring, bajaring. Kunlik, haftalik, oylik va yillik rejalar uchun minimalistik o'zbekcha ilova.",
     images: [
@@ -114,13 +114,13 @@ export const metadata: Metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "Unumly — kunlik ishlarni rejalashtirish ilovasi",
+        alt: "Unumly: kunlik ishlarni rejalashtirish ilovasi",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Unumly — Kunlik ishlarni rejalashtirish ilovasi",
+    title: "Unumly: Kunlik ishlarni rejalashtirish ilovasi",
     description:
       "Vaqtingizni unumli boshqaring: rejalashtiring, boshqaring, bajaring.",
     images: ["/opengraph-image"],
