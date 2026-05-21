@@ -124,7 +124,16 @@ function scheduleNoise(ctx: AudioContext, out: GainNode, t0: number, n: NoiseSpe
 function playSpec(spec: SoundSpec, gainScale = 1) {
   const ctx = getCtx();
   if (!ctx) return;
-  const t = ctx.currentTime;
+
+  // Telegram Mini App webview (and browsers on bfcache restore) sometimes
+  // leave the AudioContext suspended. Try to resume it before scheduling.
+  // resume() is async, but we schedule with a small lookahead so most of
+  // the time the context is live by the time the audio plays.
+  if (ctx.state === "suspended") {
+    void ctx.resume().catch(() => { /* ignore */ });
+  }
+
+  const t = ctx.currentTime + 0.02; // small lookahead so resume can complete
   const out = ctx.createGain();
   out.gain.value = _master * gainScale;
   out.connect(ctx.destination);
