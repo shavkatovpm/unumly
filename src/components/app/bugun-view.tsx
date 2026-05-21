@@ -400,7 +400,7 @@ export function BugunView() {
                                 onDrop={(e) => dragUntimed.drop(e, p.id)}
                                 onDragEnd={dragUntimed.end}
                                 className={cn(
-                                  "transition-[opacity,box-shadow] duration-150",
+                                  "select-none transition-[opacity,box-shadow] duration-150",
                                   dragUntimed.draggingId === p.id && "opacity-40",
                                   dragUntimed.overId === p.id &&
                                     dragUntimed.draggingId !== p.id &&

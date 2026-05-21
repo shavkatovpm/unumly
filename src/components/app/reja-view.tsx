@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
 import {
   ArrowDown,
   ArrowUp,
@@ -551,16 +552,18 @@ function MaterialTabBar({
           const color = CATEGORY_PALETTE[c.color].oklch;
           const count = ideas.filter((i) => i.categoryId === c.id).length;
           return (
-            <div
+            <motion.div
               key={c.id}
+              layout
+              transition={{ type: "spring", stiffness: 500, damping: 38, mass: 0.5 }}
               ref={(el) => { tabWrapperRefs.current[c.id] = el; }}
               draggable={!!onCategoryReorder}
-              onDragStart={(e) => dragCat.start(e, c.id)}
+              onDragStart={(e) => dragCat.start(e as unknown as React.DragEvent, c.id)}
               onDragOver={(e) => dragCat.over(e, c.id)}
               onDrop={(e) => dragCat.drop(e, c.id)}
               onDragEnd={dragCat.end}
               className={cn(
-                "group relative shrink-0 transition-[opacity,box-shadow] duration-150",
+                "group relative shrink-0 select-none transition-[opacity,box-shadow] duration-150",
                 dragCat.draggingId === c.id && "opacity-40",
                 dragCat.overId === c.id && dragCat.draggingId !== c.id &&
                   "shadow-[inset_3px_0_0_var(--foreground)]"
@@ -595,7 +598,7 @@ function MaterialTabBar({
               >
                 <MoreHorizontal className="size-3.5" />
               </button>
-            </div>
+            </motion.div>
           );
         })}
         <button
@@ -678,15 +681,17 @@ function KanbanView(props: ViewProps) {
         }}
       >
         {props.categories.map((cat, idx) => (
-          <div
+          <motion.div
             key={cat.id}
+            layout
+            transition={{ type: "spring", stiffness: 500, damping: 38, mass: 0.5 }}
             draggable={!!props.onCategoryReorder}
-            onDragStart={(e) => dragCat.start(e, cat.id)}
+            onDragStart={(e) => dragCat.start(e as unknown as React.DragEvent, cat.id)}
             onDragOver={(e) => dragCat.over(e, cat.id)}
             onDrop={(e) => dragCat.drop(e, cat.id)}
             onDragEnd={dragCat.end}
             className={cn(
-              "h-full transition-[opacity,box-shadow] duration-150",
+              "h-full select-none transition-[opacity,box-shadow] duration-150",
               dragCat.draggingId === cat.id && "opacity-40",
               dragCat.overId === cat.id && dragCat.draggingId !== cat.id &&
                 "shadow-[inset_3px_0_0_var(--foreground)]"
@@ -709,7 +714,7 @@ function KanbanView(props: ViewProps) {
             onEdit={() => props.onCategoryEdit(cat)}
             onDelete={() => props.onCategoryDelete(cat.id)}
           />
-          </div>
+          </motion.div>
         ))}
         {/* + Add new category column */}
         <div className="flex items-start border-l border-border bg-subtle/10 p-3">
