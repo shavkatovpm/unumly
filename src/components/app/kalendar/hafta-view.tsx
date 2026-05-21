@@ -214,6 +214,7 @@ export function HaftaView({
       let safeDuration = duration;
       for (const p of plans) {
         if (p.scope !== "DAILY" || p.scheduledFor !== dayIso || !p.time) continue;
+        if (p.status === "DONE") continue; // completed tasks free their slot
         const [ph, pm] = p.time.split(":").map(Number);
         const ts = ph * 60 + pm;
         const te = ts + (p.duration ?? 60);
@@ -261,6 +262,7 @@ export function HaftaView({
     const slotEnd = slotAbsMin + SNAP;
     for (const p of plans) {
       if (p.scope !== "DAILY" || p.scheduledFor !== dayIso || !p.time) continue;
+      if (p.status === "DONE") continue; // completed tasks free their slot
       const [ph, pm] = p.time.split(":").map(Number);
       const ts = ph * 60 + pm;
       const te = ts + (p.duration ?? 60);
@@ -339,6 +341,7 @@ export function HaftaView({
 
     for (const p of plans) {
       if (p.scope !== "DAILY" || p.scheduledFor !== dayIso || !p.time) continue;
+      if (p.status === "DONE") continue; // completed tasks free their slot
       const [ph, pm] = p.time.split(":").map(Number);
       const ts = ph * 60 + pm;
       const te = ts + (p.duration ?? 60);
@@ -404,6 +407,7 @@ export function HaftaView({
     for (const p of plans) {
       if (p.id === draggedId) continue;
       if (p.scope !== "DAILY" || p.scheduledFor !== dayIso || !p.time) continue;
+      if (p.status === "DONE") continue; // completed tasks free their slot
       const [ph, pm] = p.time.split(":").map(Number);
       const ts = ph * 60 + pm;
       const te = ts + (p.duration ?? 60);

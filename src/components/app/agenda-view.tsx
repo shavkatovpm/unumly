@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Calendar as CalendarIcon, Check, Clock, Pencil, Plus, X } from "lucide-react";
 import { useHydrated, usePlans } from "@/lib/plans-store";
+import { useDragReorder } from "@/lib/use-drag-reorder";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -315,6 +316,9 @@ export function AgendaView() {
         const at = a.time ? parseTimeToMinutes(a.time) : Number.POSITIVE_INFINITY;
         const bt = b.time ? parseTimeToMinutes(b.time) : Number.POSITIVE_INFINITY;
         if (at !== bt) return at - bt;
+        // Untimed (and same-time ties): higher `order` first — supports
+        // drag-and-drop reordering within each day's untimed set.
+        if (a.order !== b.order) return b.order - a.order;
         return a.createdAt.localeCompare(b.createdAt);
       });
   }, [plans, todayIso]);
@@ -332,6 +336,34 @@ export function AgendaView() {
       items,
     }));
   }, [upcoming]);
+
+  // Drag-and-drop reorder for untimed tasks within each day group.
+  // Uses a single hook scoped to the whole component; the move callback
+  // figures out the day from the dragged task and reorders that day's set.
+  const dragUntimed = useDragReorder(upcoming, (draggedId, beforeId) => {
+    const dragged = plans.find((p) => p.id === draggedId);
+    const target = beforeId ? plans.find((p) => p.id === beforeId) : null;
+    if (!dragged || dragged.time) return;
+    if (target && target.scheduledFor !== dragged.scheduledFor) return;
+
+    const dayIso = dragged.scheduledFor;
+    const dayUntimed = upcoming.filter(
+      (p) => p.scheduledFor === dayIso && !p.time
+    );
+    const fromIdx = dayUntimed.findIndex((p) => p.id === draggedId);
+    const toIdx = beforeId
+      ? dayUntimed.findIndex((p) => p.id === beforeId)
+      : dayUntimed.length;
+    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+    const list = [...dayUntimed];
+    const [moved] = list.splice(fromIdx, 1);
+    list.splice(fromIdx < toIdx ? toIdx - 1 : toIdx, 0, moved);
+    const max = list.length;
+    list.forEach((p, idx) => {
+      const next = max - idx;
+      if (p.order !== next) update(p.id, { order: next });
+    });
+  });
 
   const total = upcoming.length;
   const done = upcoming.filter((p) => p.status === "DONE").length;
@@ -501,16 +533,45 @@ export function AgendaView() {
                     </header>
 
                     <ul className="overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]">
-                      {activeItems.map((p) => (
-                        <AgendaRow
-                          key={p.id}
-                          plan={p}
-                          onToggle={toggleStatus}
-                          onRemove={askRemove}
-                          onOpen={setDetailId}
-                          isNew={p.id === justCreatedId}
-                        />
-                      ))}
+                      {activeItems.map((p) => {
+                        if (p.time) {
+                          return (
+                            <AgendaRow
+                              key={p.id}
+                              plan={p}
+                              onToggle={toggleStatus}
+                              onRemove={askRemove}
+                              onOpen={setDetailId}
+                              isNew={p.id === justCreatedId}
+                            />
+                          );
+                        }
+                        return (
+                          <div
+                            key={p.id}
+                            draggable
+                            onDragStart={(e) => dragUntimed.start(e, p.id)}
+                            onDragOver={(e) => dragUntimed.over(e, p.id)}
+                            onDrop={(e) => dragUntimed.drop(e, p.id)}
+                            onDragEnd={dragUntimed.end}
+                            className={cn(
+                              "transition-[opacity,box-shadow] duration-150",
+                              dragUntimed.draggingId === p.id && "opacity-40",
+                              dragUntimed.overId === p.id &&
+                                dragUntimed.draggingId !== p.id &&
+                                "shadow-[inset_0_2px_0_var(--foreground)]"
+                            )}
+                          >
+                            <AgendaRow
+                              plan={p}
+                              onToggle={toggleStatus}
+                              onRemove={askRemove}
+                              onOpen={setDetailId}
+                              isNew={p.id === justCreatedId}
+                            />
+                          </div>
+                        );
+                      })}
                     </ul>
                   </section>
                 );

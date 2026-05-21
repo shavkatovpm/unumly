@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useIdeas } from "@/lib/ideas-store";
 import { useCategories } from "@/lib/categories-store";
+import { useDragReorder } from "@/lib/use-drag-reorder";
 import { CATEGORY_COLOR_KEYS, CATEGORY_PALETTE } from "@/lib/category-palette";
 import type { Category, CategoryColor, Idea } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -140,6 +141,7 @@ export function RejaView() {
           onCategoryNew={() => setDialogState({ mode: "create" })}
           onCategoryEdit={(c) => setDialogState({ mode: "edit", cat: c })}
           onCategoryDelete={(id) => askRemoveCat(id)}
+          onCategoryReorder={(d, b) => reorderCategories(categories, d, b, updateCategory)}
         />
       ) : (
         <KanbanView
@@ -155,6 +157,7 @@ export function RejaView() {
           onCategoryNew={() => setDialogState({ mode: "create" })}
           onCategoryEdit={(c) => setDialogState({ mode: "edit", cat: c })}
           onCategoryDelete={(id) => askRemoveCat(id)}
+          onCategoryReorder={(d, b) => reorderCategories(categories, d, b, updateCategory)}
         />
       )}
 
@@ -189,6 +192,32 @@ export function RejaView() {
       {confirmCatEl}
     </div>
   );
+}
+
+/* ─── Reorder helper ───────────────────────────────────────────
+   Shared by TabView (MaterialTabBar) and KanbanView. Computes the new
+   order of categories after a drag-and-drop and pushes order updates
+   only for the rows whose position actually changed. */
+
+function reorderCategories(
+  current: Category[],
+  draggedId: string,
+  beforeId: string | null,
+  updateCategory: (id: string, patch: Partial<Category>) => void
+) {
+  const list = [...current];
+  const from = list.findIndex((c) => c.id === draggedId);
+  const to = beforeId
+    ? list.findIndex((c) => c.id === beforeId)
+    : list.length;
+  if (from < 0) return;
+  if (beforeId && to < 0) return;
+  if (from === to) return;
+  const [moved] = list.splice(from, 1);
+  list.splice(from < to ? to - 1 : to, 0, moved);
+  list.forEach((c, idx) => {
+    if (c.order !== idx) updateCategory(c.id, { order: idx });
+  });
 }
 
 /* ─── View switcher ─── */
@@ -283,6 +312,7 @@ type ViewProps = {
   onCategoryNew: () => void;
   onCategoryEdit: (c: Category) => void;
   onCategoryDelete: (id: string) => void;
+  onCategoryReorder?: (draggedId: string, beforeId: string | null) => void;
 };
 
 function sortIdeas(arr: Idea[], order: SortOrder): Idea[] {
@@ -323,6 +353,7 @@ function TabView(props: ViewProps) {
         onCategoryNew={props.onCategoryNew}
         onCategoryEdit={props.onCategoryEdit}
         onCategoryDelete={props.onCategoryDelete}
+        onCategoryReorder={props.onCategoryReorder}
       />
 
       <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto pb-24 md:pb-0">
@@ -443,6 +474,7 @@ function MaterialTabBar({
   onCategoryNew,
   onCategoryEdit,
   onCategoryDelete,
+  onCategoryReorder,
 }: {
   tab: string;
   setTab: (id: string) => void;
@@ -451,7 +483,9 @@ function MaterialTabBar({
   onCategoryNew: () => void;
   onCategoryEdit: (c: Category) => void;
   onCategoryDelete: (id: string) => void;
+  onCategoryReorder?: (draggedId: string, beforeId: string | null) => void;
 }) {
+  const dragCat = useDragReorder(categories, (d, b) => onCategoryReorder?.(d, b));
   const active = categories.find((c) => c.id === tab) ?? categories[0];
   const activeColor = CATEGORY_PALETTE[active.color].oklch;
   const [menuFor, setMenuFor] = useState<{ id: string; top: number; right: number } | null>(null);
@@ -520,7 +554,17 @@ function MaterialTabBar({
             <div
               key={c.id}
               ref={(el) => { tabWrapperRefs.current[c.id] = el; }}
-              className="group relative shrink-0"
+              draggable={!!onCategoryReorder}
+              onDragStart={(e) => dragCat.start(e, c.id)}
+              onDragOver={(e) => dragCat.over(e, c.id)}
+              onDrop={(e) => dragCat.drop(e, c.id)}
+              onDragEnd={dragCat.end}
+              className={cn(
+                "group relative shrink-0 transition-[opacity,box-shadow] duration-150",
+                dragCat.draggingId === c.id && "opacity-40",
+                dragCat.overId === c.id && dragCat.draggingId !== c.id &&
+                  "shadow-[inset_3px_0_0_var(--foreground)]"
+              )}
             >
               <button
                 onClick={() => setTab(c.id)}
@@ -613,6 +657,9 @@ function MaterialTabBar({
 function KanbanView(props: ViewProps) {
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const dragCat = useDragReorder(props.categories, (d, b) =>
+    props.onCategoryReorder?.(d, b)
+  );
   useEffect(() => {
     if (!menuFor) return;
     function onDown(e: MouseEvent) {
@@ -631,8 +678,21 @@ function KanbanView(props: ViewProps) {
         }}
       >
         {props.categories.map((cat, idx) => (
-          <KanbanColumn
+          <div
             key={cat.id}
+            draggable={!!props.onCategoryReorder}
+            onDragStart={(e) => dragCat.start(e, cat.id)}
+            onDragOver={(e) => dragCat.over(e, cat.id)}
+            onDrop={(e) => dragCat.drop(e, cat.id)}
+            onDragEnd={dragCat.end}
+            className={cn(
+              "h-full transition-[opacity,box-shadow] duration-150",
+              dragCat.draggingId === cat.id && "opacity-40",
+              dragCat.overId === cat.id && dragCat.draggingId !== cat.id &&
+                "shadow-[inset_3px_0_0_var(--foreground)]"
+            )}
+          >
+          <KanbanColumn
             cat={cat}
             ideas={props.ideas.filter((i) => i.categoryId === cat.id)}
             sortOrder={props.sortOrder}
@@ -649,6 +709,7 @@ function KanbanView(props: ViewProps) {
             onEdit={() => props.onCategoryEdit(cat)}
             onDelete={() => props.onCategoryDelete(cat.id)}
           />
+          </div>
         ))}
         {/* + Add new category column */}
         <div className="flex items-start border-l border-border bg-subtle/10 p-3">

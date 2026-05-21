@@ -156,7 +156,7 @@ export function fromDateInputValue(iso: string): Date {
  * does not block its own time).
  */
 export function occupiedTimeSlots(
-  plans: { id: string; scope?: string; scheduledFor?: string; time?: string; duration?: number }[],
+  plans: { id: string; scope?: string; status?: string; scheduledFor?: string; time?: string; duration?: number }[],
   dateIso: string,
   excludeId?: string
 ): string[] {
@@ -165,6 +165,8 @@ export function occupiedTimeSlots(
     if (p.scope !== "DAILY") continue;
     if (p.scheduledFor !== dateIso) continue;
     if (!p.time) continue;
+    // Completed tasks free up their time slot so the user can reuse it.
+    if (p.status === "DONE") continue;
     if (excludeId && p.id === excludeId) continue;
     const [h, m] = p.time.split(":").map(Number);
     const start = h * 60 + m;

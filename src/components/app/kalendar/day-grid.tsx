@@ -133,11 +133,13 @@ export function DayGrid({
         return;
       }
 
-      // Reject/shrink if the drag range overlaps any existing task
+      // Reject/shrink if the drag range overlaps any existing ACTIVE task
+      // (completed tasks free up their slot).
       const startAbsMin = hour * 60 + minute;
       let safeDuration = duration;
       for (const p of plans) {
         if (p.scope !== "DAILY" || p.scheduledFor !== isoDate || !p.time) continue;
+        if (p.status === "DONE") continue;
         const [ph, pm] = p.time.split(":").map(Number);
         const ts = ph * 60 + pm;
         const te = ts + (p.duration ?? 60);
@@ -164,6 +166,7 @@ export function DayGrid({
     const slotEnd = slotAbsMin + SNAP;
     for (const p of plans) {
       if (p.scope !== "DAILY" || p.scheduledFor !== isoDate || !p.time) continue;
+      if (p.status === "DONE") continue; // completed tasks free their slot
       const [ph, pm] = p.time.split(":").map(Number);
       const ts = ph * 60 + pm;
       const te = ts + (p.duration ?? 60);
@@ -247,6 +250,7 @@ export function DayGrid({
 
     for (const p of plans) {
       if (p.scope !== "DAILY" || p.scheduledFor !== isoDate || !p.time) continue;
+      if (p.status === "DONE") continue; // completed tasks free their slot
       const [ph, pm] = p.time.split(":").map(Number);
       const ts = ph * 60 + pm;
       const te = ts + (p.duration ?? 60);

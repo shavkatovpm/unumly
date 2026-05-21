@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useHydrated, usePlans } from "@/lib/plans-store";
+import { useDragReorder } from "@/lib/use-drag-reorder";
 import {
   formatUzDate,
   occupiedTimeSlots,
@@ -62,6 +63,9 @@ export function BugunView() {
             const bt = parseTimeToMinutes(b.time!);
             if (at !== bt) return at - bt;
           }
+          // Untimed (and timed ties): higher `order` first — supports
+          // drag-and-drop reordering in the Vaqtsiz section.
+          if (a.order !== b.order) return b.order - a.order;
           return b.createdAt.localeCompare(a.createdAt);
         }),
     [plans, todayIso]
@@ -93,6 +97,30 @@ export function BugunView() {
     { key: "evening",  label: "Kechqurun",     icon: <Sunset className="size-3.5" />,  items: active.filter((p) => bucketOf(p) === "evening") },
     { key: "anytime",  label: "Vaqtsiz",       icon: <Coffee className="size-3.5" />,  items: active.filter((p) => bucketOf(p) === "anytime") },
   ];
+
+  // Untimed drag-reorder: assign descending orders so the dragged item lands
+  // above the drop target (highest order = first).
+  const untimedItems = useMemo(
+    () => active.filter((p) => bucketOf(p) === "anytime"),
+    [active] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const dragUntimed = useDragReorder(untimedItems, (draggedId, beforeId) => {
+    const list = [...untimedItems];
+    const fromIdx = list.findIndex((p) => p.id === draggedId);
+    const toIdx = beforeId
+      ? list.findIndex((p) => p.id === beforeId)
+      : list.length;
+    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+    const [moved] = list.splice(fromIdx, 1);
+    list.splice(fromIdx < toIdx ? toIdx - 1 : toIdx, 0, moved);
+    // Assign descending orders so the first element has the highest value
+    const max = list.length;
+    list.forEach((p, idx) => {
+      const next = max - idx;
+      if (p.order !== next) update(p.id, { order: next });
+    });
+  });
 
   // Add task form state
   const [title, setTitle] = useState("");
@@ -329,6 +357,7 @@ export function BugunView() {
                 <div className="space-y-3">
                   {blocks.map((b) => {
                     if (b.items.length === 0) return null;
+                    const isAnytime = b.key === "anytime";
                     return (
                       <section
                         key={b.key}
@@ -348,16 +377,46 @@ export function BugunView() {
                           </p>
                         </header>
                         <ul className="divide-y divide-border/70">
-                          {b.items.map((p) => (
-                            <TaskRow
-                              key={p.id}
-                              plan={p}
-                              onToggle={toggleStatus}
-                              onRemove={askRemove}
-                              onOpen={setDetailId}
-                              isNew={p.id === justCreatedId}
-                            />
-                          ))}
+                          {b.items.map((p) => {
+                            if (!isAnytime) {
+                              return (
+                                <TaskRow
+                                  key={p.id}
+                                  plan={p}
+                                  onToggle={toggleStatus}
+                                  onRemove={askRemove}
+                                  onOpen={setDetailId}
+                                  isNew={p.id === justCreatedId}
+                                />
+                              );
+                            }
+                            // Anytime: wrap with drag-reorder handlers
+                            return (
+                              <div
+                                key={p.id}
+                                draggable
+                                onDragStart={(e) => dragUntimed.start(e, p.id)}
+                                onDragOver={(e) => dragUntimed.over(e, p.id)}
+                                onDrop={(e) => dragUntimed.drop(e, p.id)}
+                                onDragEnd={dragUntimed.end}
+                                className={cn(
+                                  "transition-[opacity,box-shadow] duration-150",
+                                  dragUntimed.draggingId === p.id && "opacity-40",
+                                  dragUntimed.overId === p.id &&
+                                    dragUntimed.draggingId !== p.id &&
+                                    "shadow-[inset_0_2px_0_var(--foreground)]"
+                                )}
+                              >
+                                <TaskRow
+                                  plan={p}
+                                  onToggle={toggleStatus}
+                                  onRemove={askRemove}
+                                  onOpen={setDetailId}
+                                  isNew={p.id === justCreatedId}
+                                />
+                              </div>
+                            );
+                          })}
                         </ul>
                       </section>
                     );

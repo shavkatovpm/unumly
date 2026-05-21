@@ -84,6 +84,7 @@ export function TaskDetail({
     for (const p of plans) {
       if (p.id === plan.id) continue;
       if (p.scope !== "DAILY" || p.scheduledFor !== effectiveDateIso || !p.time) continue;
+      if (p.status === "DONE") continue; // completed tasks free their slot
       const [ph, pm] = p.time.split(":").map(Number);
       const ps = ph * 60 + pm;
       if (ps >= startMin && ps < nextStart) nextStart = ps;
