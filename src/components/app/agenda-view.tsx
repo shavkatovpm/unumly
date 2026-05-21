@@ -301,7 +301,12 @@ export function AgendaView() {
 
   const upcoming = useMemo(() => {
     return plans
-      .filter((p) => p.scope === "DAILY" && p.scheduledFor > todayIso)
+      .filter(
+        (p) =>
+          p.scope === "DAILY" &&
+          p.scheduledFor > todayIso &&
+          p.status !== "DONE"
+      )
       .sort((a, b) => {
         if (a.scheduledFor !== b.scheduledFor) {
           return a.scheduledFor.localeCompare(b.scheduledFor);
