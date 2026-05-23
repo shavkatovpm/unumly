@@ -21,12 +21,15 @@ export function TaskRow({
   onRemove,
   onOpen,
   isNew = false,
+  overdueDateLabel,
 }: {
   plan: Plan;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
   onOpen?: (id: string) => void;
   isNew?: boolean;
+  /** When set, time pill renders in red with this date prefix (e.g. "20-may"). */
+  overdueDateLabel?: string;
 }) {
   const done = plan.status === "DONE";
   const priorityDot = plan.priority ? PRIORITY_DOT[plan.priority] : "bg-faint/40";
@@ -115,11 +118,15 @@ export function TaskRow({
         <span
           className={cn(
             "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] tabular-nums",
-            done ? "text-faint" : "bg-subtle text-foreground"
+            done
+              ? "text-faint"
+              : overdueDateLabel
+              ? "bg-danger-soft text-danger"
+              : "bg-subtle text-foreground"
           )}
         >
           <Clock className="size-2.5" />
-          {plan.time}
+          {overdueDateLabel ? `${overdueDateLabel} ${plan.time}` : plan.time}
         </span>
       )}
 

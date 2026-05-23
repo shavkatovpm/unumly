@@ -267,12 +267,30 @@ export default function HaqidaPage() {
 
           <h3>Vazifalar qanday guruhlangan</h3>
           <ul>
-            <li><strong>Yarim kechasi</strong>: 00:00 dan 05:59 gacha</li>
-            <li><strong>Ertalab</strong>: 06:00 dan 11:59 gacha</li>
-            <li><strong>Kunduzi</strong>: 12:00 dan 17:59 gacha</li>
-            <li><strong>Kechqurun</strong>: 18:00 dan 23:59 gacha</li>
-            <li><strong>Vaqtsiz</strong>: vaqt belgilanmagan rejalar</li>
+            <li>
+              <strong>Kechikkan</strong>: o&apos;tgan kundan qolib ketgan,
+              vaqti belgilangan va hali bajarilmagan rejalar — qizil belgi
+              bilan eng tepada chiqadi
+            </li>
+            <li><strong>Yarim kechasi</strong>: 00:00 dan 03:59 gacha</li>
+            <li><strong>Ertalab</strong>: 04:00 dan 11:59 gacha</li>
+            <li><strong>Kunduzi</strong>: 12:00 dan 16:59 gacha</li>
+            <li><strong>Kechqurun</strong>: 17:00 dan 23:59 gacha</li>
+            <li>
+              <strong>Vaqtsiz</strong>: vaqt belgilanmagan rejalar (o&apos;tgan
+              kunlardan qolgan vaqtsiz rejalar ham shu yerga qo&apos;shiladi)
+            </li>
           </ul>
+
+          <h3>Bajarilmagan rejalarning o&apos;tishi (carry-over)</h3>
+          <p>
+            Agar bugun yaratgan reja kun oxirigacha bajarilmasa, ertasi kun
+            ham <em>Bugun</em> ekranida turaveradi — to bajarilgunicha,
+            tahrirlangunicha yoki o&apos;chirilgunicha. Vaqtsiz rejalar oddiy
+            ko&apos;rinishda <strong>Vaqtsiz</strong> blokda, vaqti
+            belgilanganlari esa yuqoridagi <strong>Kechikkan</strong> blokda
+            qizil belgi bilan ko&apos;rinadi.
+          </p>
 
           <h3>Foydalanuvchi nima qila oladi</h3>
           <ul>

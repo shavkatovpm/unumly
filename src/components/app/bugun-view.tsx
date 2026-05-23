@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertCircle,
   Check,
   Clock,
   Coffee,
@@ -17,7 +18,9 @@ import {
 import { useHydrated, usePlans } from "@/lib/plans-store";
 import { useDragReorder } from "@/lib/use-drag-reorder";
 import {
+  formatDateLong,
   formatUzDate,
+  fromDateInputValue,
   occupiedTimeSlots,
   parseTimeToMinutes,
   startOfDay,
@@ -49,12 +52,31 @@ export function BugunView() {
     return () => window.clearInterval(id);
   }, []);
 
+  // Today's plans + carry-over: untimed/timed undone tasks from past days
+  // remain visible here until the user completes, edits or deletes them.
   const todays = useMemo(
     () =>
       plans
-        .filter((p) => p.scope === "DAILY" && p.scheduledFor === todayIso)
+        .filter((p) => {
+          if (p.scope !== "DAILY") return false;
+          if (p.scheduledFor === todayIso) return true;
+          if (p.scheduledFor < todayIso && p.status !== "DONE") return true;
+          return false;
+        })
         .sort((a, b) => {
           if (a.status !== b.status) return a.status === "DONE" ? 1 : -1;
+          // Overdue timed tasks float to the very top; oldest first
+          const aOverdueTimed = !!a.time && a.scheduledFor < todayIso;
+          const bOverdueTimed = !!b.time && b.scheduledFor < todayIso;
+          if (aOverdueTimed !== bOverdueTimed) return aOverdueTimed ? -1 : 1;
+          if (aOverdueTimed && bOverdueTimed) {
+            if (a.scheduledFor !== b.scheduledFor) {
+              return a.scheduledFor.localeCompare(b.scheduledFor);
+            }
+            const at = parseTimeToMinutes(a.time!);
+            const bt = parseTimeToMinutes(b.time!);
+            if (at !== bt) return at - bt;
+          }
           const aHas = !!a.time;
           const bHas = !!b.time;
           if (aHas !== bHas) return aHas ? -1 : 1;
@@ -76,7 +98,10 @@ export function BugunView() {
   const active = todays.filter((p) => p.status !== "DONE");
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
-  function bucketOf(p: Plan): "midnight" | "morning" | "noon" | "evening" | "anytime" {
+  function bucketOf(p: Plan): "overdue" | "midnight" | "morning" | "noon" | "evening" | "anytime" {
+    // Timed past-day undone tasks → top "Kechikkan" block.
+    // Untimed past-day undone tasks → flow into "anytime" naturally.
+    if (p.time && p.scheduledFor < todayIso) return "overdue";
     if (!p.time) return "anytime";
     const h = Number(p.time.split(":")[0]);
     if (h < 4)  return "midnight";   // 00:00 – 03:59
@@ -86,11 +111,13 @@ export function BugunView() {
   }
 
   const blocks: {
-    key: "midnight" | "morning" | "noon" | "evening" | "anytime";
+    key: "overdue" | "midnight" | "morning" | "noon" | "evening" | "anytime";
     label: string;
     icon: React.ReactNode;
     items: Plan[];
+    danger?: boolean;
   }[] = [
+    { key: "overdue",  label: "Kechikkan",     icon: <AlertCircle className="size-3.5" />, items: active.filter((p) => bucketOf(p) === "overdue"), danger: true },
     { key: "midnight", label: "Yarim kechasi", icon: <Moon className="size-3.5" />,    items: active.filter((p) => bucketOf(p) === "midnight") },
     { key: "morning",  label: "Ertalab",       icon: <Sunrise className="size-3.5" />, items: active.filter((p) => bucketOf(p) === "morning") },
     { key: "noon",     label: "Kunduzi",       icon: <Sun className="size-3.5" />,     items: active.filter((p) => bucketOf(p) === "noon") },
@@ -358,26 +385,55 @@ export function BugunView() {
                   {blocks.map((b) => {
                     if (b.items.length === 0) return null;
                     const isAnytime = b.key === "anytime";
+                    const isOverdue = b.key === "overdue";
                     return (
                       <section
                         key={b.key}
-                        className="overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]"
+                        className={cn(
+                          "overflow-hidden rounded-lg border bg-surface shadow-[0_1px_0_var(--border)]",
+                          isOverdue ? "border-danger/40" : "border-border"
+                        )}
                       >
-                        <header className="flex items-center justify-between border-b border-border bg-subtle/30 px-3 py-1.5">
+                        <header
+                          className={cn(
+                            "flex items-center justify-between border-b px-3 py-1.5",
+                            isOverdue
+                              ? "border-danger/30 bg-danger-soft"
+                              : "border-border bg-subtle/30"
+                          )}
+                        >
                           <div className="flex items-center gap-2">
-                            <span className="grid size-5 place-items-center rounded text-faint">
+                            <span
+                              className={cn(
+                                "grid size-5 place-items-center rounded",
+                                isOverdue ? "text-danger" : "text-faint"
+                              )}
+                            >
                               {b.icon}
                             </span>
-                            <p className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-faint">
+                            <p
+                              className={cn(
+                                "text-[10.5px] font-medium uppercase tracking-[0.12em]",
+                                isOverdue ? "text-danger" : "text-faint"
+                              )}
+                            >
                               {b.label}
                             </p>
                           </div>
-                          <p className="font-mono text-[10.5px] tabular-nums text-faint">
+                          <p
+                            className={cn(
+                              "font-mono text-[10.5px] tabular-nums",
+                              isOverdue ? "text-danger" : "text-faint"
+                            )}
+                          >
                             {b.items.length}
                           </p>
                         </header>
                         <ul className="divide-y divide-border/70">
                           {b.items.map((p) => {
+                            const overdueDateLabel = isOverdue
+                              ? formatDateLong(fromDateInputValue(p.scheduledFor))
+                              : undefined;
                             if (!isAnytime) {
                               return (
                                 <TaskRow
@@ -387,6 +443,7 @@ export function BugunView() {
                                   onRemove={askRemove}
                                   onOpen={setDetailId}
                                   isNew={p.id === justCreatedId}
+                                  overdueDateLabel={overdueDateLabel}
                                 />
                               );
                             }
