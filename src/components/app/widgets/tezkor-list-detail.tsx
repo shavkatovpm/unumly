@@ -144,6 +144,31 @@ export function TezkorListDetail({
             </p>
           </div>
 
+          {/* Add new item(s) — at the top so it stays above the keyboard
+              and is always reachable without scrolling past existing items. */}
+          <form
+            onSubmit={submitAdd}
+            className="mb-3 flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 transition-colors focus-within:border-border-strong"
+          >
+            <Plus className="size-3.5 shrink-0 text-faint" />
+            <input
+              ref={addRef}
+              value={adding}
+              onChange={(e) => setAdding(e.target.value)}
+              placeholder="Yangi narsa qo'shish…"
+              className="flex-1 bg-transparent text-[14px] placeholder:text-faint focus:outline-none"
+            />
+            {adding.trim() && (
+              <button
+                type="submit"
+                aria-label="Qo'shish"
+                className="grid size-7 place-items-center rounded-md bg-foreground text-background hover:opacity-90"
+              >
+                <Check className="size-3.5" />
+              </button>
+            )}
+          </form>
+
           {/* Items */}
           <ul className="space-y-1.5">
             {list.items.map((item) => (
@@ -163,39 +188,6 @@ export function TezkorListDetail({
               />
             ))}
           </ul>
-
-          {/* Add new item(s) */}
-          <form
-            onSubmit={submitAdd}
-            className="mt-4 flex items-center gap-2 rounded-md border border-border bg-background px-2.5 py-1.5 transition-colors focus-within:border-border-strong"
-          >
-            <Plus className="size-3.5 shrink-0 text-faint" />
-            <input
-              ref={addRef}
-              value={adding}
-              onChange={(e) => setAdding(e.target.value)}
-              onFocus={(e) => {
-                // Pull the input above the on-screen keyboard. We defer so
-                // the keyboard has time to start opening; without this, on
-                // iOS the input often stays hidden until the user types.
-                const el = e.currentTarget;
-                window.setTimeout(() => {
-                  el.scrollIntoView({ block: "center", behavior: "smooth" });
-                }, 250);
-              }}
-              placeholder="Yangi narsa qo'shish…"
-              className="flex-1 bg-transparent text-[14px] placeholder:text-faint focus:outline-none"
-            />
-            {adding.trim() && (
-              <button
-                type="submit"
-                aria-label="Qo'shish"
-                className="grid size-7 place-items-center rounded-md bg-foreground text-background hover:opacity-90"
-              >
-                <Check className="size-3.5" />
-              </button>
-            )}
-          </form>
         </div>
 
         <footer className="flex items-center justify-between gap-2 border-t border-border bg-subtle/30 px-4 py-2.5">
