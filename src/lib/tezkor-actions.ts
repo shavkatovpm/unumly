@@ -28,6 +28,7 @@ function toList(l: DbList & { items?: DbItem[] }): QuickList {
     name: l.name,
     source: l.source as "bot" | "app",
     closedAt: l.closedAt ? l.closedAt.toISOString() : undefined,
+    completedAt: l.completedAt ? l.completedAt.toISOString() : undefined,
     deletedAt: l.deletedAt ? l.deletedAt.toISOString() : undefined,
     createdAt: l.createdAt.toISOString(),
     updatedAt: l.updatedAt.toISOString(),
@@ -176,6 +177,56 @@ export async function removeItem(itemId: string): Promise<void> {
   });
   if (!item || item.list.userId !== user.id) return;
   await prisma.quickListItem.delete({ where: { id: itemId } });
+}
+
+/* ─── Reorder items (drag-and-drop) ──────────────────────── */
+
+/** Persist a new ordering for a list's items. `orderedIds` must contain
+ *  every item id in the list, in the desired display order. */
+export async function reorderItems(
+  listId: string,
+  orderedIds: string[]
+): Promise<QuickList> {
+  const user = await requireUser();
+  const list = await prisma.quickList.findFirst({
+    where: { id: listId, userId: user.id },
+    include: { items: { select: { id: true } } },
+  });
+  if (!list) throw new Error("NOT_FOUND");
+
+  // Defence: only update items that actually belong to this list.
+  const known = new Set(list.items.map((i) => i.id));
+  const filtered = orderedIds.filter((id) => known.has(id));
+
+  await prisma.$transaction(
+    filtered.map((id, idx) =>
+      prisma.quickListItem.update({
+        where: { id },
+        data: { order: idx },
+      })
+    )
+  );
+  return getList(listId);
+}
+
+/* ─── Complete (whole list "done") ───────────────────────── */
+
+export async function completeList(id: string): Promise<QuickList> {
+  const user = await requireUser();
+  await prisma.quickList.updateMany({
+    where: { id, userId: user.id },
+    data: { completedAt: new Date() },
+  });
+  return getList(id);
+}
+
+export async function restoreCompletedList(id: string): Promise<QuickList> {
+  const user = await requireUser();
+  await prisma.quickList.updateMany({
+    where: { id, userId: user.id },
+    data: { completedAt: null },
+  });
+  return getList(id);
 }
 
 /* ─── Soft delete / restore / purge ──────────────────────── */

@@ -118,14 +118,16 @@ export async function GET(req: Request) {
   });
 }
 
-/** Find every QuickList that has been idle for > TEZKOR_IDLE_MS, close it,
- *  and send the summary (or edit the existing one if "Davom etish" was
- *  pressed earlier and new items were added). Empty lists are silently
- *  dropped — no message needed. */
+/** Find every bot-created QuickList that has been idle for > TEZKOR_IDLE_MS,
+ *  close it, and send the summary (or edit the existing one if "Davom etish"
+ *  was pressed earlier and new items were added). Empty lists are silently
+ *  dropped. App/web-created lists are NEVER processed — they don't have a
+ *  "draft" lifecycle and the user doesn't expect a bot summary for them. */
 async function processStaleQuickLists() {
   const cutoff = new Date(Date.now() - TEZKOR_IDLE_MS);
   const stale = await prisma.quickList.findMany({
     where: {
+      source: "bot",
       closedAt: null,
       deletedAt: null,
       updatedAt: { lt: cutoff },

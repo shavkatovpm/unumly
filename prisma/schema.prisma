@@ -183,6 +183,10 @@ model QuickList {
   // The cron tick sets this when it closes a list and sends the summary.
   closedAt    DateTime?
 
+  // Set when the user marks the entire list as "done" — it disappears
+  // from the main Tezkor view and shows up in the Bajarilgan archive.
+  completedAt DateTime?
+
   // Set when the cron tick has sent the summary message. Allows us to
   // edit it later (e.g. when user taps "O'chirish"). Mirrors BotMessage.
   summaryChatId    BigInt?

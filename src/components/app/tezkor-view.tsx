@@ -28,6 +28,8 @@ export function TezkorView() {
     updateItemText,
     removeItem,
     removeList,
+    completeList,
+    reorderItems,
   } = useQuickLists();
   const hydrated = useHydratedLists();
 
@@ -156,6 +158,11 @@ export function TezkorView() {
           removeList(id);
           setOpenId(null);
         }}
+        onCompleteList={(id) => {
+          completeList(id);
+          setOpenId(null);
+        }}
+        onReorderItems={reorderItems}
       />
     </div>
   );

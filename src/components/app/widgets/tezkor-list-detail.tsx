@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, CheckCircle2, GripVertical, Pencil, Plus, Trash2, X } from "lucide-react";
 import type { QuickList } from "@/lib/tezkor-types";
 import { cn } from "@/lib/utils";
 import { playOnComplete } from "@/lib/sounds";
+import { useDragReorder } from "@/lib/use-drag-reorder";
 import { Dialog } from "./dialog";
 
 export function TezkorListDetail({
@@ -17,6 +18,8 @@ export function TezkorListDetail({
   onUpdateItemText,
   onRemoveItem,
   onRemoveList,
+  onCompleteList,
+  onReorderItems,
 }: {
   list: QuickList | null;
   open: boolean;
@@ -27,6 +30,8 @@ export function TezkorListDetail({
   onUpdateItemText: (itemId: string, text: string) => void;
   onRemoveItem: (itemId: string) => void;
   onRemoveList: (id: string) => void;
+  onCompleteList: (id: string) => void;
+  onReorderItems: (listId: string, orderedIds: string[]) => void;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -40,6 +45,21 @@ export function TezkorListDetail({
     setNameDraft(list.name);
     setAdding("");
   }, [list?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Drag-and-drop reorder for items within this list. The handler computes
+  // the new id ordering (dragged inserted before drop target) and persists
+  // via the store's reorderItems action.
+  const items = list?.items ?? [];
+  const drag = useDragReorder(items, (draggedId, beforeId) => {
+    const ids = items.map((i) => i.id);
+    const fromIdx = ids.indexOf(draggedId);
+    const toIdx = beforeId ? ids.indexOf(beforeId) : ids.length;
+    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+    const next = ids.slice();
+    next.splice(fromIdx, 1);
+    next.splice(fromIdx < toIdx ? toIdx - 1 : toIdx, 0, draggedId);
+    if (list) onReorderItems(list.id, next);
+  });
 
   if (!list) return null;
 
@@ -172,20 +192,34 @@ export function TezkorListDetail({
           {/* Items */}
           <ul className="space-y-1.5">
             {list.items.map((item) => (
-              <ItemRow
+              <li
                 key={item.id}
-                id={item.id}
-                text={item.text}
-                done={item.done}
-                onToggle={() => {
-                  // Mirror Bugun's TaskRow behaviour: chime when checking off,
-                  // silent when un-checking.
-                  if (!item.done) playOnComplete();
-                  onToggleItem(item.id);
-                }}
-                onUpdate={(t) => onUpdateItemText(item.id, t)}
-                onRemove={() => onRemoveItem(item.id)}
-              />
+                onDragOver={(e) => drag.over(e, item.id)}
+                onDrop={(e) => drag.drop(e, item.id)}
+                className={cn(
+                  "transition-[opacity,box-shadow] duration-150",
+                  drag.draggingId === item.id && "opacity-40",
+                  drag.overId === item.id &&
+                    drag.draggingId !== item.id &&
+                    "shadow-[inset_0_2px_0_var(--foreground)]"
+                )}
+              >
+                <ItemRow
+                  id={item.id}
+                  text={item.text}
+                  done={item.done}
+                  onToggle={() => {
+                    // Mirror Bugun's TaskRow behaviour: chime when checking
+                    // off, silent when un-checking.
+                    if (!item.done) playOnComplete();
+                    onToggleItem(item.id);
+                  }}
+                  onUpdate={(t) => onUpdateItemText(item.id, t)}
+                  onRemove={() => onRemoveItem(item.id)}
+                  onDragStart={(e) => drag.start(e, item.id)}
+                  onDragEnd={drag.end}
+                />
+              </li>
             ))}
           </ul>
         </div>
@@ -199,13 +233,27 @@ export function TezkorListDetail({
             <Trash2 className="size-3" />
             O&apos;chirish
           </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md bg-foreground px-3 py-1.5 text-[12px] font-medium text-background hover:opacity-90"
-          >
-            Yopish
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                playOnComplete();
+                onCompleteList(list.id);
+                onClose();
+              }}
+              className="flex items-center gap-1.5 rounded-md border border-accent bg-accent-soft px-3 py-1.5 text-[12px] font-medium text-accent-ink transition-colors hover:bg-accent hover:text-background"
+            >
+              <CheckCircle2 className="size-3.5" />
+              Bajardim
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md bg-foreground px-3 py-1.5 text-[12px] font-medium text-background hover:opacity-90"
+            >
+              Yopish
+            </button>
+          </div>
         </footer>
       </div>
     </Dialog>
@@ -219,6 +267,8 @@ function ItemRow({
   onToggle,
   onUpdate,
   onRemove,
+  onDragStart,
+  onDragEnd,
 }: {
   id: string;
   text: string;
@@ -226,6 +276,8 @@ function ItemRow({
   onToggle: () => void;
   onUpdate: (t: string) => void;
   onRemove: () => void;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(text);
@@ -242,7 +294,20 @@ function ItemRow({
   }
 
   return (
-    <li className="group/item flex items-center gap-2.5 rounded-md px-1.5 py-1.5 transition-colors hover:bg-hover/50">
+    <div className="group/item flex items-center gap-2 rounded-md px-1 py-1.5 transition-colors hover:bg-hover/50">
+      {/* Drag handle (left) — only the handle starts drag, so tapping the
+          text still enters edit mode without ambiguity. */}
+      <button
+        type="button"
+        draggable={!!onDragStart}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        aria-label="Tartibni o'zgartirish"
+        title="Tortib joyini o'zgartiring"
+        className="grid size-6 shrink-0 cursor-grab place-items-center rounded text-faint/60 transition-colors active:cursor-grabbing hover:text-muted"
+      >
+        <GripVertical className="size-3.5" />
+      </button>
       {editing ? (
         <input
           autoFocus
@@ -291,6 +356,6 @@ function ItemRow({
       >
         {done && <Check className="size-[14px] text-background" strokeWidth={5} />}
       </button>
-    </li>
+    </div>
   );
 }

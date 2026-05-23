@@ -74,6 +74,7 @@ function listsEqual(a: QuickList[], b: QuickList[]): boolean {
       x.id !== y.id ||
       x.name !== y.name ||
       x.closedAt !== y.closedAt ||
+      x.completedAt !== y.completedAt ||
       x.deletedAt !== y.deletedAt ||
       x.updatedAt !== y.updatedAt ||
       x.items.length !== y.items.length
@@ -294,6 +295,62 @@ export function removeItem(itemId: string): void {
   );
 }
 
+export function completeList(id: string): void {
+  const prev = memoryState.find((l) => l.id === id);
+  if (!prev) return;
+  const now = new Date().toISOString();
+  memoryState = memoryState.map((l) => (l.id === id ? { ...l, completedAt: now } : l));
+  emit();
+  void withPending(
+    actions.completeList(id).catch(() => {
+      memoryState = memoryState.map((l) => (l.id === id ? prev : l));
+      emit();
+    })
+  );
+}
+
+export function restoreCompletedList(id: string): void {
+  const prev = memoryState.find((l) => l.id === id);
+  if (!prev) return;
+  memoryState = memoryState.map((l) => {
+    if (l.id !== id) return l;
+    const { completedAt: _ignored, ...rest } = l;
+    void _ignored;
+    return rest;
+  });
+  emit();
+  void withPending(
+    actions.restoreCompletedList(id).catch(() => {
+      memoryState = memoryState.map((l) => (l.id === id ? prev : l));
+      emit();
+    })
+  );
+}
+
+export function reorderItems(listId: string, orderedIds: string[]): void {
+  const prev = memoryState.find((l) => l.id === listId);
+  if (!prev) return;
+  // Optimistic local reorder: rebuild items array using the new id order.
+  const map = new Map(prev.items.map((i) => [i.id, i]));
+  const next = orderedIds
+    .map((id, idx) => {
+      const item = map.get(id);
+      return item ? { ...item, order: idx } : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x != null);
+  if (next.length !== prev.items.length) return;
+  memoryState = memoryState.map((l) =>
+    l.id === listId ? { ...l, items: next } : l
+  );
+  emit();
+  void withPending(
+    actions.reorderItems(listId, orderedIds).catch(() => {
+      memoryState = memoryState.map((l) => (l.id === listId ? prev : l));
+      emit();
+    })
+  );
+}
+
 export function removeList(id: string): void {
   const prev = memoryState.find((l) => l.id === id);
   if (!prev) return;
@@ -345,11 +402,14 @@ function useStoreLifecycle() {
   }, []);
 }
 
-/** Active (non-deleted) lists. */
+/** Active (non-deleted, non-completed) lists for the main Tezkor view. */
 export function useQuickLists() {
   const all = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   useStoreLifecycle();
-  const lists = useMemo(() => all.filter((l) => !l.deletedAt), [all]);
+  const lists = useMemo(
+    () => all.filter((l) => !l.deletedAt && !l.completedAt),
+    [all]
+  );
   return {
     lists,
     createList,
@@ -360,7 +420,20 @@ export function useQuickLists() {
     removeItem,
     removeList,
     restoreList,
+    completeList,
+    restoreCompletedList,
+    reorderItems,
   };
+}
+
+/** Completed (whole-list "done") lists for the Bajarilgan view. */
+export function useCompletedQuickLists() {
+  const all = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  useStoreLifecycle();
+  return useMemo(
+    () => all.filter((l) => !!l.completedAt && !l.deletedAt),
+    [all]
+  );
 }
 
 export function useHydratedLists(): boolean {

@@ -296,14 +296,17 @@ export async function POST(req: Request) {
   }
 }
 
-/** Returns the user's currently-open QuickList (closedAt=null AND
- *  updatedAt within the last 3 min) — creating a fresh one if none exists.
- *  Also closes any older "open" lists found (defensive cleanup). */
+/** Returns the user's currently-open bot QuickList (source='bot',
+ *  closedAt=null, updatedAt within the idle window). Creates a fresh
+ *  bot list if none exists. App/web-created lists are intentionally
+ *  ignored — they belong to a separate, manual lifecycle and bot items
+ *  shouldn't bleed into them. */
 async function findOrCreateOpenList(userId: string) {
   const cutoff = new Date(Date.now() - TEZKOR_WINDOW_MS);
   const recent = await prisma.quickList.findFirst({
     where: {
       userId,
+      source: "bot",
       deletedAt: null,
       closedAt: null,
       updatedAt: { gte: cutoff },
@@ -312,7 +315,6 @@ async function findOrCreateOpenList(userId: string) {
   });
   if (recent) return recent;
 
-  // No fresh open list — create one. (Stale "open" lists are closed by cron.)
   return prisma.quickList.create({
     data: {
       userId,
