@@ -16,7 +16,11 @@ import {
   updateNotificationPrefs,
   type NotificationPrefs,
 } from "@/lib/user-settings-actions";
-import { LEAD_MIN_OPTIONS, type LeadMin } from "@/lib/notify-time";
+import {
+  LEAD_MIN_OPTIONS,
+  formatLeadOptionLabel,
+  type LeadMin,
+} from "@/lib/notify-time";
 import { Dialog } from "./dialog";
 
 export function SettingsDialog({
@@ -194,7 +198,7 @@ export function SettingsDialog({
               qilmaydi (ular vaqti belgilanmaganligi sababli eslatma
               yubormaydi).
             </p>
-            <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-2">
               {LEAD_MIN_OPTIONS.map((m) => {
                 const active = (notifs?.notifyLeadMin ?? 5) === m;
                 return (
@@ -210,7 +214,7 @@ export function SettingsDialog({
                         : "border-border bg-background text-muted hover:border-border-strong hover:text-foreground"
                     )}
                   >
-                    {m} daq.
+                    {formatLeadOptionLabel(m)}
                   </button>
                 );
               })}

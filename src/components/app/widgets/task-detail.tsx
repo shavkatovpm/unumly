@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon, Pencil } from "lucide-react";
+import { Bell, Check, X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon, Pencil } from "lucide-react";
 import type { Plan, PlanPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -14,6 +14,8 @@ import {
 import {
   DEFAULT_LEAD_MIN,
   LEAD_MIN_OPTIONS,
+  formatLeadLabel,
+  formatLeadOptionLabel,
   sanitizeLeadMin,
   type LeadMin,
 } from "@/lib/notify-time";
@@ -21,12 +23,6 @@ import { getNotificationPrefs } from "@/lib/user-settings-actions";
 import { Dialog } from "./dialog";
 import { TimePickerPopover } from "./time-picker-popover";
 import { DatePickerPopover } from "./date-picker-popover";
-
-/** Cycle through 5 → 15 → 30 → 5 each click. */
-function nextLeadMin(current: LeadMin): LeadMin {
-  const idx = LEAD_MIN_OPTIONS.indexOf(current);
-  return LEAD_MIN_OPTIONS[(idx + 1) % LEAD_MIN_OPTIONS.length];
-}
 
 const PRIORITIES: { value: PlanPriority; label: string; dot: string; ring: string }[] = [
   { value: "HIGH",   label: "Yuqori", dot: "bg-priority-high",   ring: "ring-priority-high" },
@@ -84,6 +80,7 @@ export function TaskDetail({
   const [accountLead, setAccountLead] = useState<LeadMin>(DEFAULT_LEAD_MIN);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showLeadPicker, setShowLeadPicker] = useState(false);
   // Mode resolution: `explicitMode` is set by Pencil / Bekor user actions.
   // When null, we derive the mode synchronously from the plan so the very
   // first render is already correct (avoids a one-frame keyboard pop).
@@ -123,11 +120,15 @@ export function TaskDetail({
     : "edit";
   const mode: "view" | "edit" = explicitMode ?? initialMode;
 
-  // Reset the user's explicit override whenever the dialog re-opens or the
-  // shown plan changes — so each open computes mode fresh from the data.
+  // Reset transient UI state whenever the dialog re-opens or the shown plan
+  // changes — so each open computes mode fresh and no popovers stay open
+  // across opens.
   const planId = plan?.id ?? null;
   useEffect(() => {
     setExplicitMode(null);
+    setShowLeadPicker(false);
+    setShowTimePicker(false);
+    setShowDatePicker(false);
   }, [open, planId, draft]);
 
   /** Restore inputs to the plan's current persisted values. */
@@ -432,18 +433,16 @@ export function TaskDetail({
             </div>
           </div>
 
-          {/* Eslatma vaqti — minimal inline pill; faqat vaqt belgilanganda */}
-          {time && (
-            <button
-              type="button"
-              onClick={() => setLeadMin(nextLeadMin(leadMin))}
-              className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-[11.5px] text-muted transition-colors hover:border-border-strong hover:text-foreground"
-              title="Bosib o'zgartiring: 5 → 15 → 30 daqiqa"
-            >
-              <Bell className="size-3 text-faint" />
-              Eslatma: <span className="font-mono tabular-nums text-foreground">{leadMin}</span> daq. oldin
-            </button>
-          )}
+          {/* Eslatma vaqti — minimal inline pill (always visible); click
+              opens a small popover with 0 / 5 / 15 / 30 daqiqa options. */}
+          <LeadPicker
+            value={leadMin}
+            onChange={(next) => setLeadMin(next)}
+            open={showLeadPicker}
+            onOpenChange={setShowLeadPicker}
+            timeMissing={!time}
+          />
+
 
           {/* Priority */}
           <div>
@@ -641,7 +640,7 @@ function ViewBody({
       {time && (
         <Row label="Eslatma" icon={<Bell className="size-3" />}>
           <span className="text-[15px] text-foreground sm:text-[14px]">
-            <span className="font-mono tabular-nums">{leadMin}</span> daq. oldin
+            {formatLeadLabel(leadMin)}
           </span>
         </Row>
       )}
@@ -678,6 +677,93 @@ function Row({
         {label}
       </span>
       <div>{children}</div>
+    </div>
+  );
+}
+
+function LeadPicker({
+  value,
+  onChange,
+  open,
+  onOpenChange,
+  timeMissing,
+}: {
+  value: LeadMin;
+  onChange: (v: LeadMin) => void;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  /** Hint text when no time set — reminder won't actually fire. */
+  timeMissing: boolean;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function close(e: MouseEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) onOpenChange(false);
+    }
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open, onOpenChange]);
+
+  return (
+    <div ref={wrapRef} className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        title={
+          timeMissing
+            ? "Vaqt belgilanmagan — eslatma yuborilmaydi"
+            : "Bosib o'zgartiring"
+        }
+        className={cn(
+          "flex items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-[11.5px] transition-colors",
+          timeMissing
+            ? "border-border/60 text-faint hover:border-border hover:text-muted"
+            : "border-border text-muted hover:border-border-strong hover:text-foreground"
+        )}
+      >
+        <Bell className="size-3 text-faint" />
+        Eslatma:{" "}
+        <span
+          className={cn(
+            "font-mono tabular-nums",
+            timeMissing ? "text-faint" : "text-foreground"
+          )}
+        >
+          {formatLeadLabel(value)}
+        </span>
+      </button>
+
+      {open && (
+        <div
+          className="absolute left-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-md border border-border bg-surface shadow-lg"
+          role="listbox"
+        >
+          {LEAD_MIN_OPTIONS.map((opt) => {
+            const active = opt === value;
+            return (
+              <button
+                key={opt}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onClick={() => {
+                  onChange(opt);
+                  onOpenChange(false);
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between px-3 py-2 text-left text-[13px] transition-colors hover:bg-hover",
+                  active && "bg-subtle font-medium text-foreground"
+                )}
+              >
+                <span>{formatLeadOptionLabel(opt)}</span>
+                {active && <Check className="size-3.5 text-foreground" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

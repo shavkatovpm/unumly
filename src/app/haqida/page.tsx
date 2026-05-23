@@ -77,7 +77,7 @@ const FAQS = [
   },
   {
     q: "Bot eslatmasi qachon yetib keladi?",
-    a: "Default holatda eslatma vazifa vaqtidan 5 daqiqa oldin yuboriladi — tayyorlanishga ulgurish uchun. Sozlamalardan account-darajadagi defaultni 5, 15 yoki 30 daqiqa qilib o'zgartirishingiz mumkin. Har bir alohida reja uchun esa Batafsil dialogida \"Eslatma\" tugmasi orqali boshqacha qiymat tanlash mumkin.",
+    a: "Default holatda eslatma vazifa vaqtidan 5 daqiqa oldin yuboriladi — tayyorlanishga ulgurish uchun. Sozlamalardan account-darajadagi defaultni O'z vaqtida, 5, 15 yoki 30 daqiqa avval qilib o'zgartirishingiz mumkin. Har bir alohida reja uchun esa Batafsil dialogida \"Eslatma\" tugmasini bosib shu 4 ta variantdan tanlash mumkin.",
   },
   {
     q: "Unumly boshqa to-do ilovalardan nimasi bilan farq qiladi?",
@@ -494,18 +494,20 @@ export default function HaqidaPage() {
           <p>
             <strong>Necha daqiqa oldin (account default)</strong>: bot xabari
             vazifa vaqtidan qancha vaqt oldin yuborilishini tanlash —{" "}
-            <strong>5</strong>, <strong>15</strong> yoki{" "}
-            <strong>30 daqiqa</strong>. Default qiymat: 5 daqiqa. Bu
-            barcha rejalarga taalluqli — agar reja Batafsilida boshqacha
-            qiymat tanlanmagan bo&apos;lsa. O&apos;zgartirsangiz, hozircha
-            yuborilmagan va alohida override qo&apos;yilmagan rejalarning
-            eslatmalari yangi sozlamaga moslab qayta hisoblanadi.
+            <strong>O&apos;z vaqtida</strong>, <strong>5</strong>,{" "}
+            <strong>15</strong> yoki <strong>30 daqiqa</strong> avval.
+            Default qiymat: 5 daqiqa avval. Bu barcha rejalarga taalluqli —
+            agar reja Batafsilida boshqacha qiymat tanlanmagan bo&apos;lsa.
+            O&apos;zgartirsangiz, hozircha yuborilmagan va alohida override
+            qo&apos;yilmagan rejalarning eslatmalari yangi sozlamaga moslab
+            qayta hisoblanadi.
           </p>
           <p className="text-faint">
             <strong>Per-task override</strong>: reja Batafsil dialogida{" "}
-            <code>Eslatma: 5 daq. oldin</code> tugmasi bor — bosib 5 → 15 →
-            30 → 5 ga aylantirish mumkin. Bu faqat shu rejaga taalluqli va
-            account defaultidan ustun turadi.
+            <code>Eslatma: 5 daq. oldin</code> tugmasi bor — bosib 4 ta
+            variant (O&apos;z vaqtida / 5 / 15 / 30 daqiqa avval) orasidan
+            tanlash mumkin. Bu faqat shu rejaga taalluqli va account
+            defaultidan ustun turadi.
           </p>
           <p>Muhimlik darajasi bo&apos;yicha alohida boshqarish:</p>
           <ul>
@@ -553,7 +555,8 @@ export default function HaqidaPage() {
             <li>
               Vaqt belgilangan reja belgilangan vaqtga yaqinlashganda bot
               xabar yuboradi — <strong>default 5 daqiqa oldin</strong>{" "}
-              (Sozlamalardan 5, 15 yoki 30 daqiqaga o&apos;zgartirish mumkin)
+              (Sozlamalardan O&apos;z vaqtida, 5, 15 yoki 30 daqiqaga
+              o&apos;zgartirish mumkin)
             </li>
             <li>
               Xabar matnida vazifaning asl vaqti va &quot;X daq. qoldi&quot;

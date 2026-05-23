@@ -1,11 +1,22 @@
-/** Allowed lead-time presets (minutes before the task). */
-export const LEAD_MIN_OPTIONS = [5, 15, 30] as const;
+/** Allowed lead-time presets (minutes before the task). 0 = at the
+ *  scheduled time exactly ("O'z vaqtida"). */
+export const LEAD_MIN_OPTIONS = [0, 5, 15, 30] as const;
 export type LeadMin = (typeof LEAD_MIN_OPTIONS)[number];
 export const DEFAULT_LEAD_MIN: LeadMin = 5;
 
 /** Clamp arbitrary input to a valid LeadMin (falls back to default). */
 export function sanitizeLeadMin(v: number | null | undefined): LeadMin {
   return LEAD_MIN_OPTIONS.includes(v as LeadMin) ? (v as LeadMin) : DEFAULT_LEAD_MIN;
+}
+
+/** Short label for inline display ("O'z vaqtida" / "5 daq. oldin"). */
+export function formatLeadLabel(lead: number): string {
+  return lead <= 0 ? "O'z vaqtida" : `${lead} daq. oldin`;
+}
+
+/** Full popover label ("O'z vaqtida" / "5 daqiqa avval"). */
+export function formatLeadOptionLabel(lead: number): string {
+  return lead <= 0 ? "O'z vaqtida" : `${lead} daqiqa avval`;
 }
 
 /**
