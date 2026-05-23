@@ -98,10 +98,19 @@ export function BugunView() {
   const active = todays.filter((p) => p.status !== "DONE");
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
+  const nowMin = now ? now.getHours() * 60 + now.getMinutes() : null;
+
   function bucketOf(p: Plan): "overdue" | "midnight" | "morning" | "noon" | "evening" | "anytime" {
-    // Timed past-day undone tasks → top "Kechikkan" block.
+    // Overdue = timed undone task whose moment is already in the past:
+    //   - scheduled for a previous day, OR
+    //   - scheduled for today but the clock passed its time.
     // Untimed past-day undone tasks → flow into "anytime" naturally.
-    if (p.time && p.scheduledFor < todayIso) return "overdue";
+    if (p.time) {
+      if (p.scheduledFor < todayIso) return "overdue";
+      if (p.scheduledFor === todayIso && nowMin !== null) {
+        if (parseTimeToMinutes(p.time) < nowMin) return "overdue";
+      }
+    }
     if (!p.time) return "anytime";
     const h = Number(p.time.split(":")[0]);
     if (h < 4)  return "midnight";   // 00:00 – 03:59
@@ -431,9 +440,12 @@ export function BugunView() {
                         </header>
                         <ul className="divide-y divide-border/70">
                           {b.items.map((p) => {
-                            const overdueDateLabel = isOverdue
-                              ? formatDateLong(fromDateInputValue(p.scheduledFor))
-                              : undefined;
+                            // Past-day overdue → show date prefix; today's
+                            // overdue → just red time pill (date is implicit).
+                            const overdueDateLabel =
+                              isOverdue && p.scheduledFor < todayIso
+                                ? formatDateLong(fromDateInputValue(p.scheduledFor))
+                                : undefined;
                             if (!isAnytime) {
                               return (
                                 <TaskRow
@@ -443,6 +455,7 @@ export function BugunView() {
                                   onRemove={askRemove}
                                   onOpen={setDetailId}
                                   isNew={p.id === justCreatedId}
+                                  overdue={isOverdue}
                                   overdueDateLabel={overdueDateLabel}
                                 />
                               );

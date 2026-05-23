@@ -21,6 +21,7 @@ export function TaskRow({
   onRemove,
   onOpen,
   isNew = false,
+  overdue = false,
   overdueDateLabel,
 }: {
   plan: Plan;
@@ -28,7 +29,9 @@ export function TaskRow({
   onRemove: (id: string) => void;
   onOpen?: (id: string) => void;
   isNew?: boolean;
-  /** When set, time pill renders in red with this date prefix (e.g. "20-may"). */
+  /** When true, time pill renders in red (overdue task). */
+  overdue?: boolean;
+  /** Optional date prefix shown inside the red time pill (e.g. "20-may"). */
   overdueDateLabel?: string;
 }) {
   const done = plan.status === "DONE";
@@ -120,7 +123,7 @@ export function TaskRow({
             "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] tabular-nums",
             done
               ? "text-faint"
-              : overdueDateLabel
+              : overdue
               ? "bg-danger-soft text-danger"
               : "bg-subtle text-foreground"
           )}
