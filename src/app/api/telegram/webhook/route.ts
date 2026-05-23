@@ -3,17 +3,24 @@ import { prisma } from "@/lib/prisma";
 import {
   answerCallbackQuery,
   askForContact,
+  editQuickListSummary,
   markReminderDone,
   sendOnboardingComplete,
+  sendPlain,
   sendStartWelcome,
 } from "@/lib/telegram-bot";
 import { normalisePhone } from "@/lib/phone";
 import { issueAndSendOtp, issueOtp } from "@/lib/otp";
+import { defaultListName } from "@/lib/tezkor-actions";
 
 export const runtime = "nodejs";
 
 const SECRET_HEADER = "x-telegram-bot-api-secret-token";
 const APP_URL = "https://www.unumly.uz/bugun";
+
+// How long a bot-created QuickList stays "open" (accumulating items)
+// after the most recent message. Mirrors the cron tick interval.
+const TEZKOR_WINDOW_MS = 3 * 60 * 1000;
 
 type TgUpdate = {
   message?: TgMessage;
@@ -68,7 +75,6 @@ export async function POST(req: Request) {
     return new NextResponse("bad request", { status: 400 });
   }
 
-  // Inline button press (Bajardim / Kirish)
   if (update.callback_query) {
     return handleCallback(update.callback_query);
   }
@@ -122,14 +128,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // /start — branching based on the deep-link parameter:
-    //   "/start login"  → user came from the website's "Kod olish" button
-    //                     → send a fresh OTP code (for web login)
-    //   "/start" (no arg) → user opened the bot directly
-    //                     → greet + Mini App button, no code
-    //   For new users (no phone yet), always ask for contact.
     const text = (msg.text ?? "").trim();
     const isStart = text === "/start" || text.startsWith("/start ");
+
+    // /start — explicit command → welcome (or onboarding for new users).
     if (isStart) {
       const param = text.startsWith("/start ") ? text.slice(7).trim() : "";
       const wantsCode = param === "login";
@@ -139,9 +141,13 @@ export async function POST(req: Request) {
       });
 
       if (existing?.phone) {
+        // Cancel any pending "naming" state — a fresh /start resets context.
         await prisma.user.update({
           where: { id: existing.id },
-          data: { lastSeenAt: new Date() },
+          data: {
+            lastSeenAt: new Date(),
+            botNamingListId: null,
+          },
         });
         if (wantsCode) {
           await issueAndSendOtp({
@@ -171,17 +177,107 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // Any other text — gentle nudge (Mini App for registered, contact for new)
-    const existing = await prisma.user.findUnique({
+    // From here on: arbitrary text. Behaviour depends on user state.
+    const user = await prisma.user.findUnique({
       where: { telegramId: BigInt(from.id) },
     });
-    if (existing?.phone) {
-      await sendStartWelcome(chatId, APP_URL);
+
+    // Not registered → keep current onboarding nudge (no Tezkor for guests).
+    if (!user?.phone) {
+      if (user) {
+        // First-time gibberish from a partially-onboarded user → ask for contact
+        await askForContact(chatId);
+      } else {
+        // Unknown user — create row + ask for contact
+        await prisma.user.create({
+          data: {
+            telegramId: BigInt(from.id),
+            firstName: from.first_name,
+            lastName: from.last_name,
+            username: from.username,
+            languageCode: from.language_code,
+            isPremium: from.is_premium ?? false,
+          },
+        });
+        await askForContact(chatId);
+      }
       return NextResponse.json({ ok: true });
     }
 
-    // New user typed something other than /start → onboard them
-    await askForContact(chatId);
+    // User is fully registered — touch lastSeenAt
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastSeenAt: new Date() },
+    });
+
+    // If user is in "naming" mode, treat this text as the new list name.
+    if (user.botNamingListId) {
+      const listId = user.botNamingListId;
+      const list = await prisma.quickList.findFirst({
+        where: { id: listId, userId: user.id, deletedAt: null },
+      });
+      if (!list) {
+        // Stale state — clear it and fall through to Tezkor-add logic below.
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { botNamingListId: null },
+        });
+      } else {
+        const newName = text.slice(0, 200);
+        await prisma.quickList.update({
+          where: { id: listId },
+          data: { name: newName },
+        });
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { botNamingListId: null },
+        });
+        // Update the summary message in-place if we have its id
+        if (list.summaryChatId && list.summaryMessageId) {
+          await editQuickListSummary({
+            chatId: Number(list.summaryChatId),
+            messageId: list.summaryMessageId,
+            text: `📝 *${escapeMd(newName)}*\n\n_Nom yangilandi._`,
+            parseMode: "Markdown",
+          });
+        }
+        await sendPlain(chatId, `✅ Ro'yhat nomi yangilandi: ${newName}`);
+        return NextResponse.json({ ok: true });
+      }
+    }
+
+    // Default path: treat each non-empty line of the message as a list item,
+    // appended to the user's open list (or a fresh one if none open).
+    const items = text
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 100); // sanity cap
+
+    if (items.length === 0) {
+      return NextResponse.json({ ok: true });
+    }
+
+    const openList = await findOrCreateOpenList(user.id);
+    const lastOrder = await prisma.quickListItem.findFirst({
+      where: { listId: openList.id },
+      orderBy: { order: "desc" },
+      select: { order: true },
+    });
+    const startOrder = (lastOrder?.order ?? -1) + 1;
+    await prisma.quickListItem.createMany({
+      data: items.map((textVal, i) => ({
+        listId: openList.id,
+        text: textVal,
+        order: startOrder + i,
+      })),
+    });
+    await prisma.quickList.update({
+      where: { id: openList.id },
+      data: { updatedAt: new Date() },
+    });
+    // No reply — the cron tick handles the summary message after 3 min of silence.
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("webhook error", err);
@@ -190,64 +286,162 @@ export async function POST(req: Request) {
   }
 }
 
-/* ─── Callback query: "Bajardim" inline button ───────────── */
+/** Returns the user's currently-open QuickList (closedAt=null AND
+ *  updatedAt within the last 3 min) — creating a fresh one if none exists.
+ *  Also closes any older "open" lists found (defensive cleanup). */
+async function findOrCreateOpenList(userId: string) {
+  const cutoff = new Date(Date.now() - TEZKOR_WINDOW_MS);
+  const recent = await prisma.quickList.findFirst({
+    where: {
+      userId,
+      deletedAt: null,
+      closedAt: null,
+      updatedAt: { gte: cutoff },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+  if (recent) return recent;
+
+  // No fresh open list — create one. (Stale "open" lists are closed by cron.)
+  return prisma.quickList.create({
+    data: {
+      userId,
+      name: defaultListName(),
+      source: "bot",
+    },
+  });
+}
+
+function escapeMd(s: string): string {
+  return s.replace(/([_*[\]()`])/g, "\\$1");
+}
+
+/* ─── Callback handlers ───────────────────────────────────── */
 
 async function handleCallback(cq: TgCallbackQuery) {
   try {
     const data = cq.data ?? "";
-    const [action, planId] = data.split(":");
-
-    if (action !== "done" || !planId) {
+    const colon = data.indexOf(":");
+    if (colon < 0) {
       await answerCallbackQuery(cq.id);
       return NextResponse.json({ ok: true });
     }
+    const action = data.slice(0, colon);
+    const id = data.slice(colon + 1);
 
-    // Confirm sender owns the plan (defence in depth)
-    const plan = await prisma.plan.findUnique({
-      where: { id: planId },
-      include: { user: true },
-    });
-    if (!plan) {
-      await answerCallbackQuery(cq.id, "Reja topilmadi");
-      return NextResponse.json({ ok: true });
-    }
-    if (Number(plan.user.telegramId) !== cq.from.id) {
-      await answerCallbackQuery(cq.id, "Ruxsat yo'q");
-      return NextResponse.json({ ok: true });
-    }
+    if (action === "done") return handleDoneCallback(cq, id);
+    if (action === "qlname") return handleQuickListNameCallback(cq, id);
+    if (action === "qldelete") return handleQuickListDeleteCallback(cq, id);
 
-    if (plan.status === "DONE") {
-      await answerCallbackQuery(cq.id, "Allaqachon bajarilgan");
-      return NextResponse.json({ ok: true });
-    }
-
-    // Mark DONE + clear bot reminders (edit the message in-place + drop others)
-    await prisma.plan.update({
-      where: { id: plan.id },
-      data: { status: "DONE", completedAt: new Date() },
-    });
-
-    const messages = await prisma.botMessage.findMany({
-      where: { planId: plan.id },
-    });
-    await Promise.allSettled(
-      messages.map((m) =>
-        markReminderDone({
-          chatId: Number(m.chatId),
-          messageId: m.messageId,
-          title: plan.title,
-          time: plan.time,
-          via: "bot",
-        })
-      )
-    );
-    await prisma.botMessage.deleteMany({ where: { planId: plan.id } });
-
-    await answerCallbackQuery(cq.id, "✅ Bajarildi");
+    await answerCallbackQuery(cq.id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("callback handler error", err);
     await answerCallbackQuery(cq.id).catch(() => { /* ignore */ });
     return NextResponse.json({ ok: false });
   }
+}
+
+async function handleDoneCallback(cq: TgCallbackQuery, planId: string) {
+  // Confirm sender owns the plan (defence in depth)
+  const plan = await prisma.plan.findUnique({
+    where: { id: planId },
+    include: { user: true },
+  });
+  if (!plan) {
+    await answerCallbackQuery(cq.id, "Reja topilmadi");
+    return NextResponse.json({ ok: true });
+  }
+  if (Number(plan.user.telegramId) !== cq.from.id) {
+    await answerCallbackQuery(cq.id, "Ruxsat yo'q");
+    return NextResponse.json({ ok: true });
+  }
+  if (plan.status === "DONE") {
+    await answerCallbackQuery(cq.id, "Allaqachon bajarilgan");
+    return NextResponse.json({ ok: true });
+  }
+
+  await prisma.plan.update({
+    where: { id: plan.id },
+    data: { status: "DONE", completedAt: new Date() },
+  });
+
+  const messages = await prisma.botMessage.findMany({
+    where: { planId: plan.id },
+  });
+  await Promise.allSettled(
+    messages.map((m) =>
+      markReminderDone({
+        chatId: Number(m.chatId),
+        messageId: m.messageId,
+        title: plan.title,
+        time: plan.time,
+        via: "bot",
+      })
+    )
+  );
+  await prisma.botMessage.deleteMany({ where: { planId: plan.id } });
+
+  await answerCallbackQuery(cq.id, "✅ Bajarildi");
+  return NextResponse.json({ ok: true });
+}
+
+async function handleQuickListNameCallback(cq: TgCallbackQuery, listId: string) {
+  const user = await prisma.user.findUnique({
+    where: { telegramId: BigInt(cq.from.id) },
+  });
+  if (!user) {
+    await answerCallbackQuery(cq.id, "Foydalanuvchi topilmadi");
+    return NextResponse.json({ ok: true });
+  }
+  const list = await prisma.quickList.findFirst({
+    where: { id: listId, userId: user.id, deletedAt: null },
+  });
+  if (!list) {
+    await answerCallbackQuery(cq.id, "Ro'yhat topilmadi");
+    return NextResponse.json({ ok: true });
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { botNamingListId: listId },
+  });
+  await answerCallbackQuery(cq.id);
+  await sendPlain(
+    cq.message?.chat.id ?? Number(user.telegramId),
+    "✏️ Yangi ro'yhat nomini yozib yuboring (oddiy xabar shaklida)."
+  );
+  return NextResponse.json({ ok: true });
+}
+
+async function handleQuickListDeleteCallback(cq: TgCallbackQuery, listId: string) {
+  const user = await prisma.user.findUnique({
+    where: { telegramId: BigInt(cq.from.id) },
+  });
+  if (!user) {
+    await answerCallbackQuery(cq.id, "Foydalanuvchi topilmadi");
+    return NextResponse.json({ ok: true });
+  }
+  const list = await prisma.quickList.findFirst({
+    where: { id: listId, userId: user.id },
+  });
+  if (!list || list.deletedAt) {
+    await answerCallbackQuery(cq.id, "Allaqachon o'chirilgan");
+    return NextResponse.json({ ok: true });
+  }
+
+  await prisma.quickList.update({
+    where: { id: listId },
+    data: { deletedAt: new Date() },
+  });
+  if (list.summaryChatId && list.summaryMessageId) {
+    await editQuickListSummary({
+      chatId: Number(list.summaryChatId),
+      messageId: list.summaryMessageId,
+      text: `🗑 *Ro'yhat o'chirildi*\n\n_30 kun davomida \"O'chirilgan\" bo'limidan tiklash mumkin._`,
+      parseMode: "Markdown",
+    });
+  }
+  await answerCallbackQuery(cq.id, "🗑 O'chirildi");
+  return NextResponse.json({ ok: true });
 }

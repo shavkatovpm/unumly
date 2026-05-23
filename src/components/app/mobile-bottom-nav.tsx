@@ -19,6 +19,7 @@ import {
   Target,
   Trash2,
   X,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/color-store";
@@ -41,13 +42,13 @@ function readJSON<T>(key: string, fallback: T): T {
 }
 
 const PRIMARY = [
-  { href: "/bugun",    label: "Bugun",    icon: Inbox },
-  { href: "/agenda",   label: "Agenda",   icon: ListChecks },
-  { href: "/kalendar", label: "Kalendar", icon: CalendarIcon },
+  { href: "/bugun",   label: "Bugun",   icon: Inbox },
+  { href: "/agenda",  label: "Agenda",  icon: ListChecks },
+  { href: "/tezkor",  label: "Tezkor",  icon: Zap },
 ];
 
 // Routes that live inside the Boshqaruv group (used to highlight the tab)
-const BOSHQARUV_ROUTES = ["/reja", "/bajarilgan", "/ochirilgan"];
+const BOSHQARUV_ROUTES = ["/reja", "/kalendar", "/bajarilgan", "/ochirilgan"];
 
 export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const pathname = usePathname();
@@ -254,6 +255,13 @@ function BoshqaruvSheet({
             label="Reja"
             icon={ClipboardList}
             active={isActive("/reja")}
+            onNavigate={onClose}
+          />
+          <SheetLink
+            href="/kalendar"
+            label="Kalendar"
+            icon={CalendarIcon}
+            active={isActive("/kalendar")}
             onNavigate={onClose}
           />
           {!hidden.includes("odat") && (

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendTaskReminder } from "@/lib/telegram-bot";
+import { sendQuickListSummary, sendTaskReminder } from "@/lib/telegram-bot";
 
 export const runtime = "nodejs";
 // Cron pings frequently — make sure Vercel doesn't cache this
@@ -11,6 +11,10 @@ const APP_URL = "https://www.unumly.uz/bugun";
 // Window: how far in the past we still consider "due" (in case the cron
 // was delayed or skipped). 2 minutes is a safe default for 1-minute cron.
 const WINDOW_MS = 2 * 60 * 1000;
+
+// How long a Tezkor list stays "open" (accumulating new bot items) after
+// the most recent message. Once exceeded, cron closes it and sends summary.
+const TEZKOR_IDLE_MS = 3 * 60 * 1000;
 
 /**
  * GET /api/cron/notify
@@ -96,5 +100,81 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, scanned: due.length, sent, failed });
+  // ── Tezkor: close stale open lists and send their summary ──
+  const tezkorResult = await processStaleQuickLists();
+
+  return NextResponse.json({
+    ok: true,
+    scanned: due.length,
+    sent,
+    failed,
+    tezkor: tezkorResult,
+  });
+}
+
+/** Find every QuickList that has been idle for > TEZKOR_IDLE_MS, close it,
+ *  and send the summary message (with [Nom kiritish] [O'chirish] buttons).
+ *  Empty lists are silently dropped — no message needed. */
+async function processStaleQuickLists() {
+  const cutoff = new Date(Date.now() - TEZKOR_IDLE_MS);
+  const stale = await prisma.quickList.findMany({
+    where: {
+      closedAt: null,
+      deletedAt: null,
+      updatedAt: { lt: cutoff },
+    },
+    include: {
+      user: { select: { telegramId: true } },
+      items: { orderBy: { order: "asc" }, select: { text: true } },
+    },
+    take: 50, // per-tick cap
+  });
+
+  let closed = 0;
+  let summarised = 0;
+  let dropped = 0;
+
+  for (const list of stale) {
+    try {
+      const now = new Date();
+      if (list.items.length === 0) {
+        // Empty open list — close silently (also drop it to keep storage clean).
+        await prisma.quickList.update({
+          where: { id: list.id },
+          data: { closedAt: now, deletedAt: now },
+        });
+        dropped++;
+        continue;
+      }
+
+      const chatId = Number(list.user.telegramId);
+      const messageId = await sendQuickListSummary({
+        chatId,
+        listId: list.id,
+        name: list.name,
+        items: list.items,
+      });
+      await prisma.quickList.update({
+        where: { id: list.id },
+        data: {
+          closedAt: now,
+          summaryChatId: BigInt(chatId),
+          summaryMessageId: messageId,
+        },
+      });
+      summarised++;
+    } catch (err) {
+      console.error(`tezkor close ${list.id} failed`, err);
+      // Defensive: still close so we don't retry forever
+      await prisma.quickList
+        .update({
+          where: { id: list.id },
+          data: { closedAt: new Date() },
+        })
+        .catch(() => { /* ignore */ });
+    }
+    closed++;
+  }
+
+  return { closed, summarised, dropped };
 }

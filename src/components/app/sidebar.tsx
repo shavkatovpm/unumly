@@ -24,6 +24,7 @@ import {
   Target,
   Trash2,
   X,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/color-store";
@@ -226,6 +227,13 @@ export function Sidebar({
             label="Agenda"
             icon={ListChecks}
             active={isActive("/agenda")}
+            onNavigate={closeOnMobile}
+          />
+          <SidebarLink
+            href="/tezkor"
+            label="Tezkor"
+            icon={Zap}
+            active={isActive("/tezkor")}
             onNavigate={closeOnMobile}
           />
           <SidebarLink

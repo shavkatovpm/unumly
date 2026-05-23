@@ -41,10 +41,16 @@ model User {
   // Default 5; UI exposes 5 / 15 / 30 as quick options.
   notifyLeadMin       Int     @default(5)
 
+  // When set, the next plain-text bot message will be treated as the new
+  // name for this QuickList (rather than as a list item). Cleared after
+  // the user sends a name or cancels.
+  botNamingListId String?
+
   createdAt    DateTime @default(now())
   lastSeenAt   DateTime @default(now())
 
   plans        Plan[]
+  quickLists   QuickList[]
 
   @@index([telegramId])
   @@index([phone])
@@ -158,4 +164,55 @@ model BotMessage {
 
   @@unique([planId, chatId, messageId])
   @@index([planId])
+}
+
+// ───────────────────────── Tezkor (Quick lists) ─────────────────────────
+// Lightweight grouped lists for shopping / to-pack / quick reminders.
+// Items can be created from the web app or by sending plain text to the
+// Telegram bot — messages within 3 minutes of each other accumulate into
+// the same "open" list; after 3 minutes of silence the cron tick closes
+// the list and sends a summary message to the chat.
+
+model QuickList {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String   // default: "Ro'yhat — 23-may 14:30"
+  source      String   // "bot" | "app"
+
+  // NULL = list is still accepting new bot items (within the 3-min window).
+  // The cron tick sets this when it closes a list and sends the summary.
+  closedAt    DateTime?
+
+  // Set when the cron tick has sent the summary message. Allows us to
+  // edit it later (e.g. when user taps "O'chirish"). Mirrors BotMessage.
+  summaryChatId    BigInt?
+  summaryMessageId Int?
+
+  // Soft delete — purged after 30 days (mirrors Plan behaviour).
+  deletedAt   DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       QuickListItem[]
+
+  @@index([userId, deletedAt])
+  // Used by the cron tick to find stale open lists per user.
+  @@index([userId, closedAt, updatedAt])
+}
+
+model QuickListItem {
+  id        String   @id @default(cuid())
+  listId    String
+  text      String
+  done      Boolean  @default(false)
+  order     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  list      QuickList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([listId])
 }

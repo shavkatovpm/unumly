@@ -69,7 +69,11 @@ const FAQS = [
   },
   {
     q: "Telegram bot orqali nima qila olaman?",
-    a: "Bot vaqt belgilangan vazifalar uchun bildirishnoma yuboradi. Bildirishnomaning ostida \"Bajarildi\" tugmasi bo'ladi: to'g'ridan-to'g'ri Telegram ichidan vazifani bajarilgan deb belgilash mumkin. Sayt yoki Mini App'ni ochish shart emas.",
+    a: "Bot vaqt belgilangan vazifalar uchun bildirishnoma yuboradi va Tezkor ro'yhatlar uchun item qabul qiladi. Bildirishnomaning ostida \"Bajarildi\" tugmasi bo'ladi: to'g'ridan-to'g'ri Telegram ichidan vazifani bajarilgan deb belgilash mumkin. Botga oddiy matn yuborsangiz, u Tezkor ro'yhatga item bo'lib qo'shiladi.",
+  },
+  {
+    q: "Tezkor nima va Reja'dan farqi nimada?",
+    a: "Tezkor — yengil, vaqtsiz ro'yhatlar uchun (bozor, sumka, esda saqlash). Bitta ro'yhatga ko'p item kiradi, ularning har biri checkbox bilan belgilanadi. Reja esa sana/vaqt bog'langan vazifalar uchun, ularning eslatmasi botdan keladi.",
   },
   {
     q: "Bildirishnomalarni qanday boshqarish mumkin?",
@@ -95,13 +99,14 @@ const TOC = [
   { id: "tushunchalar", label: "3. Asosiy tushunchalar" },
   { id: "bugun", label: "4. Bugun bo'limi" },
   { id: "agenda", label: "5. Agenda bo'limi" },
-  { id: "kalendar", label: "6. Kalendar bo'limi" },
-  { id: "reja", label: "7. Reja bo'limi" },
-  { id: "bajarilgan-ochirilgan", label: "8. Bajarilgan va O'chirilgan" },
-  { id: "sozlamalar", label: "9. Sozlamalar" },
-  { id: "telegram-bot", label: "10. Telegram bot" },
-  { id: "malumotlar", label: "11. Ma'lumotlar va xavfsizlik" },
-  { id: "faq", label: "12. Tez-tez so'raladigan savollar" },
+  { id: "tezkor", label: "6. Tezkor bo'limi" },
+  { id: "kalendar", label: "7. Kalendar bo'limi" },
+  { id: "reja", label: "8. Reja bo'limi" },
+  { id: "bajarilgan-ochirilgan", label: "9. Bajarilgan va O'chirilgan" },
+  { id: "sozlamalar", label: "10. Sozlamalar" },
+  { id: "telegram-bot", label: "11. Telegram bot" },
+  { id: "malumotlar", label: "12. Ma'lumotlar va xavfsizlik" },
+  { id: "faq", label: "13. Tez-tez so'raladigan savollar" },
 ];
 
 export default function HaqidaPage() {
@@ -358,8 +363,84 @@ export default function HaqidaPage() {
           </p>
         </Section>
 
-        {/* ─── 6. Kalendar ───────────────────────────────────── */}
-        <Section id="kalendar" title="6. Kalendar bo'limi">
+        {/* ─── 6. Tezkor ─────────────────────────────────────── */}
+        <Section id="tezkor" title="6. Tezkor bo'limi">
+          <p className="text-faint">URL: <code>/tezkor</code></p>
+          <p>
+            <strong>Tezkor</strong>: yengil, vaqt belgilanmaydigan
+            ro&apos;yhatlar uchun (bozor ro&apos;yhati, sumka ro&apos;yhati,
+            esda saqlash kerak narsalar). Har bir narsani alohida vazifa
+            qilib yaratish o&apos;rniga, bittagina ro&apos;yhat ichiga
+            checkbox ko&apos;rinishida joylanadi.
+          </p>
+
+          <h3>Web yoki Mini App orqali</h3>
+          <ul>
+            <li>
+              <strong>+ Yangi ro&apos;yhat</strong> tugmasi orqali multiline
+              maydon ochiladi
+            </li>
+            <li>
+              Har qatorga bittadan yozasiz (Enter bilan ajratiladi):
+              <pre className="my-2 rounded-md bg-subtle/40 p-3 text-[12px] leading-relaxed">{`Bodring
+Pomidor
+Gugurt`}</pre>
+            </li>
+            <li>
+              Saqlasangiz bitta ro&apos;yhat sifatida saqlanadi. Default nom:{" "}
+              <em>&quot;Ro&apos;yhat — 23-may 14:30&quot;</em> (istalgan
+              vaqtda o&apos;zgartirish mumkin)
+            </li>
+            <li>
+              Ro&apos;yhat ichiga kirib har bir narsani checkbox bilan
+              belgilab borasiz; yangi narsa qo&apos;shish, tahrirlash,
+              o&apos;chirish mumkin
+            </li>
+          </ul>
+
+          <h3>Telegram bot orqali</h3>
+          <ul>
+            <li>
+              Botga oddiy xabar yuborasiz (masalan <em>&quot;Bodring&quot;</em>{" "}
+              deb)
+            </li>
+            <li>
+              Har xabar yangi <strong>Tezkor item</strong> sifatida ochiq
+              ro&apos;yhatga qo&apos;shiladi
+            </li>
+            <li>
+              Oxirgi xabardan keyin <strong>3 daqiqa</strong> jim turilsa,
+              bot ro&apos;yhat summarysini yuboradi va 2 ta tugma chiqaradi:{" "}
+              <strong>&quot;✏️ Nom kiritish&quot;</strong> va{" "}
+              <strong>&quot;🗑 O&apos;chirish&quot;</strong>
+            </li>
+            <li>
+              Nom kiritish tugmasini bossangiz, navbatdagi xabaringiz
+              ro&apos;yhatning yangi nomi bo&apos;ladi
+            </li>
+            <li>
+              3 daqiqa ichida yangi xabar yuborsangiz — yangi item ham
+              o&apos;sha ochiq ro&apos;yhatga qo&apos;shiladi (taymer
+              har xabarda boshidan boshlanadi)
+            </li>
+          </ul>
+
+          <h3>Qachon Reja, qachon Tezkor?</h3>
+          <ul>
+            <li>
+              <strong>Reja (Bugun/Agenda)</strong>: sana/vaqt bog&apos;langan,
+              muhimlik darajasi bor, eslatma kelib turadi
+            </li>
+            <li>
+              <strong>Tezkor</strong>: shunchaki ro&apos;yhat — sotib olish,
+              olib borish, eslab qolish kerak narsalar. Sana yo&apos;q,
+              priority yo&apos;q, eslatma yo&apos;q
+            </li>
+          </ul>
+        </Section>
+
+        {/* ─── 7. Kalendar ───────────────────────────────────── */}
+        <Section id="kalendar" title="7. Kalendar bo'limi">
           <p className="text-faint">URL: <code>/kalendar</code></p>
           <p>
             <strong>Kalendar</strong>: vaqt bo&apos;yicha to&apos;liq vizual
@@ -400,7 +481,7 @@ export default function HaqidaPage() {
         </Section>
 
         {/* ─── 7. Reja ───────────────────────────────────────── */}
-        <Section id="reja" title="7. Reja bo'limi">
+        <Section id="reja" title="8. Reja bo'limi">
           <p className="text-faint">URL: <code>/reja</code></p>
           <p>
             <strong>Reja</strong> bo&apos;limi: uzoq muddatli niyatlar va
@@ -448,7 +529,7 @@ export default function HaqidaPage() {
         </Section>
 
         {/* ─── 8. Bajarilgan / O'chirilgan ──────────────────── */}
-        <Section id="bajarilgan-ochirilgan" title="8. Bajarilgan va O'chirilgan">
+        <Section id="bajarilgan-ochirilgan" title="9. Bajarilgan va O'chirilgan">
           <h3>Bajarilgan bo&apos;limi</h3>
           <p className="text-faint">URL: <code>/bajarilgan</code></p>
           <p>
@@ -476,7 +557,7 @@ export default function HaqidaPage() {
         </Section>
 
         {/* ─── 9. Sozlamalar ─────────────────────────────────── */}
-        <Section id="sozlamalar" title="9. Sozlamalar">
+        <Section id="sozlamalar" title="10. Sozlamalar">
           <p>
             Sozlamalar dialogini ochish: yuqori-o&apos;ng burchakdagi
             sozlamalar ikonkasini bosib. Dialog 4 qism bo&apos;limga ega:
@@ -543,11 +624,18 @@ export default function HaqidaPage() {
         </Section>
 
         {/* ─── 10. Telegram bot ─────────────────────────────── */}
-        <Section id="telegram-bot" title="10. Telegram bot">
+        <Section id="telegram-bot" title="11. Telegram bot">
           <p>
-            Unumly bot: <code>@unumlybot</code>: ikki ish bajaradi: kirish
-            uchun OTP yuborish va vaqt belgilangan rejalar uchun bildirishnoma
-            jo&apos;natish.
+            Unumly bot: <code>@unumlybot</code>: uch ish bajaradi: kirish
+            uchun OTP yuborish, vaqt belgilangan rejalar uchun bildirishnoma
+            jo&apos;natish va <strong>Tezkor ro&apos;yhatlar</strong>{" "}
+            uchun item qabul qilish.
+          </p>
+          <p>
+            <strong>/start</strong> komandasini bossangiz xush kelibsiz
+            xabari + Mini App tugmasi keladi. Boshqa har qanday oddiy matn
+            esa <strong>Tezkor ro&apos;yhatga item</strong> sifatida
+            qo&apos;shiladi (login bo&apos;lgan foydalanuvchilar uchun).
           </p>
 
           <h3>Bildirishnomalar qanday ishlaydi</h3>
@@ -587,10 +675,30 @@ export default function HaqidaPage() {
             </li>
             <li>Reja allaqachon bajarilgan yoki o&apos;chirilgan bo&apos;lsa</li>
           </ul>
+
+          <h3>Tezkor ro&apos;yhatlar uchun bot</h3>
+          <ul>
+            <li>
+              Botga oddiy matn yuborsangiz, u <strong>Tezkor</strong>{" "}
+              ro&apos;yhatga item bo&apos;lib qo&apos;shiladi
+            </li>
+            <li>
+              Multiline xabar yuborsangiz, har qator alohida item
+              bo&apos;ladi
+            </li>
+            <li>
+              Oxirgi xabardan 3 daqiqa o&apos;tgach, bot summarysini
+              yuboradi: <strong>[Nom kiritish]</strong> va{" "}
+              <strong>[O&apos;chirish]</strong> tugmalari bilan
+            </li>
+            <li>
+              Tafsilotlar 6-bo&apos;limda (Tezkor)
+            </li>
+          </ul>
         </Section>
 
         {/* ─── 11. Ma'lumotlar va xavfsizlik ────────────────── */}
-        <Section id="malumotlar" title="11. Ma'lumotlar va xavfsizlik">
+        <Section id="malumotlar" title="12. Ma'lumotlar va xavfsizlik">
           <h3>Qaerda saqlanadi?</h3>
           <p>Ikki rejim bor:</p>
           <ul>
@@ -634,7 +742,7 @@ export default function HaqidaPage() {
         </Section>
 
         {/* ─── 12. FAQ ───────────────────────────────────────── */}
-        <Section id="faq" title="12. Tez-tez so'raladigan savollar">
+        <Section id="faq" title="13. Tez-tez so'raladigan savollar">
           <FaqList items={FAQS} />
         </Section>
 

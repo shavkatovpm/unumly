@@ -201,6 +201,90 @@ export async function answerCallbackQuery(id: string, text?: string) {
   });
 }
 
+/* ─── Tezkor (Quick lists) helpers ────────────────────────── */
+
+const TG_MESSAGE_LIMIT = 4000; // a touch under Telegram's 4096 to leave room
+
+/** Send the "Siz quyidagilarni qo'shdingiz" summary with action buttons.
+ *  Returns the message_id so we can edit it later (delete callback). */
+export async function sendQuickListSummary(opts: {
+  chatId: number | string;
+  listId: string;
+  name: string;
+  items: { text: string }[];
+}): Promise<number> {
+  const header = `📝 *${escapeMarkdown(opts.name)}*\n\nSiz Tezkor ro'yhatga quyidagilarni qo'shdingiz:\n`;
+  let body = "";
+  let truncated = 0;
+  for (const it of opts.items) {
+    const line = `\n• ${escapeMarkdown(it.text)}`;
+    if (header.length + body.length + line.length > TG_MESSAGE_LIMIT) {
+      truncated++;
+      continue;
+    }
+    body += line;
+  }
+  if (truncated > 0) {
+    body += `\n\n_…va yana ${truncated} ta (ko'rish uchun ilovani oching)_`;
+  }
+  const text = header + body;
+
+  const res = await fetch(`${BASE}/bot${token()}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: opts.chatId,
+      text,
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [[
+          { text: "✏️ Nom kiritish",  callback_data: `qlname:${opts.listId}` },
+          { text: "🗑 O'chirish",     callback_data: `qldelete:${opts.listId}` },
+        ]],
+      },
+    }),
+  });
+  if (!res.ok) {
+    const body2 = await res.text().catch(() => "");
+    throw new Error(`sendQuickListSummary failed (${res.status}): ${body2}`);
+  }
+  const data = (await res.json()) as { result?: { message_id?: number } };
+  const id = data?.result?.message_id;
+  if (typeof id !== "number") throw new Error("sendQuickListSummary: missing message_id");
+  return id;
+}
+
+/** Edit a summary message in-place after the user takes a final action. */
+export async function editQuickListSummary(opts: {
+  chatId: number | string;
+  messageId: number;
+  text: string;
+  parseMode?: "Markdown";
+}) {
+  const res = await fetch(`${BASE}/bot${token()}/editMessageText`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: opts.chatId,
+      message_id: opts.messageId,
+      text: opts.text,
+      parse_mode: opts.parseMode ?? "Markdown",
+    }),
+  });
+  if (!res.ok && res.status !== 400) {
+    console.error("editQuickListSummary:", await res.text().catch(() => res.status));
+  }
+}
+
+/** Plain-text bot message helper for short status replies. */
+export async function sendPlain(chatId: number | string, text: string) {
+  await fetch(`${BASE}/bot${token()}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text }),
+  });
+}
+
 function escapeMarkdown(s: string): string {
   return s.replace(/([_*[\]()`])/g, "\\$1");
 }
@@ -214,7 +298,8 @@ export async function setWebhook(url: string, secretToken: string) {
     body: JSON.stringify({
       url,
       secret_token: secretToken,
-      allowed_updates: ["message"],
+      // Listen for inline-button callbacks too (Tezkor name/delete buttons).
+      allowed_updates: ["message", "callback_query"],
     }),
   });
   return res.json();
