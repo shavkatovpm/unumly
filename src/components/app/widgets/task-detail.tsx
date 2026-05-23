@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon } from "lucide-react";
+import { Bell, X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon, Pencil } from "lucide-react";
 import type { Plan, PlanPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -36,6 +36,24 @@ const PRIORITIES: { value: PlanPriority; label: string; dot: string; ring: strin
 
 const DURATIONS = [15, 30, 45, 60, 90, 120];
 
+const PRIORITY_DISPLAY: Record<PlanPriority, { label: string; dot: string }> = {
+  HIGH:   { label: "Yuqori", dot: "bg-priority-high" },
+  MEDIUM: { label: "O'rta",  dot: "bg-priority-medium" },
+  LOW:    { label: "Past",   dot: "bg-priority-low" },
+};
+
+/** True if the plan has any "detailed" data the user has filled in
+ *  beyond the basics (title/date/time). Used to decide whether to open
+ *  the dialog in read-only view mode or edit mode. */
+function hasDetails(p: Plan): boolean {
+  return (
+    !!(p.notes && p.notes.trim()) ||
+    p.duration != null ||
+    p.priority != null ||
+    p.notifyLeadMin != null
+  );
+}
+
 export function TaskDetail({
   plan,
   plans,
@@ -66,8 +84,11 @@ export function TaskDetail({
   const [accountLead, setAccountLead] = useState<LeadMin>(DEFAULT_LEAD_MIN);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  // "view" = read-only (no keyboard); "edit" = current form behaviour.
+  const [mode, setMode] = useState<"view" | "edit">("edit");
   const timeBtnRef = useRef<HTMLButtonElement>(null);
   const dateBtnRef = useRef<HTMLButtonElement>(null);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
 
   const today = useMemo(() => startOfDay(), []);
   const selectedDate = useMemo(
@@ -89,6 +110,55 @@ export function TaskDetail({
       plan.notifyLeadMin != null ? sanitizeLeadMin(plan.notifyLeadMin) : accountLead
     );
   }, [plan, accountLead]);
+
+  // Reset mode whenever the dialog opens for a different plan:
+  // drafts and "skeletal" tasks (no notes/duration/priority filled) start
+  // in edit mode so the user can immediately type details; otherwise we
+  // start in read-only view mode (avoids surprise keyboard popup).
+  // Keyed on plan.id so background poll updates don't snap the user out
+  // of edit mode mid-edit.
+  const planId = plan?.id ?? null;
+  // Tracks the mode the dialog was opened in — drives Bekor behaviour
+  // (revert to view vs. close) so users who entered edit via Pencil can
+  // cancel back to the read-only display.
+  const [initialMode, setInitialMode] = useState<"view" | "edit">("edit");
+  useEffect(() => {
+    if (!open || !plan) return;
+    const next = draft || !hasDetails(plan) ? "edit" : "view";
+    setMode(next);
+    setInitialMode(next);
+    // Auto-focus the notes textarea only when the dialog opens in edit
+    // mode initially (skeletal task / draft). View→edit transitions via
+    // Pencil don't auto-focus — the user already chose what to edit.
+    if (next === "edit") {
+      // Defer until after the textarea has rendered.
+      requestAnimationFrame(() => notesRef.current?.focus());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, planId, draft]);
+
+  /** Restore inputs to the plan's current persisted values. */
+  function revertToPlan() {
+    if (!plan) return;
+    setTitle(plan.title);
+    setNotes(plan.notes ?? "");
+    setScheduledFor(plan.scheduledFor ?? "");
+    setTime(plan.time ?? "");
+    setDuration(plan.duration);
+    setPriority(plan.priority ?? "LOW");
+    setLeadMin(
+      plan.notifyLeadMin != null ? sanitizeLeadMin(plan.notifyLeadMin) : accountLead
+    );
+  }
+
+  function handleCancel() {
+    if (initialMode === "view") {
+      revertToPlan();
+      setMode("view");
+    } else {
+      onClose();
+    }
+  }
 
   // Pull the user's account-level default each time the dialog opens so the
   // displayed value stays in sync with Settings.
@@ -183,11 +253,14 @@ export function TaskDetail({
     onClose();
   }
 
+  const isView = mode === "view";
+
   return (
     <Dialog open={open} onClose={onClose} mobilePlacement="top">
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          if (isView) return;
           save();
         }}
         className="flex min-h-0 flex-1 flex-col"
@@ -196,15 +269,43 @@ export function TaskDetail({
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-faint">
             {draft ? "Yangi reja" : "Reja tafsilotlari"}
           </p>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Yopish"
-            className="grid size-7 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-foreground"
-          >
-            <X className="size-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            {isView && (
+              <button
+                type="button"
+                onClick={() => setMode("edit")}
+                aria-label="Tahrirlash"
+                title="Tahrirlash"
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] text-muted transition-colors hover:bg-hover hover:text-foreground"
+              >
+                <Pencil className="size-3.5" />
+                Tahrirlash
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Yopish"
+              className="grid size-7 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
         </header>
+
+        {isView ? (
+          <ViewBody
+            title={title}
+            notes={notes}
+            time={time}
+            duration={duration}
+            priority={priority}
+            leadMin={leadMin}
+            selectedDate={selectedDate}
+            isDateInPast={isDateInPast}
+            isTimePast={isTimePast}
+          />
+        ) : (
 
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
           {/* Title */}
@@ -222,11 +323,11 @@ export function TaskDetail({
               Izoh
             </label>
             <textarea
+              ref={notesRef}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Qo'shimcha tafsilot..."
               rows={3}
-              autoFocus
               className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-2 text-[13px] leading-relaxed placeholder:text-faint focus:border-border-strong focus:outline-none"
             />
           </div>
@@ -377,6 +478,7 @@ export function TaskDetail({
             </div>
           </div>
         </div>
+        )}
 
         <footer className="flex items-center justify-between border-t border-border bg-subtle/30 px-4 py-2.5">
           {draft ? (
@@ -392,32 +494,44 @@ export function TaskDetail({
             </button>
           )}
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md px-3 py-1.5 text-[12px] text-muted transition-colors hover:bg-hover hover:text-foreground"
-            >
-              Bekor
-            </button>
-            <button
-              type="submit"
-              disabled={blockSave}
-              title={
-                isDateInPast
-                  ? "O'tib ketgan sanaga saqlab bo'lmaydi"
-                  : isTimePast
-                  ? "O'tib ketgan vaqtga saqlab bo'lmaydi"
-                  : undefined
-              }
-              className={cn(
-                "rounded-md px-3 py-1.5 text-[12px] font-medium transition-opacity",
-                blockSave
-                  ? "cursor-not-allowed bg-foreground/40 text-background"
-                  : "bg-foreground text-background hover:opacity-90"
-              )}
-            >
-              Saqlash
-            </button>
+            {isView ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-md px-3 py-1.5 text-[12px] font-medium text-background bg-foreground transition-opacity hover:opacity-90"
+              >
+                Yopish
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="rounded-md px-3 py-1.5 text-[12px] text-muted transition-colors hover:bg-hover hover:text-foreground"
+                >
+                  Bekor
+                </button>
+                <button
+                  type="submit"
+                  disabled={blockSave}
+                  title={
+                    isDateInPast
+                      ? "O'tib ketgan sanaga saqlab bo'lmaydi"
+                      : isTimePast
+                      ? "O'tib ketgan vaqtga saqlab bo'lmaydi"
+                      : undefined
+                  }
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-[12px] font-medium transition-opacity",
+                    blockSave
+                      ? "cursor-not-allowed bg-foreground/40 text-background"
+                      : "bg-foreground text-background hover:opacity-90"
+                  )}
+                >
+                  Saqlash
+                </button>
+              </>
+            )}
           </div>
         </footer>
       </form>
@@ -452,5 +566,100 @@ export function TaskDetail({
         onClose={() => setShowDatePicker(false)}
       />
     </Dialog>
+  );
+}
+
+function ViewBody({
+  title,
+  notes,
+  time,
+  duration,
+  priority,
+  leadMin,
+  selectedDate,
+  isDateInPast,
+  isTimePast,
+}: {
+  title: string;
+  notes: string;
+  time: string;
+  duration: number | undefined;
+  priority: PlanPriority;
+  leadMin: LeadMin;
+  selectedDate: Date;
+  isDateInPast: boolean;
+  isTimePast: boolean;
+}) {
+  const trimmedNotes = notes.trim();
+  const pri = PRIORITY_DISPLAY[priority];
+
+  return (
+    <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+      {/* Title */}
+      <h2 className="text-[18px] font-semibold leading-tight tracking-[-0.01em] text-foreground">
+        {title || "Sarlavhasiz"}
+      </h2>
+
+      {/* Date · Time · Duration in one compact row */}
+      <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted">
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md border px-2 py-1",
+            isDateInPast
+              ? "border-danger/40 bg-danger-soft text-danger"
+              : "border-border bg-background"
+          )}
+        >
+          <CalendarIcon className="size-3 text-faint" />
+          {formatUzDate(selectedDate)}
+        </span>
+        {time && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono tabular-nums",
+              isTimePast
+                ? "border-danger/40 bg-danger-soft text-danger"
+                : "border-border bg-background"
+            )}
+          >
+            <Clock className="size-3 text-faint" />
+            {time}
+          </span>
+        )}
+        {duration != null && (
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 font-mono text-[11.5px] tabular-nums text-muted">
+            {duration}m
+          </span>
+        )}
+      </div>
+
+      {/* Priority + Lead time */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-[12.5px]">
+          <span aria-hidden className={cn("size-2 rounded-full", pri.dot)} />
+          <Flag className="size-3 text-faint" />
+          {pri.label}
+        </span>
+        {time && (
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-[12.5px] text-muted">
+            <Bell className="size-3 text-faint" />
+            Eslatma: <span className="font-mono tabular-nums text-foreground">{leadMin}</span> daq. oldin
+          </span>
+        )}
+      </div>
+
+      {/* Notes — only when present */}
+      {trimmedNotes && (
+        <div>
+          <p className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
+            <FileText className="size-3" />
+            Izoh
+          </p>
+          <p className="whitespace-pre-wrap rounded-md border border-border bg-background px-2.5 py-2 text-[13px] leading-relaxed text-foreground">
+            {trimmedNotes}
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
