@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { QuickList } from "@/lib/tezkor-types";
 import { useHydratedLists, useQuickLists } from "@/lib/tezkor-store";
-import { defaultListName } from "@/lib/tezkor-actions";
+import { defaultListName } from "@/lib/tezkor-utils";
 import { cn } from "@/lib/utils";
 import { ListLoader } from "./widgets/list-loader";
 import { useScrollLock } from "@/lib/use-scroll-lock";

@@ -5,6 +5,7 @@ import type { QuickList as DbList, QuickListItem as DbItem } from "@prisma/clien
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import type { QuickList, QuickListItem } from "@/lib/tezkor-types";
+import { defaultListName } from "@/lib/tezkor-utils";
 
 const TRASH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -69,21 +70,6 @@ export type CreateListInput = {
   name: string;
   items: string[]; // each entry = one item's text
 };
-
-/** Default UZ-formatted list name: "Ro'yhat — 23-may 14:30" (Tashkent TZ). */
-export function defaultListName(now: Date = new Date()): string {
-  const months = [
-    "yanvar", "fevral", "mart", "aprel", "may", "iyun",
-    "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr",
-  ];
-  // Format in Asia/Tashkent (UTC+5) regardless of server zone.
-  const tz = new Date(now.getTime() + 5 * 60 * 60_000);
-  const day = tz.getUTCDate();
-  const m = months[tz.getUTCMonth()];
-  const hh = String(tz.getUTCHours()).padStart(2, "0");
-  const mm = String(tz.getUTCMinutes()).padStart(2, "0");
-  return `Ro'yhat — ${day}-${m} ${hh}:${mm}`;
-}
 
 export async function createList(input: CreateListInput): Promise<QuickList> {
   const user = await requireUser();

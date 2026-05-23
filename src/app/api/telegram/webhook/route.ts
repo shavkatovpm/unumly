@@ -11,7 +11,7 @@ import {
 } from "@/lib/telegram-bot";
 import { normalisePhone } from "@/lib/phone";
 import { issueAndSendOtp, issueOtp } from "@/lib/otp";
-import { defaultListName } from "@/lib/tezkor-actions";
+import { defaultListName } from "@/lib/tezkor-utils";
 
 export const runtime = "nodejs";
 
