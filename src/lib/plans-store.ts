@@ -118,6 +118,7 @@ function rowsEqual(a: Plan[], b: Plan[]): boolean {
       x.time !== y.time ||
       x.duration !== y.duration ||
       x.priority !== y.priority ||
+      x.notifyLeadMin !== y.notifyLeadMin ||
       x.completedAt !== y.completedAt ||
       x.deletedAt !== y.deletedAt
     ) return false;
@@ -166,6 +167,7 @@ export type CreatePlanInput = {
   time?: string;
   duration?: number;
   priority?: PlanPriority;
+  notifyLeadMin?: number;
 };
 
 /* ─── Optimistic mutators ─────────────────────────────────── */
@@ -183,6 +185,7 @@ export function createPlan(input: CreatePlanInput): string {
     time: input.time,
     duration: input.duration,
     priority: input.priority,
+    notifyLeadMin: input.notifyLeadMin,
     createdAt: now,
     order: memoryState.length,
   };
@@ -257,6 +260,7 @@ export function updatePlan(id: string, patch: Partial<Plan>): void {
     ...(patch.scheduledFor !== undefined && { scheduledFor: patch.scheduledFor }),
     ...(patch.time !== undefined && { time: patch.time ?? null }),
     ...(patch.duration !== undefined && { duration: patch.duration ?? null }),
+    ...(patch.notifyLeadMin !== undefined && { notifyLeadMin: patch.notifyLeadMin ?? null }),
     ...(patch.order !== undefined && { order: patch.order }),
     ...(patch.completedAt !== undefined && { completedAt: patch.completedAt ?? null }),
   };

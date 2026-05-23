@@ -57,10 +57,10 @@ export async function updateNotificationPrefs(
     },
   });
 
-  // Lead-time changed → recompute notifyAt for every TODO plan that hasn't
-  // been notified yet, so the new setting takes effect immediately for
-  // upcoming reminders. Already-fired (notifiedAt set) reminders are left
-  // alone — they won't re-send.
+  // Lead-time changed → recompute notifyAt only for TODO plans that:
+  //   1. Haven't been notified yet, AND
+  //   2. Don't have their own per-task lead override (notifyLeadMin IS NULL).
+  // Plans with a per-task override should keep their explicit setting.
   if (nextLeadMin !== undefined) {
     const pending = await prisma.plan.findMany({
       where: {
@@ -69,6 +69,7 @@ export async function updateNotificationPrefs(
         deletedAt: null,
         notifiedAt: null,
         time: { not: null },
+        notifyLeadMin: null,
       },
       select: { id: true, scheduledFor: true, time: true },
     });

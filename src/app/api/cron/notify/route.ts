@@ -66,7 +66,10 @@ export async function GET(req: Request) {
         title: plan.title,
         time: plan.time,
         priority: plan.priority,
-        leadMin: plan.user.notifyLeadMin,
+        // Effective lead: per-task override (if set) takes precedence over
+        // the user's account default. Mirrors the value used to compute
+        // notifyAt so the "X daq. qoldi" hint is accurate.
+        leadMin: plan.notifyLeadMin ?? plan.user.notifyLeadMin,
         appUrl: APP_URL,
       });
       await prisma.$transaction([

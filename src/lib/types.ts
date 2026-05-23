@@ -12,6 +12,9 @@ export type Plan = {
   scheduledFor: string;   // YYYY-MM-DD
   time?: string;          // HH:MM (24h), optional
   duration?: number;      // minutes, optional (defaults to 60 visually)
+  /** Per-task override: minutes before scheduled time when reminder fires.
+   *  When undefined, the user's account default (notifyLeadMin) is used. */
+  notifyLeadMin?: number;
   completedAt?: string;   // ISO datetime
   deletedAt?: string;     // ISO datetime — set when soft-deleted; 30 days later auto-purged
   createdAt: string;      // ISO datetime

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon } from "lucide-react";
+import { Bell, X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon } from "lucide-react";
 import type { Plan, PlanPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -11,9 +11,22 @@ import {
   startOfDay,
   toDateInputValue,
 } from "@/lib/dates";
+import {
+  DEFAULT_LEAD_MIN,
+  LEAD_MIN_OPTIONS,
+  sanitizeLeadMin,
+  type LeadMin,
+} from "@/lib/notify-time";
+import { getNotificationPrefs } from "@/lib/user-settings-actions";
 import { Dialog } from "./dialog";
 import { TimePickerPopover } from "./time-picker-popover";
 import { DatePickerPopover } from "./date-picker-popover";
+
+/** Cycle through 5 → 15 → 30 → 5 each click. */
+function nextLeadMin(current: LeadMin): LeadMin {
+  const idx = LEAD_MIN_OPTIONS.indexOf(current);
+  return LEAD_MIN_OPTIONS[(idx + 1) % LEAD_MIN_OPTIONS.length];
+}
 
 const PRIORITIES: { value: PlanPriority; label: string; dot: string; ring: string }[] = [
   { value: "HIGH",   label: "Yuqori", dot: "bg-priority-high",   ring: "ring-priority-high" },
@@ -49,6 +62,8 @@ export function TaskDetail({
   const [time, setTime] = useState("");
   const [duration, setDuration] = useState<number | undefined>(undefined);
   const [priority, setPriority] = useState<PlanPriority>("LOW");
+  const [leadMin, setLeadMin] = useState<LeadMin>(DEFAULT_LEAD_MIN);
+  const [accountLead, setAccountLead] = useState<LeadMin>(DEFAULT_LEAD_MIN);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const timeBtnRef = useRef<HTMLButtonElement>(null);
@@ -68,7 +83,22 @@ export function TaskDetail({
     setTime(plan.time ?? "");
     setDuration(plan.duration);
     setPriority(plan.priority ?? "LOW");
-  }, [plan]);
+    // Per-task override if set; otherwise show the account default
+    // (refined async below once we know it).
+    setLeadMin(
+      plan.notifyLeadMin != null ? sanitizeLeadMin(plan.notifyLeadMin) : accountLead
+    );
+  }, [plan, accountLead]);
+
+  // Pull the user's account-level default each time the dialog opens so the
+  // displayed value stays in sync with Settings.
+  useEffect(() => {
+    if (!open) return;
+    void getNotificationPrefs().then((prefs) => {
+      if (!prefs) return;
+      setAccountLead(sanitizeLeadMin(prefs.notifyLeadMin));
+    });
+  }, [open]);
 
   if (!plan) return null;
 
@@ -117,6 +147,11 @@ export function TaskDetail({
           ? maxDuration
           : undefined
         : duration;
+    // Persist per-task lead override only when it differs from the user's
+    // account-level default. Otherwise leave NULL so the plan follows future
+    // account-default changes.
+    const leadToPersist: number | undefined =
+      leadMin === accountLead ? undefined : leadMin;
     if (draft && onCreate) {
       // Draft rejimi — yangi reja yaratamiz
       onCreate({
@@ -127,6 +162,7 @@ export function TaskDetail({
         time: time || undefined,
         duration: safeDuration,
         priority,
+        notifyLeadMin: leadToPersist,
       });
     } else {
       onUpdate(plan!.id, {
@@ -136,6 +172,7 @@ export function TaskDetail({
         time: time || undefined,
         duration: safeDuration,
         priority,
+        notifyLeadMin: leadToPersist,
       });
     }
     onClose();
@@ -297,6 +334,19 @@ export function TaskDetail({
               </div>
             </div>
           </div>
+
+          {/* Eslatma vaqti — minimal inline pill; faqat vaqt belgilanganda */}
+          {time && (
+            <button
+              type="button"
+              onClick={() => setLeadMin(nextLeadMin(leadMin))}
+              className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-[11.5px] text-muted transition-colors hover:border-border-strong hover:text-foreground"
+              title="Bosib o'zgartiring: 5 → 15 → 30 daqiqa"
+            >
+              <Bell className="size-3 text-faint" />
+              Eslatma: <span className="font-mono tabular-nums text-foreground">{leadMin}</span> daq. oldin
+            </button>
+          )}
 
           {/* Priority */}
           <div>

@@ -32,6 +32,7 @@ function toPlan(p: DbPlan): Plan {
     scheduledFor: p.scheduledFor,
     time: p.time ?? undefined,
     duration: p.duration ?? undefined,
+    notifyLeadMin: p.notifyLeadMin ?? undefined,
     completedAt: p.completedAt ? p.completedAt.toISOString() : undefined,
     deletedAt: p.deletedAt ? p.deletedAt.toISOString() : undefined,
     createdAt: p.createdAt.toISOString(),
@@ -85,6 +86,8 @@ export type CreatePlanInput = {
   time?: string;            // HH:MM
   duration?: number;
   priority?: PlanPriority;
+  /** Per-task lead override (5/15/30). Omitted → user's account default. */
+  notifyLeadMin?: number;
 };
 
 /** Upsert by id — used by ideas-store to mirror a scheduled idea as a plan. */
@@ -95,7 +98,10 @@ export async function upsertPlan(input: CreatePlanInput & { id: string }): Promi
     select: { id: true, order: true },
   });
   if (existing) {
-    const leadMin = await getUserLeadMin(user.id);
+    const effectiveLead =
+      input.notifyLeadMin !== undefined
+        ? sanitizeLeadMin(input.notifyLeadMin)
+        : await getUserLeadMin(user.id);
     const row = await prisma.plan.update({
       where: { id: input.id },
       data: {
@@ -106,7 +112,8 @@ export async function upsertPlan(input: CreatePlanInput & { id: string }): Promi
         scheduledFor: input.scheduledFor,
         time: input.time,
         duration: input.duration,
-        notifyAt: computeNotifyAt(input.scheduledFor, input.time, leadMin),
+        notifyLeadMin: input.notifyLeadMin ?? null,
+        notifyAt: computeNotifyAt(input.scheduledFor, input.time, effectiveLead),
         // Re-arm: if time changed, allow re-sending the reminder
         notifiedAt: null,
       },
@@ -118,7 +125,7 @@ export async function upsertPlan(input: CreatePlanInput & { id: string }): Promi
 
 export async function createPlan(input: CreatePlanInput): Promise<Plan> {
   const user = await requireUser();
-  const [last, leadMin] = await Promise.all([
+  const [last, userLead] = await Promise.all([
     prisma.plan.findFirst({
       where: { userId: user.id },
       orderBy: { order: "desc" },
@@ -127,6 +134,8 @@ export async function createPlan(input: CreatePlanInput): Promise<Plan> {
     getUserLeadMin(user.id),
   ]);
   const nextOrder = (last?.order ?? -1) + 1;
+  const effectiveLead =
+    input.notifyLeadMin !== undefined ? sanitizeLeadMin(input.notifyLeadMin) : userLead;
 
   const row = await prisma.plan.create({
     data: {
@@ -140,8 +149,9 @@ export async function createPlan(input: CreatePlanInput): Promise<Plan> {
       scheduledFor: input.scheduledFor,
       time: input.time,
       duration: input.duration,
+      notifyLeadMin: input.notifyLeadMin ?? null,
       order: nextOrder,
-      notifyAt: computeNotifyAt(input.scheduledFor, input.time, leadMin),
+      notifyAt: computeNotifyAt(input.scheduledFor, input.time, effectiveLead),
     },
   });
   return toPlan(row);
@@ -156,6 +166,7 @@ export type UpdatePlanPatch = Partial<{
   scheduledFor: string;
   time: string | null;
   duration: number | null;
+  notifyLeadMin: number | null;
   order: number;
   completedAt: string | null;
 }>;
@@ -165,12 +176,23 @@ export async function updatePlan(id: string, patch: UpdatePlanPatch): Promise<Pl
   const existing = await prisma.plan.findFirst({ where: { id, userId: user.id } });
   if (!existing) throw new Error("NOT_FOUND");
 
-  // Recompute notifyAt when scheduledFor or time changes
+  // Recompute notifyAt when scheduledFor, time or per-task lead changes
   const nextScheduledFor = patch.scheduledFor ?? existing.scheduledFor;
   const nextTime = patch.time === undefined ? existing.time : patch.time;
+  const nextLeadOverride =
+    patch.notifyLeadMin === undefined ? existing.notifyLeadMin : patch.notifyLeadMin;
   const reschedule =
-    patch.scheduledFor !== undefined || patch.time !== undefined;
-  const leadMin = reschedule ? await getUserLeadMin(user.id) : 0;
+    patch.scheduledFor !== undefined ||
+    patch.time !== undefined ||
+    patch.notifyLeadMin !== undefined;
+
+  let effectiveLead = 0;
+  if (reschedule) {
+    effectiveLead =
+      nextLeadOverride != null
+        ? sanitizeLeadMin(nextLeadOverride)
+        : await getUserLeadMin(user.id);
+  }
 
   const row = await prisma.plan.update({
     where: { id },
@@ -183,7 +205,7 @@ export async function updatePlan(id: string, patch: UpdatePlanPatch): Promise<Pl
           ? null
           : new Date(patch.completedAt),
       ...(reschedule && {
-        notifyAt: computeNotifyAt(nextScheduledFor, nextTime, leadMin),
+        notifyAt: computeNotifyAt(nextScheduledFor, nextTime, effectiveLead),
         notifiedAt: null, // re-arm reminder
       }),
     },

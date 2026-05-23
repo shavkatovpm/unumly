@@ -77,7 +77,7 @@ const FAQS = [
   },
   {
     q: "Bot eslatmasi qachon yetib keladi?",
-    a: "Default holatda eslatma vazifa vaqtidan 5 daqiqa oldin yuboriladi — tayyorlanishga ulgurish uchun. Sozlamalardan bu vaqtni 5, 15 yoki 30 daqiqa oldin qilib o'zgartirishingiz mumkin.",
+    a: "Default holatda eslatma vazifa vaqtidan 5 daqiqa oldin yuboriladi — tayyorlanishga ulgurish uchun. Sozlamalardan account-darajadagi defaultni 5, 15 yoki 30 daqiqa qilib o'zgartirishingiz mumkin. Har bir alohida reja uchun esa Batafsil dialogida \"Eslatma\" tugmasi orqali boshqacha qiymat tanlash mumkin.",
   },
   {
     q: "Unumly boshqa to-do ilovalardan nimasi bilan farq qiladi?",
@@ -492,11 +492,20 @@ export default function HaqidaPage() {
 
           <h3>Bildirishnoma sozlamalari (Telegram orqali)</h3>
           <p>
-            <strong>Necha daqiqa oldin</strong>: bot xabari vazifa vaqtidan
-            qancha vaqt oldin yuborilishini tanlash — <strong>5</strong>,{" "}
-            <strong>15</strong> yoki <strong>30 daqiqa</strong>. Default
-            qiymat: 5 daqiqa. O&apos;zgartirsangiz, hozircha yuborilmagan
-            barcha eslatmalar yangi sozlamaga moslab qayta hisoblanadi.
+            <strong>Necha daqiqa oldin (account default)</strong>: bot xabari
+            vazifa vaqtidan qancha vaqt oldin yuborilishini tanlash —{" "}
+            <strong>5</strong>, <strong>15</strong> yoki{" "}
+            <strong>30 daqiqa</strong>. Default qiymat: 5 daqiqa. Bu
+            barcha rejalarga taalluqli — agar reja Batafsilida boshqacha
+            qiymat tanlanmagan bo&apos;lsa. O&apos;zgartirsangiz, hozircha
+            yuborilmagan va alohida override qo&apos;yilmagan rejalarning
+            eslatmalari yangi sozlamaga moslab qayta hisoblanadi.
+          </p>
+          <p className="text-faint">
+            <strong>Per-task override</strong>: reja Batafsil dialogida{" "}
+            <code>Eslatma: 5 daq. oldin</code> tugmasi bor — bosib 5 → 15 →
+            30 → 5 ga aylantirish mumkin. Bu faqat shu rejaga taalluqli va
+            account defaultidan ustun turadi.
           </p>
           <p>Muhimlik darajasi bo&apos;yicha alohida boshqarish:</p>
           <ul>

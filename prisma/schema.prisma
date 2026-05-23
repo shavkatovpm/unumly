@@ -114,6 +114,11 @@ model Plan {
   time         String?       @db.VarChar(5)  // "HH:MM"
   duration     Int?                            // minutes (defaults to 60 visually)
 
+  // Per-task override: minutes before the scheduled time when the reminder
+  // should fire. NULL = fall back to the user's account-level default
+  // (User.notifyLeadMin). Allowed values: 5 / 15 / 30.
+  notifyLeadMin Int?
+
   // Precomputed UTC instant when this plan should fire a Telegram reminder.
   // Set when both `scheduledFor` and `time` are present; null otherwise.
   // The cron query filters tasks by `notifyAt` to avoid scanning everything.
