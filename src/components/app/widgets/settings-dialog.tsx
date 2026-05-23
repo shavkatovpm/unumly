@@ -16,6 +16,7 @@ import {
   updateNotificationPrefs,
   type NotificationPrefs,
 } from "@/lib/user-settings-actions";
+import { LEAD_MIN_OPTIONS, type LeadMin } from "@/lib/notify-time";
 import { Dialog } from "./dialog";
 
 export function SettingsDialog({
@@ -49,7 +50,7 @@ export function SettingsDialog({
     void getNotificationPrefs().then((p) => p && setNotifs(p));
   }, [open]);
 
-  async function toggleNotif(key: keyof NotificationPrefs) {
+  async function toggleNotif(key: "notifyHigh" | "notifyMedium" | "notifyLow" | "notifyUnprioritized") {
     if (!notifs) return;
     const next = { ...notifs, [key]: !notifs[key] };
     setNotifs(next);                    // optimistic
@@ -58,6 +59,18 @@ export function SettingsDialog({
       setNotifs(server);
     } catch {
       setNotifs(notifs);                // rollback
+    }
+  }
+
+  async function setLeadMin(leadMin: LeadMin) {
+    if (!notifs || notifs.notifyLeadMin === leadMin) return;
+    const prev = notifs;
+    setNotifs({ ...notifs, notifyLeadMin: leadMin });    // optimistic
+    try {
+      const server = await updateNotificationPrefs({ notifyLeadMin: leadMin });
+      setNotifs(server);
+    } catch {
+      setNotifs(prev);                  // rollback
     }
   }
 
@@ -168,8 +181,45 @@ export function SettingsDialog({
             Eslatmalar
           </p>
           <p className="mb-3 text-[11.5px] leading-relaxed text-faint">
-            Vaqti yetib kelganda bot orqali eslatma yuboriladi. Default
-            holatda uchchala darajadagi rejalar uchun ham yoqilgan.
+            Bot eslatmasi vazifa vaqtidan biroz oldinroq yuboriladi —
+            tayyorlanishga ulgurish uchun. Quyida nechta daqiqa oldinligini
+            sozlang.
+          </p>
+
+          {/* Lead time selector */}
+          <div className="mb-4 rounded-md border border-border bg-surface px-3.5 py-3">
+            <p className="text-[13.5px] font-medium">Necha daqiqa oldin</p>
+            <p className="mt-0.5 text-[11.5px] text-faint">
+              Default: 5 daqiqa. Vaqtsiz rejalar uchun bu sozlama ta&apos;sir
+              qilmaydi (ular vaqti belgilanmaganligi sababli eslatma
+              yubormaydi).
+            </p>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {LEAD_MIN_OPTIONS.map((m) => {
+                const active = (notifs?.notifyLeadMin ?? 5) === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setLeadMin(m)}
+                    disabled={!notifs}
+                    className={cn(
+                      "rounded-md border px-2 py-2 text-[13px] font-medium transition-colors disabled:opacity-50",
+                      active
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border bg-background text-muted hover:border-border-strong hover:text-foreground"
+                    )}
+                  >
+                    {m} daq.
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <p className="mb-3 text-[11.5px] leading-relaxed text-faint">
+            Muhimlik darajasi bo&apos;yicha eslatmalarni alohida-alohida
+            yoqib-o&apos;chirish:
           </p>
           <div className="space-y-2">
             <NotifToggle

@@ -37,6 +37,10 @@ model User {
   notifyHigh          Boolean @default(true)
   notifyUnprioritized Boolean @default(true)   // tasks without a priority
 
+  // Minutes before a task's scheduled time the bot reminder fires.
+  // Default 5; UI exposes 5 / 15 / 30 as quick options.
+  notifyLeadMin       Int     @default(5)
+
   createdAt    DateTime @default(now())
   lastSeenAt   DateTime @default(now())
 

@@ -66,6 +66,7 @@ export async function GET(req: Request) {
         title: plan.title,
         time: plan.time,
         priority: plan.priority,
+        leadMin: plan.user.notifyLeadMin,
         appUrl: APP_URL,
       });
       await prisma.$transaction([

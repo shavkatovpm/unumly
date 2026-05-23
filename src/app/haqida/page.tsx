@@ -76,6 +76,10 @@ const FAQS = [
     a: "Sozlamalar bo'limida muhimlik darajasi bo'yicha bildirishnomalarni alohida-alohida yoqib-o'chirish mumkin: Yuqori, O'rta, Past va Vaqtsiz vazifalar uchun.",
   },
   {
+    q: "Bot eslatmasi qachon yetib keladi?",
+    a: "Default holatda eslatma vazifa vaqtidan 5 daqiqa oldin yuboriladi — tayyorlanishga ulgurish uchun. Sozlamalardan bu vaqtni 5, 15 yoki 30 daqiqa oldin qilib o'zgartirishingiz mumkin.",
+  },
+  {
     q: "Unumly boshqa to-do ilovalardan nimasi bilan farq qiladi?",
     a: "Unumly o'zbek tilida, minimalistik dizaynga ega va Telegram bilan chuqur integratsiyalashgan. Todoist yoki TickTick'dan farqli o'laroq, ortiqcha imkoniyatlar va plitalar yo'q: faqat reja tuzish, ko'rish va bajarish.",
   },
@@ -487,6 +491,13 @@ export default function HaqidaPage() {
           </ul>
 
           <h3>Bildirishnoma sozlamalari (Telegram orqali)</h3>
+          <p>
+            <strong>Necha daqiqa oldin</strong>: bot xabari vazifa vaqtidan
+            qancha vaqt oldin yuborilishini tanlash — <strong>5</strong>,{" "}
+            <strong>15</strong> yoki <strong>30 daqiqa</strong>. Default
+            qiymat: 5 daqiqa. O&apos;zgartirsangiz, hozircha yuborilmagan
+            barcha eslatmalar yangi sozlamaga moslab qayta hisoblanadi.
+          </p>
           <p>Muhimlik darajasi bo&apos;yicha alohida boshqarish:</p>
           <ul>
             <li><strong>Yuqori muhimlikdagi rejalar</strong> uchun bildirishnoma</li>
@@ -530,7 +541,15 @@ export default function HaqidaPage() {
 
           <h3>Bildirishnomalar qanday ishlaydi</h3>
           <ul>
-            <li>Vaqt belgilangan reja belgilangan vaqtga yaqinlashganda bot xabar yuboradi</li>
+            <li>
+              Vaqt belgilangan reja belgilangan vaqtga yaqinlashganda bot
+              xabar yuboradi — <strong>default 5 daqiqa oldin</strong>{" "}
+              (Sozlamalardan 5, 15 yoki 30 daqiqaga o&apos;zgartirish mumkin)
+            </li>
+            <li>
+              Xabar matnida vazifaning asl vaqti va &quot;X daq. qoldi&quot;
+              hisobi ko&apos;rsatiladi — tayyorlanishga ulgurish uchun
+            </li>
             <li>
               Har bildirishnoma ostida ikkita tugma bo&apos;ladi:{" "}
               <strong>&quot;Bajarildi&quot;</strong> va{" "}

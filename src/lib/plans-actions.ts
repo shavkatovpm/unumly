@@ -4,11 +4,20 @@ import type { Plan as DbPlan } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { computeNotifyAt } from "@/lib/notify-time";
+import { computeNotifyAt, sanitizeLeadMin } from "@/lib/notify-time";
 import { markReminderDone } from "@/lib/telegram-bot";
 import type { Plan, PlanScope, PlanStatus, PlanPriority } from "@/lib/types";
 
 const TRASH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Fetch the current user's lead-time setting (minutes before scheduled time). */
+async function getUserLeadMin(userId: string): Promise<number> {
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { notifyLeadMin: true },
+  });
+  return sanitizeLeadMin(u?.notifyLeadMin);
+}
 
 /* ─── Serializer ──────────────────────────────────────────── */
 
@@ -86,6 +95,7 @@ export async function upsertPlan(input: CreatePlanInput & { id: string }): Promi
     select: { id: true, order: true },
   });
   if (existing) {
+    const leadMin = await getUserLeadMin(user.id);
     const row = await prisma.plan.update({
       where: { id: input.id },
       data: {
@@ -96,7 +106,7 @@ export async function upsertPlan(input: CreatePlanInput & { id: string }): Promi
         scheduledFor: input.scheduledFor,
         time: input.time,
         duration: input.duration,
-        notifyAt: computeNotifyAt(input.scheduledFor, input.time),
+        notifyAt: computeNotifyAt(input.scheduledFor, input.time, leadMin),
         // Re-arm: if time changed, allow re-sending the reminder
         notifiedAt: null,
       },
@@ -108,11 +118,14 @@ export async function upsertPlan(input: CreatePlanInput & { id: string }): Promi
 
 export async function createPlan(input: CreatePlanInput): Promise<Plan> {
   const user = await requireUser();
-  const last = await prisma.plan.findFirst({
-    where: { userId: user.id },
-    orderBy: { order: "desc" },
-    select: { order: true },
-  });
+  const [last, leadMin] = await Promise.all([
+    prisma.plan.findFirst({
+      where: { userId: user.id },
+      orderBy: { order: "desc" },
+      select: { order: true },
+    }),
+    getUserLeadMin(user.id),
+  ]);
   const nextOrder = (last?.order ?? -1) + 1;
 
   const row = await prisma.plan.create({
@@ -128,7 +141,7 @@ export async function createPlan(input: CreatePlanInput): Promise<Plan> {
       time: input.time,
       duration: input.duration,
       order: nextOrder,
-      notifyAt: computeNotifyAt(input.scheduledFor, input.time),
+      notifyAt: computeNotifyAt(input.scheduledFor, input.time, leadMin),
     },
   });
   return toPlan(row);
@@ -157,6 +170,7 @@ export async function updatePlan(id: string, patch: UpdatePlanPatch): Promise<Pl
   const nextTime = patch.time === undefined ? existing.time : patch.time;
   const reschedule =
     patch.scheduledFor !== undefined || patch.time !== undefined;
+  const leadMin = reschedule ? await getUserLeadMin(user.id) : 0;
 
   const row = await prisma.plan.update({
     where: { id },
@@ -169,7 +183,7 @@ export async function updatePlan(id: string, patch: UpdatePlanPatch): Promise<Pl
           ? null
           : new Date(patch.completedAt),
       ...(reschedule && {
-        notifyAt: computeNotifyAt(nextScheduledFor, nextTime),
+        notifyAt: computeNotifyAt(nextScheduledFor, nextTime, leadMin),
         notifiedAt: null, // re-arm reminder
       }),
     },
