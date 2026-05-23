@@ -42,7 +42,7 @@ export function Dialog({
   return (
     <div
       className={cn(
-        "fixed inset-0 z-50 flex justify-center fade-in",
+        "fixed inset-0 z-50 flex justify-center",
         mobilePlacement === "center" && "items-center p-4",
         mobilePlacement === "bottom" && "items-end p-0 sm:items-center sm:p-4",
         mobilePlacement === "top" && "items-start justify-center px-4 sm:items-center sm:p-4"
@@ -55,6 +55,8 @@ export function Dialog({
       role="dialog"
       aria-modal="true"
     >
+      {/* Backdrop renders instantly (no fade) so the blur shows up at the
+          same frame as the card — avoids a perceived blur-lag. */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={onClose}

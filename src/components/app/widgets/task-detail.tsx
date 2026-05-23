@@ -84,11 +84,12 @@ export function TaskDetail({
   const [accountLead, setAccountLead] = useState<LeadMin>(DEFAULT_LEAD_MIN);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  // "view" = read-only (no keyboard); "edit" = current form behaviour.
-  const [mode, setMode] = useState<"view" | "edit">("edit");
+  // Mode resolution: `explicitMode` is set by Pencil / Bekor user actions.
+  // When null, we derive the mode synchronously from the plan so the very
+  // first render is already correct (avoids a one-frame keyboard pop).
+  const [explicitMode, setExplicitMode] = useState<"view" | "edit" | null>(null);
   const timeBtnRef = useRef<HTMLButtonElement>(null);
   const dateBtnRef = useRef<HTMLButtonElement>(null);
-  const notesRef = useRef<HTMLTextAreaElement>(null);
 
   const today = useMemo(() => startOfDay(), []);
   const selectedDate = useMemo(
@@ -111,30 +112,22 @@ export function TaskDetail({
     );
   }, [plan, accountLead]);
 
-  // Reset mode whenever the dialog opens for a different plan:
-  // drafts and "skeletal" tasks (no notes/duration/priority filled) start
-  // in edit mode so the user can immediately type details; otherwise we
-  // start in read-only view mode (avoids surprise keyboard popup).
-  // Keyed on plan.id so background poll updates don't snap the user out
-  // of edit mode mid-edit.
+  // Resolve initial (derived) mode synchronously from the plan so the very
+  // first render lands in the right mode — no keyboard flash, no UI flip.
+  // Drafts and "skeletal" tasks (no notes/duration/priority/lead override)
+  // start in edit; existing tasks with details start in view.
+  const initialMode: "view" | "edit" = plan
+    ? draft || !hasDetails(plan)
+      ? "edit"
+      : "view"
+    : "edit";
+  const mode: "view" | "edit" = explicitMode ?? initialMode;
+
+  // Reset the user's explicit override whenever the dialog re-opens or the
+  // shown plan changes — so each open computes mode fresh from the data.
   const planId = plan?.id ?? null;
-  // Tracks the mode the dialog was opened in — drives Bekor behaviour
-  // (revert to view vs. close) so users who entered edit via Pencil can
-  // cancel back to the read-only display.
-  const [initialMode, setInitialMode] = useState<"view" | "edit">("edit");
   useEffect(() => {
-    if (!open || !plan) return;
-    const next = draft || !hasDetails(plan) ? "edit" : "view";
-    setMode(next);
-    setInitialMode(next);
-    // Auto-focus the notes textarea only when the dialog opens in edit
-    // mode initially (skeletal task / draft). View→edit transitions via
-    // Pencil don't auto-focus — the user already chose what to edit.
-    if (next === "edit") {
-      // Defer until after the textarea has rendered.
-      requestAnimationFrame(() => notesRef.current?.focus());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setExplicitMode(null);
   }, [open, planId, draft]);
 
   /** Restore inputs to the plan's current persisted values. */
@@ -154,7 +147,7 @@ export function TaskDetail({
   function handleCancel() {
     if (initialMode === "view") {
       revertToPlan();
-      setMode("view");
+      setExplicitMode(null); // back to derived → view
     } else {
       onClose();
     }
@@ -256,7 +249,7 @@ export function TaskDetail({
   const isView = mode === "view";
 
   return (
-    <Dialog open={open} onClose={onClose} mobilePlacement="top">
+    <Dialog open={open} onClose={onClose} mobilePlacement="top" className="max-w-lg">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -273,7 +266,7 @@ export function TaskDetail({
             {isView && (
               <button
                 type="button"
-                onClick={() => setMode("edit")}
+                onClick={() => setExplicitMode("edit")}
                 aria-label="Tahrirlash"
                 title="Tahrirlash"
                 className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] text-muted transition-colors hover:bg-hover hover:text-foreground"
@@ -323,11 +316,14 @@ export function TaskDetail({
               Izoh
             </label>
             <textarea
-              ref={notesRef}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Qo'shimcha tafsilot..."
               rows={3}
+              // Auto-focus only when the dialog originally opened in edit
+              // mode (skeletal task / draft). View→edit via Pencil should
+              // NOT pop the keyboard — user chooses what to edit.
+              autoFocus={initialMode === "edit"}
               className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-2 text-[13px] leading-relaxed placeholder:text-faint focus:border-border-strong focus:outline-none"
             />
           </div>
@@ -594,72 +590,94 @@ function ViewBody({
   const pri = PRIORITY_DISPLAY[priority];
 
   return (
-    <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-      {/* Title */}
-      <h2 className="text-[18px] font-semibold leading-tight tracking-[-0.01em] text-foreground">
+    <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-7">
+      {/* Title — large, prominent */}
+      <h2 className="text-[22px] font-semibold leading-tight tracking-[-0.015em] text-foreground sm:text-[24px]">
         {title || "Sarlavhasiz"}
       </h2>
 
-      {/* Date · Time · Duration in one compact row */}
-      <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted">
+      {/* Sana */}
+      <Row label="Sana" icon={<CalendarIcon className="size-3" />}>
         <span
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md border px-2 py-1",
-            isDateInPast
-              ? "border-danger/40 bg-danger-soft text-danger"
-              : "border-border bg-background"
+            "text-[15px] sm:text-[14px]",
+            isDateInPast ? "text-danger" : "text-foreground"
           )}
         >
-          <CalendarIcon className="size-3 text-faint" />
           {formatUzDate(selectedDate)}
         </span>
-        {time && (
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono tabular-nums",
-              isTimePast
-                ? "border-danger/40 bg-danger-soft text-danger"
-                : "border-border bg-background"
-            )}
-          >
-            <Clock className="size-3 text-faint" />
-            {time}
-          </span>
-        )}
-        {duration != null && (
-          <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 font-mono text-[11.5px] tabular-nums text-muted">
-            {duration}m
-          </span>
-        )}
-      </div>
+      </Row>
 
-      {/* Priority + Lead time */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-[12.5px]">
-          <span aria-hidden className={cn("size-2 rounded-full", pri.dot)} />
-          <Flag className="size-3 text-faint" />
+      {/* Vaqt + Davomiyligi (only when time is set) */}
+      {time && (
+        <Row label="Vaqt" icon={<Clock className="size-3" />}>
+          <div className="flex items-center gap-3">
+            <span
+              className={cn(
+                "font-mono text-[16px] tabular-nums sm:text-[15px]",
+                isTimePast ? "text-danger" : "text-foreground"
+              )}
+            >
+              {time}
+            </span>
+            {duration != null && (
+              <span className="font-mono text-[12.5px] tabular-nums text-faint">
+                · {duration} daq.
+              </span>
+            )}
+          </div>
+        </Row>
+      )}
+
+      {/* Muhimlik */}
+      <Row label="Muhimlik" icon={<Flag className="size-3" />}>
+        <span className="inline-flex items-center gap-2 text-[15px] sm:text-[14px] text-foreground">
+          <span aria-hidden className={cn("size-2.5 rounded-full", pri.dot)} />
           {pri.label}
         </span>
-        {time && (
-          <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-[12.5px] text-muted">
-            <Bell className="size-3 text-faint" />
-            Eslatma: <span className="font-mono tabular-nums text-foreground">{leadMin}</span> daq. oldin
-          </span>
-        )}
-      </div>
+      </Row>
 
-      {/* Notes — only when present */}
+      {/* Eslatma — only when time is set (no time → no reminder) */}
+      {time && (
+        <Row label="Eslatma" icon={<Bell className="size-3" />}>
+          <span className="text-[15px] text-foreground sm:text-[14px]">
+            <span className="font-mono tabular-nums">{leadMin}</span> daq. oldin
+          </span>
+        </Row>
+      )}
+
+      {/* Izoh — prominent block (only when present) */}
       {trimmedNotes && (
-        <div>
-          <p className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
+        <div className="mt-5">
+          <p className="mb-2 flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
             <FileText className="size-3" />
             Izoh
           </p>
-          <p className="whitespace-pre-wrap rounded-md border border-border bg-background px-2.5 py-2 text-[13px] leading-relaxed text-foreground">
+          <p className="whitespace-pre-wrap rounded-md border border-border bg-background px-3.5 py-3 text-[14px] leading-relaxed text-foreground sm:text-[13.5px]">
             {trimmedNotes}
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function Row({
+  label,
+  icon,
+  children,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3">
+      <span className="flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
+        {icon}
+        {label}
+      </span>
+      <div>{children}</div>
     </div>
   );
 }
