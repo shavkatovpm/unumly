@@ -279,13 +279,14 @@ export async function POST(req: Request) {
       data: { updatedAt: new Date() },
     });
 
-    // Silent acknowledgement — a 📝 reaction confirms the bot saw the message
-    // without sending a noisy reply. The cron sends/edits the full summary
-    // after the user has been silent for the idle window.
+    // Silent acknowledgement — a 👌 reaction confirms the bot saw the
+    // message without sending a noisy reply. Note: Telegram only allows
+    // bots to react with a fixed set of emojis (👌 is on that list; 📝
+    // isn't, which is why the previous emoji failed silently).
     await setMessageReaction({
       chatId,
       messageId: msg.message_id,
-      emoji: "📝",
+      emoji: "👌",
     });
 
     return NextResponse.json({ ok: true });
