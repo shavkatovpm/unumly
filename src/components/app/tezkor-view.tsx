@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot,
@@ -229,15 +229,15 @@ function CreateListModal({
 }) {
   const [name, setName] = useState("");
   const [body, setBody] = useState("");
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   useScrollLock(open);
 
+  // Reset fields when modal opens — autoFocus on textarea pops keyboard
+  // synchronously within the user-gesture window (same trick as Bugun).
   useEffect(() => {
     if (!open) return;
     setName("");
     setBody("");
-    requestAnimationFrame(() => bodyRef.current?.focus());
   }, [open]);
 
   function submit() {
@@ -273,9 +273,13 @@ function CreateListModal({
               exit={{ opacity: 0, y: -8, scale: 0.98 }}
               transition={{ type: "spring", damping: 28, stiffness: 360 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
+              // Cap height to the live visual viewport (–8rem) so when the
+              // keyboard opens the modal body becomes scrollable and the
+              // footer (Saqlash) stays reachable instead of falling off-screen.
+              className="flex w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
+              style={{ maxHeight: "calc(var(--tg-vh, 100vh) - 8rem)" }}
             >
-              <header className="flex items-center justify-between border-b border-border px-5 py-3">
+              <header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
                 <p className="text-[15px] font-semibold tracking-[-0.01em]">
                   Yangi ro&apos;yhat
                 </p>
@@ -294,24 +298,25 @@ function CreateListModal({
                   e.preventDefault();
                   submit();
                 }}
-                className="space-y-3 px-5 py-4"
+                className="flex min-h-0 flex-1 flex-col"
               >
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Nom (ixtiyoriy) — masalan, Bozor ro'yhati"
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-[14px] placeholder:text-faint focus:border-border-strong focus:outline-none"
-                />
-                <textarea
-                  ref={bodyRef}
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  rows={7}
-                  placeholder={"Har qatorga bitta narsa:\n\nBodring\nPomidor\nGugurt"}
-                  className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-[14px] leading-relaxed placeholder:text-faint focus:border-border-strong focus:outline-none"
-                />
-
-                <div className="flex items-center justify-end gap-2">
+                <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Nom (ixtiyoriy) — masalan, Bozor ro'yhati"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-[14px] placeholder:text-faint focus:border-border-strong focus:outline-none"
+                  />
+                  <textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    rows={7}
+                    autoFocus
+                    placeholder={"Har qatorga bitta narsa:\n\nBodring\nPomidor\nGugurt"}
+                    className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-[14px] leading-relaxed placeholder:text-faint focus:border-border-strong focus:outline-none"
+                  />
+                </div>
+                <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-subtle/30 px-5 py-3">
                   <button
                     type="button"
                     onClick={onClose}

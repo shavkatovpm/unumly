@@ -405,23 +405,23 @@ Gugurt`}</pre>
               deb)
             </li>
             <li>
-              Har xabar yangi <strong>Tezkor item</strong> sifatida ochiq
-              ro&apos;yhatga qo&apos;shiladi
+              Bot xabarni 📝 emoji bilan tasdiqlaydi (ortiqcha matn yo&apos;q)
+              va uni ochiq ro&apos;yhatga item sifatida qo&apos;shadi
             </li>
             <li>
-              Oxirgi xabardan keyin <strong>3 daqiqa</strong> jim turilsa,
-              bot ro&apos;yhat summarysini yuboradi va 2 ta tugma chiqaradi:{" "}
-              <strong>&quot;✏️ Nom kiritish&quot;</strong> va{" "}
-              <strong>&quot;🗑 O&apos;chirish&quot;</strong>
+              Oxirgi xabardan ~<strong>20 soniya</strong> jim turilsa, bot
+              ro&apos;yhat summarysini yuboradi 4 ta tugma bilan:
+              <ul>
+                <li><strong>✅ Tasdiqlash</strong> — ro&apos;yhatni shu nom bilan saqlab yopadi</li>
+                <li><strong>➕ Davom etish</strong> — ro&apos;yhatni qayta ochadi, yana 20s kutadi</li>
+                <li><strong>✏️ Nom kiritish</strong> — navbatdagi xabaringiz ro&apos;yhat nomi bo&apos;ladi</li>
+                <li><strong>🗑 O&apos;chirish</strong> — ro&apos;yhatni soft-delete qiladi</li>
+              </ul>
             </li>
             <li>
-              Nom kiritish tugmasini bossangiz, navbatdagi xabaringiz
-              ro&apos;yhatning yangi nomi bo&apos;ladi
-            </li>
-            <li>
-              3 daqiqa ichida yangi xabar yuborsangiz — yangi item ham
-              o&apos;sha ochiq ro&apos;yhatga qo&apos;shiladi (taymer
-              har xabarda boshidan boshlanadi)
+              <em>Davom etish</em> bosgan bo&apos;lsangiz va keyin yana
+              jim tursangiz, bot bir xil xabarni tahrirlaydi (yangi xabar
+              yubormaydi) — chat bezovta bo&apos;lmaydi.
             </li>
           </ul>
 

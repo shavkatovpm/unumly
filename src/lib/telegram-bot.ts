@@ -205,14 +205,13 @@ export async function answerCallbackQuery(id: string, text?: string) {
 
 const TG_MESSAGE_LIMIT = 4000; // a touch under Telegram's 4096 to leave room
 
-/** Send the "Siz quyidagilarni qo'shdingiz" summary with action buttons.
- *  Returns the message_id so we can edit it later (delete callback). */
-export async function sendQuickListSummary(opts: {
-  chatId: number | string;
+/** Build the summary text + inline keyboard used both for first send and
+ *  for in-place edits (after a new item arrives or "Davom etish"). */
+function buildQuickListSummary(opts: {
   listId: string;
   name: string;
   items: { text: string }[];
-}): Promise<number> {
+}): { text: string; reply_markup: object } {
   const header = `📝 *${escapeMarkdown(opts.name)}*\n\nSiz Tezkor ro'yhatga quyidagilarni qo'shdingiz:\n`;
   let body = "";
   let truncated = 0;
@@ -227,7 +226,32 @@ export async function sendQuickListSummary(opts: {
   if (truncated > 0) {
     body += `\n\n_…va yana ${truncated} ta (ko'rish uchun ilovani oching)_`;
   }
-  const text = header + body;
+  return {
+    text: header + body,
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: "✅ Tasdiqlash",   callback_data: `qlconfirm:${opts.listId}` },
+          { text: "➕ Davom etish",  callback_data: `qlcontinue:${opts.listId}` },
+        ],
+        [
+          { text: "✏️ Nom kiritish", callback_data: `qlname:${opts.listId}` },
+          { text: "🗑 O'chirish",    callback_data: `qldelete:${opts.listId}` },
+        ],
+      ],
+    },
+  };
+}
+
+/** Send a fresh summary message. Returns the message_id so subsequent
+ *  edits / button presses can target it. */
+export async function sendQuickListSummary(opts: {
+  chatId: number | string;
+  listId: string;
+  name: string;
+  items: { text: string }[];
+}): Promise<number> {
+  const { text, reply_markup } = buildQuickListSummary(opts);
 
   const res = await fetch(`${BASE}/bot${token()}/sendMessage`, {
     method: "POST",
@@ -236,12 +260,7 @@ export async function sendQuickListSummary(opts: {
       chat_id: opts.chatId,
       text,
       parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [[
-          { text: "✏️ Nom kiritish",  callback_data: `qlname:${opts.listId}` },
-          { text: "🗑 O'chirish",     callback_data: `qldelete:${opts.listId}` },
-        ]],
-      },
+      reply_markup,
     }),
   });
   if (!res.ok) {
@@ -252,6 +271,56 @@ export async function sendQuickListSummary(opts: {
   const id = data?.result?.message_id;
   if (typeof id !== "number") throw new Error("sendQuickListSummary: missing message_id");
   return id;
+}
+
+/** Edit an existing summary message in place — same buttons, updated body.
+ *  Used when more items arrived after a "Davom etish" press, or when the
+ *  list was re-closed by the cron after another idle period. */
+export async function refreshQuickListSummary(opts: {
+  chatId: number | string;
+  messageId: number;
+  listId: string;
+  name: string;
+  items: { text: string }[];
+}): Promise<void> {
+  const { text, reply_markup } = buildQuickListSummary(opts);
+  const res = await fetch(`${BASE}/bot${token()}/editMessageText`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: opts.chatId,
+      message_id: opts.messageId,
+      text,
+      parse_mode: "Markdown",
+      reply_markup,
+    }),
+  });
+  if (!res.ok && res.status !== 400) {
+    console.error("refreshQuickListSummary:", await res.text().catch(() => res.status));
+  }
+}
+
+/** React to a user message with an emoji — silent acknowledgement that
+ *  the bot saw and processed the message (no extra chat message needed). */
+export async function setMessageReaction(opts: {
+  chatId: number | string;
+  messageId: number;
+  emoji: string;
+}) {
+  const res = await fetch(`${BASE}/bot${token()}/setMessageReaction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: opts.chatId,
+      message_id: opts.messageId,
+      reaction: [{ type: "emoji", emoji: opts.emoji }],
+      is_big: false,
+    }),
+  });
+  // 400 happens for unsupported emoji or older clients — non-fatal.
+  if (!res.ok && res.status !== 400) {
+    console.error("setMessageReaction:", await res.text().catch(() => res.status));
+  }
 }
 
 /** Edit a summary message in-place after the user takes a final action. */

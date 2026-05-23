@@ -53,8 +53,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Klaviatura ochilganda webview o'z scroll'i bilan asosiy elementlarni
   // siljitishini kamaytiradi.
   useEffect(() => {
+    let usingTelegram = false;
+
     let attempts = 0;
-    function init() {
+    function initTelegram() {
       const tg = (window as unknown as { Telegram?: { WebApp?: {
         ready: () => void;
         expand: () => void;
@@ -65,9 +67,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         disableVerticalSwipes?: () => void;
       } } }).Telegram?.WebApp;
       if (!tg) {
-        if (attempts++ < 30) setTimeout(init, 100);
+        if (attempts++ < 30) setTimeout(initTelegram, 100);
         return;
       }
+      usingTelegram = true;
       tg.ready();
       tg.expand();
       try { tg.disableVerticalSwipes?.(); } catch { /* old clients */ }
@@ -80,7 +83,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       syncViewport();
       tg.onEvent?.("viewportChanged", syncViewport);
     }
-    init();
+    initTelegram();
+
+    // Browser fallback: track visualViewport so --tg-vh shrinks when the
+    // on-screen keyboard opens (Telegram Mini App pushes the same value via
+    // its own event). This keeps dialog max-heights honest so inputs/buttons
+    // don't fall behind the keyboard.
+    const vv = window.visualViewport;
+    function syncBrowserViewport() {
+      if (usingTelegram) return; // Telegram is source of truth there
+      const h = vv?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty("--tg-vh", `${h}px`);
+    }
+    syncBrowserViewport();
+    vv?.addEventListener("resize", syncBrowserViewport);
+    window.addEventListener("resize", syncBrowserViewport);
+    return () => {
+      vv?.removeEventListener("resize", syncBrowserViewport);
+      window.removeEventListener("resize", syncBrowserViewport);
+    };
   }, []);
 
   function toggle(next: boolean) {

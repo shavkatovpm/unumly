@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendQuickListSummary, sendTaskReminder } from "@/lib/telegram-bot";
+import {
+  refreshQuickListSummary,
+  sendQuickListSummary,
+  sendTaskReminder,
+} from "@/lib/telegram-bot";
 
 export const runtime = "nodejs";
 // Cron pings frequently — make sure Vercel doesn't cache this
@@ -14,7 +18,9 @@ const WINDOW_MS = 2 * 60 * 1000;
 
 // How long a Tezkor list stays "open" (accumulating new bot items) after
 // the most recent message. Once exceeded, cron closes it and sends summary.
-const TEZKOR_IDLE_MS = 3 * 60 * 1000;
+// NOTE: actual close timing also depends on cron frequency (typically 1
+// min), so the practical window is [TEZKOR_IDLE_MS, TEZKOR_IDLE_MS + 60s].
+const TEZKOR_IDLE_MS = 20 * 1000;
 
 /**
  * GET /api/cron/notify
@@ -113,8 +119,9 @@ export async function GET(req: Request) {
 }
 
 /** Find every QuickList that has been idle for > TEZKOR_IDLE_MS, close it,
- *  and send the summary message (with [Nom kiritish] [O'chirish] buttons).
- *  Empty lists are silently dropped — no message needed. */
+ *  and send the summary (or edit the existing one if "Davom etish" was
+ *  pressed earlier and new items were added). Empty lists are silently
+ *  dropped — no message needed. */
 async function processStaleQuickLists() {
   const cutoff = new Date(Date.now() - TEZKOR_IDLE_MS);
   const stale = await prisma.quickList.findMany({
@@ -138,7 +145,6 @@ async function processStaleQuickLists() {
     try {
       const now = new Date();
       if (list.items.length === 0) {
-        // Empty open list — close silently (also drop it to keep storage clean).
         await prisma.quickList.update({
           where: { id: list.id },
           data: { closedAt: now, deletedAt: now },
@@ -148,24 +154,40 @@ async function processStaleQuickLists() {
       }
 
       const chatId = Number(list.user.telegramId);
-      const messageId = await sendQuickListSummary({
-        chatId,
-        listId: list.id,
-        name: list.name,
-        items: list.items,
-      });
-      await prisma.quickList.update({
-        where: { id: list.id },
-        data: {
-          closedAt: now,
-          summaryChatId: BigInt(chatId),
-          summaryMessageId: messageId,
-        },
-      });
+      if (list.summaryChatId && list.summaryMessageId) {
+        // List was previously summarised, user pressed "Davom etish" and
+        // added more items. Edit the existing message in place rather than
+        // spamming a new one.
+        await refreshQuickListSummary({
+          chatId: Number(list.summaryChatId),
+          messageId: list.summaryMessageId,
+          listId: list.id,
+          name: list.name,
+          items: list.items,
+        });
+        await prisma.quickList.update({
+          where: { id: list.id },
+          data: { closedAt: now },
+        });
+      } else {
+        const messageId = await sendQuickListSummary({
+          chatId,
+          listId: list.id,
+          name: list.name,
+          items: list.items,
+        });
+        await prisma.quickList.update({
+          where: { id: list.id },
+          data: {
+            closedAt: now,
+            summaryChatId: BigInt(chatId),
+            summaryMessageId: messageId,
+          },
+        });
+      }
       summarised++;
     } catch (err) {
       console.error(`tezkor close ${list.id} failed`, err);
-      // Defensive: still close so we don't retry forever
       await prisma.quickList
         .update({
           where: { id: list.id },

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import type { QuickList } from "@/lib/tezkor-types";
 import { cn } from "@/lib/utils";
+import { playOnComplete } from "@/lib/sounds";
 import { Dialog } from "./dialog";
 
 export function TezkorListDetail({
@@ -151,7 +152,12 @@ export function TezkorListDetail({
                 id={item.id}
                 text={item.text}
                 done={item.done}
-                onToggle={() => onToggleItem(item.id)}
+                onToggle={() => {
+                  // Mirror Bugun's TaskRow behaviour: chime when checking off,
+                  // silent when un-checking.
+                  if (!item.done) playOnComplete();
+                  onToggleItem(item.id);
+                }}
                 onUpdate={(t) => onUpdateItemText(item.id, t)}
                 onRemove={() => onRemoveItem(item.id)}
               />
@@ -168,6 +174,15 @@ export function TezkorListDetail({
               ref={addRef}
               value={adding}
               onChange={(e) => setAdding(e.target.value)}
+              onFocus={(e) => {
+                // Pull the input above the on-screen keyboard. We defer so
+                // the keyboard has time to start opening; without this, on
+                // iOS the input often stays hidden until the user types.
+                const el = e.currentTarget;
+                window.setTimeout(() => {
+                  el.scrollIntoView({ block: "center", behavior: "smooth" });
+                }, 250);
+              }}
               placeholder="Yangi narsa qo'shish…"
               className="flex-1 bg-transparent text-[14px] placeholder:text-faint focus:outline-none"
             />
@@ -236,18 +251,6 @@ function ItemRow({
 
   return (
     <li className="group/item flex items-center gap-2.5 rounded-md px-1.5 py-1.5 transition-colors hover:bg-hover/50">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-label={done ? "Bekor qilish" : "Bajarildi"}
-        className="grid size-[22px] shrink-0 place-items-center rounded-md border transition-all duration-200"
-        style={{
-          borderColor: done ? "var(--accent)" : "var(--border-strong)",
-          backgroundColor: done ? "var(--accent)" : "transparent",
-        }}
-      >
-        {done && <Check className="size-[14px] text-background" strokeWidth={5} />}
-      </button>
       {editing ? (
         <input
           autoFocus
@@ -283,6 +286,18 @@ function ItemRow({
         className="grid size-7 shrink-0 place-items-center rounded text-faint opacity-0 transition-colors hover:bg-danger-soft hover:text-danger group-hover/item:opacity-100"
       >
         <Trash2 className="size-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={done ? "Bekor qilish" : "Bajarildi"}
+        className="grid size-[22px] shrink-0 place-items-center rounded-md border transition-all duration-200"
+        style={{
+          borderColor: done ? "var(--accent)" : "var(--border-strong)",
+          backgroundColor: done ? "var(--accent)" : "transparent",
+        }}
+      >
+        {done && <Check className="size-[14px] text-background" strokeWidth={5} />}
       </button>
     </li>
   );

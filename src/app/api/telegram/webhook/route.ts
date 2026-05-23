@@ -8,6 +8,7 @@ import {
   sendOnboardingComplete,
   sendPlain,
   sendStartWelcome,
+  setMessageReaction,
 } from "@/lib/telegram-bot";
 import { normalisePhone } from "@/lib/phone";
 import { issueAndSendOtp, issueOtp } from "@/lib/otp";
@@ -19,8 +20,9 @@ const SECRET_HEADER = "x-telegram-bot-api-secret-token";
 const APP_URL = "https://www.unumly.uz/bugun";
 
 // How long a bot-created QuickList stays "open" (accumulating items)
-// after the most recent message. Mirrors the cron tick interval.
-const TEZKOR_WINDOW_MS = 3 * 60 * 1000;
+// after the most recent message. Mirrors the cron tick threshold so the
+// webhook agrees with the cron on what counts as "still active".
+const TEZKOR_WINDOW_MS = 20 * 1000;
 
 type TgUpdate = {
   message?: TgMessage;
@@ -276,7 +278,15 @@ export async function POST(req: Request) {
       where: { id: openList.id },
       data: { updatedAt: new Date() },
     });
-    // No reply — the cron tick handles the summary message after 3 min of silence.
+
+    // Silent acknowledgement — a 📝 reaction confirms the bot saw the message
+    // without sending a noisy reply. The cron sends/edits the full summary
+    // after the user has been silent for the idle window.
+    await setMessageReaction({
+      chatId,
+      messageId: msg.message_id,
+      emoji: "📝",
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -332,6 +342,8 @@ async function handleCallback(cq: TgCallbackQuery) {
     if (action === "done") return handleDoneCallback(cq, id);
     if (action === "qlname") return handleQuickListNameCallback(cq, id);
     if (action === "qldelete") return handleQuickListDeleteCallback(cq, id);
+    if (action === "qlconfirm") return handleQuickListConfirmCallback(cq, id);
+    if (action === "qlcontinue") return handleQuickListContinueCallback(cq, id);
 
     await answerCallbackQuery(cq.id);
     return NextResponse.json({ ok: true });
@@ -411,6 +423,78 @@ async function handleQuickListNameCallback(cq: TgCallbackQuery, listId: string) 
     cq.message?.chat.id ?? Number(user.telegramId),
     "✏️ Yangi ro'yhat nomini yozib yuboring (oddiy xabar shaklida)."
   );
+  return NextResponse.json({ ok: true });
+}
+
+async function handleQuickListConfirmCallback(cq: TgCallbackQuery, listId: string) {
+  const user = await prisma.user.findUnique({
+    where: { telegramId: BigInt(cq.from.id) },
+  });
+  if (!user) {
+    await answerCallbackQuery(cq.id, "Foydalanuvchi topilmadi");
+    return NextResponse.json({ ok: true });
+  }
+  const list = await prisma.quickList.findFirst({
+    where: { id: listId, userId: user.id },
+  });
+  if (!list || list.deletedAt) {
+    await answerCallbackQuery(cq.id, "Ro'yhat topilmadi");
+    return NextResponse.json({ ok: true });
+  }
+
+  // Lock in the list — strip the inline keyboard and replace the body
+  // with a brief confirmation so user knows it's been saved.
+  if (list.summaryChatId && list.summaryMessageId) {
+    await editQuickListSummary({
+      chatId: Number(list.summaryChatId),
+      messageId: list.summaryMessageId,
+      text: `✅ *Ro'yhatga qo'shildi*\n\n📝 *${escapeMd(list.name)}*\n\n_Tezkor bo'limidan ko'rishingiz mumkin._`,
+      parseMode: "Markdown",
+    });
+  }
+  // Make sure it's marked closed (might already be if cron sent the summary).
+  if (!list.closedAt) {
+    await prisma.quickList.update({
+      where: { id: list.id },
+      data: { closedAt: new Date() },
+    });
+  }
+  await answerCallbackQuery(cq.id, "✅ Tasdiqlandi");
+  return NextResponse.json({ ok: true });
+}
+
+async function handleQuickListContinueCallback(cq: TgCallbackQuery, listId: string) {
+  const user = await prisma.user.findUnique({
+    where: { telegramId: BigInt(cq.from.id) },
+  });
+  if (!user) {
+    await answerCallbackQuery(cq.id, "Foydalanuvchi topilmadi");
+    return NextResponse.json({ ok: true });
+  }
+  const list = await prisma.quickList.findFirst({
+    where: { id: listId, userId: user.id, deletedAt: null },
+  });
+  if (!list) {
+    await answerCallbackQuery(cq.id, "Ro'yhat topilmadi");
+    return NextResponse.json({ ok: true });
+  }
+
+  // Re-open the list: clear closedAt and refresh updatedAt so cron waits
+  // out another full TEZKOR_IDLE_MS before re-closing. The webhook's
+  // findOrCreateOpenList will now route incoming items into this list.
+  await prisma.quickList.update({
+    where: { id: list.id },
+    data: { closedAt: null, updatedAt: new Date() },
+  });
+  if (list.summaryChatId && list.summaryMessageId) {
+    await editQuickListSummary({
+      chatId: Number(list.summaryChatId),
+      messageId: list.summaryMessageId,
+      text: `➕ *Davom etmoqdasiz*\n\n📝 *${escapeMd(list.name)}*\n\nYangi narsalarni xabar shaklida yuboring. Sukut bo'lsa qaytadan tasdiqlash so'raladi.`,
+      parseMode: "Markdown",
+    });
+  }
+  await answerCallbackQuery(cq.id, "➕ Yangi narsalarni yuboring");
   return NextResponse.json({ ok: true });
 }
 
