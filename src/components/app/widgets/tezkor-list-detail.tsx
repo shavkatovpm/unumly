@@ -1,12 +1,79 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, CheckCircle2, GripVertical, Pencil, Plus, Trash2, X } from "lucide-react";
 import type { QuickList } from "@/lib/tezkor-types";
 import { cn } from "@/lib/utils";
 import { playOnComplete } from "@/lib/sounds";
-import { useDragReorder } from "@/lib/use-drag-reorder";
 import { Dialog } from "./dialog";
+
+/** Pointer-Events based reorder that works on both desktop (mouse) and
+ *  mobile (touch). HTML5 native drag doesn't fire on touch devices, so we
+ *  hand-roll the drag using setPointerCapture + elementFromPoint to find
+ *  the row currently under the user's finger. */
+function usePointerReorder(
+  onMove: (draggedId: string, beforeId: string | null) => void
+) {
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const draggingIdRef = useRef<string | null>(null);
+  const overIdRef = useRef<string | null>(null);
+  const startedRef = useRef(false);
+
+  const onMoveRef = useRef(onMove);
+  useEffect(() => { onMoveRef.current = onMove; }, [onMove]);
+
+  const handleMove = useCallback((e: PointerEvent) => {
+    if (!draggingIdRef.current) return;
+    // Block scrolling while dragging — without this iOS would scroll the
+    // dialog body instead of letting us re-order.
+    e.preventDefault();
+    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    const row = el?.closest?.("[data-reorder-id]") as HTMLElement | null;
+    const id = row?.dataset.reorderId ?? null;
+    if (id !== overIdRef.current) {
+      overIdRef.current = id;
+      setOverId(id);
+    }
+  }, []);
+
+  const handleEnd = useCallback(() => {
+    const dragged = draggingIdRef.current;
+    const over = overIdRef.current;
+    if (dragged && over && dragged !== over) {
+      onMoveRef.current(dragged, over);
+    }
+    draggingIdRef.current = null;
+    overIdRef.current = null;
+    startedRef.current = false;
+    setDraggingId(null);
+    setOverId(null);
+  }, []);
+
+  useEffect(() => {
+    if (!draggingId) return;
+    document.addEventListener("pointermove", handleMove, { passive: false });
+    document.addEventListener("pointerup", handleEnd);
+    document.addEventListener("pointercancel", handleEnd);
+    return () => {
+      document.removeEventListener("pointermove", handleMove);
+      document.removeEventListener("pointerup", handleEnd);
+      document.removeEventListener("pointercancel", handleEnd);
+    };
+  }, [draggingId, handleMove, handleEnd]);
+
+  function start(e: React.PointerEvent, id: string) {
+    // Only main mouse button / touch / pen
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    e.preventDefault();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* iOS sometimes throws */ }
+    draggingIdRef.current = id;
+    startedRef.current = true;
+    setDraggingId(id);
+  }
+
+  return { draggingId, overId, start };
+}
 
 export function TezkorListDetail({
   list,
@@ -46,11 +113,11 @@ export function TezkorListDetail({
     setAdding("");
   }, [list?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Drag-and-drop reorder for items within this list. The handler computes
-  // the new id ordering (dragged inserted before drop target) and persists
-  // via the store's reorderItems action.
+  // Drag-and-drop reorder using Pointer Events (works on mouse + touch).
+  // Move handler rebuilds the id ordering with the dragged row inserted
+  // before the row currently under the pointer.
   const items = list?.items ?? [];
-  const drag = useDragReorder(items, (draggedId, beforeId) => {
+  const drag = usePointerReorder((draggedId, beforeId) => {
     const ids = items.map((i) => i.id);
     const fromIdx = ids.indexOf(draggedId);
     const toIdx = beforeId ? ids.indexOf(beforeId) : ids.length;
@@ -194,8 +261,7 @@ export function TezkorListDetail({
             {list.items.map((item) => (
               <li
                 key={item.id}
-                onDragOver={(e) => drag.over(e, item.id)}
-                onDrop={(e) => drag.drop(e, item.id)}
+                data-reorder-id={item.id}
                 className={cn(
                   "transition-[opacity,box-shadow] duration-150",
                   drag.draggingId === item.id && "opacity-40",
@@ -216,8 +282,7 @@ export function TezkorListDetail({
                   }}
                   onUpdate={(t) => onUpdateItemText(item.id, t)}
                   onRemove={() => onRemoveItem(item.id)}
-                  onDragStart={(e) => drag.start(e, item.id)}
-                  onDragEnd={drag.end}
+                  onHandlePointerDown={(e) => drag.start(e, item.id)}
                 />
               </li>
             ))}
@@ -267,8 +332,7 @@ function ItemRow({
   onToggle,
   onUpdate,
   onRemove,
-  onDragStart,
-  onDragEnd,
+  onHandlePointerDown,
 }: {
   id: string;
   text: string;
@@ -276,8 +340,7 @@ function ItemRow({
   onToggle: () => void;
   onUpdate: (t: string) => void;
   onRemove: () => void;
-  onDragStart?: (e: React.DragEvent) => void;
-  onDragEnd?: () => void;
+  onHandlePointerDown?: (e: React.PointerEvent) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(text);
@@ -299,12 +362,12 @@ function ItemRow({
           text still enters edit mode without ambiguity. */}
       <button
         type="button"
-        draggable={!!onDragStart}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
+        onPointerDown={onHandlePointerDown}
         aria-label="Tartibni o'zgartirish"
         title="Tortib joyini o'zgartiring"
-        className="grid size-6 shrink-0 cursor-grab place-items-center rounded text-faint/60 transition-colors active:cursor-grabbing hover:text-muted"
+        // touch-action: none disables iOS scroll while the user is
+        // pressing the handle, so pointermove events flow to our handler.
+        className="grid size-6 shrink-0 cursor-grab touch-none place-items-center rounded text-faint/60 transition-colors active:cursor-grabbing hover:text-muted"
       >
         <GripVertical className="size-3.5" />
       </button>
