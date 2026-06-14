@@ -1,69 +1,137 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import type { Idea, Plan, PlanPriority } from "@/lib/types";
+import type { Idea, Plan } from "@/lib/types";
 import {
-  createPlan,
   getPlanById,
   removePlan,
   togglePlanStatus,
-  updatePlan,
   upsertPlan,
 } from "@/lib/plans-store";
+import * as actions from "@/lib/ideas-actions";
 
-const STORAGE_KEY = "unumly:ideas:v1";
-
-// Map old hardcoded enum values → new default category IDs, for migration
-const LEGACY_CATEGORY_MAP: Record<string, string> = {
-  ish: "ish",
-  "o'rganish": "organish",
-  shaxsiy: "ish",
-  salomatlik: "ish",
-};
+/* ════════════════════════════════════════════════════════════
+   Ideas store (Reja board) — in-memory cache backed by server
+   actions. Optimistic UI with rollback + cross-device polling,
+   mirroring plans-store. Scheduled ideas are still mirrored to a
+   Plan (same id) so they also surface in Bugun/Agenda/Kalendar.
+   ════════════════════════════════════════════════════════════ */
 
 type State = Idea[];
 
 let memoryState: State = [];
 let hydrated = false;
+let hydrating = false;
 const listeners = new Set<() => void>();
 
 function emit() {
   for (const l of listeners) l();
 }
 
-function persist() {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryState));
-  } catch {
-    /* ignore */
+function nextId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
   }
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
 function hydrateOnce() {
-  if (hydrated || typeof window === "undefined") return;
-  hydrated = true;
+  if (hydrated || hydrating || typeof window === "undefined") return;
+  hydrating = true;
+  void actions
+    .listIdeas()
+    .then((rows) => {
+      memoryState = rows;
+      hydrated = true;
+      emit();
+    })
+    .catch(() => {
+      hydrated = true;
+      emit();
+    })
+    .finally(() => {
+      hydrating = false;
+    });
+}
+
+/** Force a re-fetch from the server (used after first-login import). */
+export async function refreshIdeas(): Promise<void> {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed: unknown = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        const migrated = (parsed as Array<Record<string, unknown>>).map((item) => {
-          const rec = { ...item } as Record<string, unknown>;
-          if (!rec.categoryId && typeof rec.category === "string") {
-            rec.categoryId = LEGACY_CATEGORY_MAP[rec.category] ?? rec.category;
-            delete rec.category;
-          }
-          return rec as unknown as Idea;
-        });
-        memoryState = migrated;
-        persist();
-        emit();
-      }
-    }
+    memoryState = await actions.listIdeas();
+    hydrated = true;
+    emit();
   } catch {
-    /* ignore */
+    /* swallow */
   }
+}
+
+/* ─── Background polling (cross-device sync) ──────────────── */
+
+const POLL_INTERVAL_MS = 20 * 1000;
+let pollTimer: number | null = null;
+let pollSubscribers = 0;
+let pendingMutations = 0;
+
+function withPending<T>(p: Promise<T>): Promise<T> {
+  pendingMutations++;
+  return p.finally(() => {
+    pendingMutations = Math.max(0, pendingMutations - 1);
+  });
+}
+
+function rowsEqual(a: Idea[], b: Idea[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    if (
+      x.id !== y.id ||
+      x.title !== y.title ||
+      x.notes !== y.notes ||
+      x.categoryId !== y.categoryId ||
+      x.done !== y.done ||
+      x.order !== y.order ||
+      x.scheduledFor !== y.scheduledFor ||
+      x.time !== y.time ||
+      x.duration !== y.duration ||
+      x.priority !== y.priority
+    )
+      return false;
+  }
+  return true;
+}
+
+function fetchAndReconcile() {
+  if (pendingMutations > 0) return;
+  void actions
+    .listIdeas()
+    .then((rows) => {
+      if (pendingMutations > 0) return;
+      if (rowsEqual(rows, memoryState)) return;
+      memoryState = rows;
+      emit();
+    })
+    .catch(() => { /* unauthenticated or transient */ });
+}
+
+function startPolling() {
+  if (pollTimer !== null || typeof window === "undefined") return;
+  pollTimer = window.setInterval(() => {
+    if (document.visibilityState !== "visible") return;
+    fetchAndReconcile();
+  }, POLL_INTERVAL_MS);
+}
+
+function stopPolling() {
+  if (pollTimer !== null) {
+    window.clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function maybeRefreshOnVisible() {
+  if (document.visibilityState !== "visible") return;
+  fetchAndReconcile();
 }
 
 function subscribe(cb: () => void) {
@@ -82,20 +150,7 @@ function getServerSnapshot(): State {
   return EMPTY_STATE;
 }
 
-function nextId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
-
-export type CreateIdeaInput = {
-  title: string;
-  categoryId: string;
-  notes?: string;
-};
-
-/* ─── Plan sync helpers ─── */
+/* ─── Plan sync helpers ───────────────────────────────────── */
 
 function planFromIdea(idea: Idea): Plan {
   return {
@@ -122,12 +177,19 @@ function syncPlanFor(idea: Idea) {
   }
 }
 
-/* ─── Module-level mutators ─── */
+export type CreateIdeaInput = {
+  title: string;
+  categoryId: string;
+  notes?: string;
+};
+
+/* ─── Optimistic mutators ─────────────────────────────────── */
 
 export function createIdea(input: CreateIdeaInput): string {
   const now = new Date().toISOString();
+  const id = nextId();
   const idea: Idea = {
-    id: nextId(),
+    id,
     title: input.title.trim(),
     categoryId: input.categoryId,
     notes: input.notes,
@@ -136,53 +198,105 @@ export function createIdea(input: CreateIdeaInput): string {
     order: memoryState.length,
   };
   memoryState = [...memoryState, idea];
-  persist();
   emit();
-  return idea.id;
+
+  void withPending(
+    actions
+      .createIdea({ id, title: idea.title, categoryId: idea.categoryId, notes: idea.notes })
+      .then((server) => {
+        memoryState = memoryState.map((i) => (i.id === id ? server : i));
+        emit();
+      })
+      .catch(() => {
+        memoryState = memoryState.filter((i) => i.id !== id);
+        emit();
+      })
+  );
+
+  return id;
 }
 
 export function updateIdea(id: string, patch: Partial<Idea>): void {
-  let updated: Idea | undefined;
-  memoryState = memoryState.map((i) => {
-    if (i.id !== id) return i;
-    updated = { ...i, ...patch };
-    return updated;
-  });
-  persist();
+  const prev = memoryState.find((i) => i.id === id);
+  if (!prev) return;
+  const updated: Idea = { ...prev, ...patch };
+  memoryState = memoryState.map((i) => (i.id === id ? updated : i));
   emit();
-  if (updated) syncPlanFor(updated);
+  syncPlanFor(updated);
+
+  void withPending(
+    actions
+      .updateIdea(id, {
+        ...(patch.title !== undefined && { title: patch.title }),
+        ...(patch.notes !== undefined && { notes: patch.notes ?? null }),
+        ...(patch.categoryId !== undefined && { categoryId: patch.categoryId }),
+        ...(patch.done !== undefined && { done: patch.done }),
+        ...(patch.order !== undefined && { order: patch.order }),
+        ...(patch.scheduledFor !== undefined && { scheduledFor: patch.scheduledFor ?? null }),
+        ...(patch.time !== undefined && { time: patch.time ?? null }),
+        ...(patch.duration !== undefined && { duration: patch.duration ?? null }),
+        ...(patch.priority !== undefined && { priority: patch.priority ?? null }),
+      })
+      .then((server) => {
+        memoryState = memoryState.map((i) => (i.id === id ? server : i));
+        emit();
+      })
+      .catch(() => {
+        memoryState = memoryState.map((i) => (i.id === id ? prev : i));
+        emit();
+      })
+  );
 }
 
 export function toggleIdeaDone(id: string): void {
-  let updated: Idea | undefined;
-  memoryState = memoryState.map((i) => {
-    if (i.id !== id) return i;
-    updated = { ...i, done: !i.done };
-    return updated;
-  });
-  persist();
+  const prev = memoryState.find((i) => i.id === id);
+  if (!prev) return;
+  const updated: Idea = { ...prev, done: !prev.done };
+  memoryState = memoryState.map((i) => (i.id === id ? updated : i));
   emit();
-  if (updated && updated.scheduledFor) {
-    // Mirror done state on the linked plan (without re-emitting back to us)
+
+  // Mirror done state onto the linked plan (without re-emitting back to us)
+  if (updated.scheduledFor) {
     const plan = getPlanById(updated.id);
     if (plan && (plan.status === "DONE") !== updated.done) {
       togglePlanStatus(updated.id);
     }
   }
+
+  void withPending(
+    actions
+      .toggleIdeaDone(id)
+      .then((server) => {
+        memoryState = memoryState.map((i) => (i.id === id ? server : i));
+        emit();
+      })
+      .catch(() => {
+        memoryState = memoryState.map((i) => (i.id === id ? prev : i));
+        emit();
+      })
+  );
 }
 
 export function removeIdea(id: string): void {
+  const prev = memoryState.find((i) => i.id === id);
+  if (!prev) return;
   memoryState = memoryState.filter((i) => i.id !== id);
-  persist();
   emit();
   if (getPlanById(id)) removePlan(id);
+
+  void withPending(
+    actions.removeIdea(id).catch(() => {
+      memoryState = [...memoryState, prev];
+      emit();
+    })
+  );
 }
 
 export function getIdeaById(id: string): Idea | undefined {
   return memoryState.find((i) => i.id === id);
 }
 
-/* ─── Listen for plan toggles → mirror to idea ─── */
+/* ─── Listen for plan toggles → mirror to idea ────────────── */
 
 if (typeof window !== "undefined") {
   window.addEventListener("unumly:plan-toggled", (e: Event) => {
@@ -192,19 +306,31 @@ if (typeof window !== "undefined") {
       memoryState = memoryState.map((i) =>
         i.id === detail.id ? { ...i, done: detail.done } : i
       );
-      persist();
       emit();
+      // Persist the mirrored state so it survives a reload / other device.
+      void withPending(actions.updateIdea(detail.id, { done: detail.done }).catch(() => {}));
     }
   });
 }
 
-/* ─── React hook ─── */
+/* ─── React hook ──────────────────────────────────────────── */
 
 export function useIdeas() {
   const ideas = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
     hydrateOnce();
+    pollSubscribers++;
+    startPolling();
+    document.addEventListener("visibilitychange", maybeRefreshOnVisible);
+    return () => {
+      pollSubscribers--;
+      document.removeEventListener("visibilitychange", maybeRefreshOnVisible);
+      if (pollSubscribers <= 0) {
+        pollSubscribers = 0;
+        stopPolling();
+      }
+    };
   }, []);
 
   return {

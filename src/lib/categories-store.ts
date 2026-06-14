@@ -1,66 +1,121 @@
 "use client";
 
-import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { Category, CategoryColor } from "@/lib/types";
-import { migrateCategoryColor } from "@/lib/category-palette";
+import * as actions from "@/lib/categories-actions";
 
-const STORAGE_KEY = "unumly:categories:v1";
-const SEEDED_KEY = "unumly:categories:seeded";
-
-const DEFAULTS: Category[] = [
-  { id: "ish",       label: "Ish",       color: "pink",   order: 0 },
-  { id: "organish",  label: "O'rganish", color: "indigo", order: 1 },
-];
+/* ════════════════════════════════════════════════════════════
+   Categories store — in-memory cache backed by server actions.
+   Optimistic UI: mutators update local state immediately and fire
+   the server action in the background; failed calls roll back.
+   Cache hydrates on first hook usage and polls for cross-device sync.
+   Mirrors plans-store.
+   ════════════════════════════════════════════════════════════ */
 
 type State = Category[];
 
 let memoryState: State = [];
 let hydrated = false;
+let hydrating = false;
 const listeners = new Set<() => void>();
 
 function emit() {
   for (const l of listeners) l();
 }
 
-function persist() {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(memoryState));
-  } catch {
-    /* ignore */
+function nextId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
   }
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
 function hydrateOnce() {
-  if (hydrated || typeof window === "undefined") return;
-  hydrated = true;
+  if (hydrated || hydrating || typeof window === "undefined") return;
+  hydrating = true;
+  void actions
+    .listCategories()
+    .then((rows) => {
+      memoryState = rows;
+      hydrated = true;
+      emit();
+    })
+    .catch(() => {
+      hydrated = true;
+      emit();
+    })
+    .finally(() => {
+      hydrating = false;
+    });
+}
+
+/** Force a re-fetch from the server (used after first-login import). */
+export async function refreshCategories(): Promise<void> {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    const seeded = window.localStorage.getItem(SEEDED_KEY) === "1";
-    if (raw) {
-      const parsed: unknown = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        // Migrate legacy color keys (red/amber/blue/...) to the new palette
-        const arr = parsed as Array<Record<string, unknown>>;
-        let mutated = false;
-        memoryState = arr.map((c) => {
-          const migrated = migrateCategoryColor(c.color);
-          if (migrated !== c.color) mutated = true;
-          return { ...c, color: migrated } as Category;
-        });
-        if (mutated) persist();
-      }
-    }
-    // Seed defaults only on the very first init (so user can delete defaults later)
-    if (!seeded && memoryState.length === 0) {
-      memoryState = [...DEFAULTS];
-      persist();
-      window.localStorage.setItem(SEEDED_KEY, "1");
-    }
+    memoryState = await actions.listCategories();
+    hydrated = true;
     emit();
   } catch {
-    /* ignore */
+    /* swallow */
   }
+}
+
+/* ─── Background polling (cross-device sync) ──────────────── */
+
+const POLL_INTERVAL_MS = 20 * 1000;
+let pollTimer: number | null = null;
+let pollSubscribers = 0;
+let pendingMutations = 0;
+
+function withPending<T>(p: Promise<T>): Promise<T> {
+  pendingMutations++;
+  return p.finally(() => {
+    pendingMutations = Math.max(0, pendingMutations - 1);
+  });
+}
+
+function rowsEqual(a: Category[], b: Category[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    if (x.id !== y.id || x.label !== y.label || x.color !== y.color || x.order !== y.order)
+      return false;
+  }
+  return true;
+}
+
+function fetchAndReconcile() {
+  if (pendingMutations > 0) return;
+  void actions
+    .listCategories()
+    .then((rows) => {
+      if (pendingMutations > 0) return;
+      if (rowsEqual(rows, memoryState)) return;
+      memoryState = rows;
+      emit();
+    })
+    .catch(() => { /* unauthenticated or transient */ });
+}
+
+function startPolling() {
+  if (pollTimer !== null || typeof window === "undefined") return;
+  pollTimer = window.setInterval(() => {
+    if (document.visibilityState !== "visible") return;
+    fetchAndReconcile();
+  }, POLL_INTERVAL_MS);
+}
+
+function stopPolling() {
+  if (pollTimer !== null) {
+    window.clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function maybeRefreshOnVisible() {
+  if (document.visibilityState !== "visible") return;
+  fetchAndReconcile();
 }
 
 function subscribe(cb: () => void) {
@@ -79,48 +134,101 @@ function getServerSnapshot(): State {
   return EMPTY_STATE;
 }
 
-function nextId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+/* ─── Optimistic mutators ─────────────────────────────────── */
+
+function createCategory(input: { label: string; color: CategoryColor }): string {
+  const id = nextId();
+  const cat: Category = {
+    id,
+    label: input.label.trim(),
+    color: input.color,
+    order: memoryState.length,
+  };
+  memoryState = [...memoryState, cat];
+  emit();
+
+  void withPending(
+    actions
+      .createCategory({ id, label: cat.label, color: cat.color })
+      .then((server) => {
+        memoryState = memoryState.map((c) => (c.id === id ? server : c));
+        emit();
+      })
+      .catch(() => {
+        memoryState = memoryState.filter((c) => c.id !== id);
+        emit();
+      })
+  );
+
+  return id;
 }
+
+function updateCategory(id: string, patch: Partial<Category>): void {
+  const prev = memoryState.find((c) => c.id === id);
+  if (!prev) return;
+  memoryState = memoryState.map((c) => (c.id === id ? { ...c, ...patch } : c));
+  emit();
+
+  void withPending(
+    actions
+      .updateCategory(id, {
+        ...(patch.label !== undefined && { label: patch.label }),
+        ...(patch.color !== undefined && { color: patch.color }),
+        ...(patch.order !== undefined && { order: patch.order }),
+      })
+      .then((server) => {
+        memoryState = memoryState.map((c) => (c.id === id ? server : c));
+        emit();
+      })
+      .catch(() => {
+        memoryState = memoryState.map((c) => (c.id === id ? prev : c));
+        emit();
+      })
+  );
+}
+
+function removeCategory(id: string): void {
+  const prev = memoryState.find((c) => c.id === id);
+  if (!prev) return;
+  memoryState = memoryState.filter((c) => c.id !== id);
+  emit();
+
+  void withPending(
+    actions.removeCategory(id).catch(() => {
+      memoryState = [...memoryState, prev];
+      emit();
+    })
+  );
+}
+
+/* ─── React hook ──────────────────────────────────────────── */
 
 export function useCategories() {
   const categories = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
     hydrateOnce();
+    pollSubscribers++;
+    startPolling();
+    document.addEventListener("visibilitychange", maybeRefreshOnVisible);
+    return () => {
+      pollSubscribers--;
+      document.removeEventListener("visibilitychange", maybeRefreshOnVisible);
+      if (pollSubscribers <= 0) {
+        pollSubscribers = 0;
+        stopPolling();
+      }
+    };
   }, []);
 
-  const create = useCallback(
-    (input: { label: string; color: CategoryColor }): string => {
-      const cat: Category = {
-        id: nextId(),
-        label: input.label.trim(),
-        color: input.color,
-        order: memoryState.length,
-      };
-      memoryState = [...memoryState, cat];
-      persist();
-      emit();
-      return cat.id;
-    },
-    []
+  const sorted = useMemo(
+    () => [...categories].sort((a, b) => a.order - b.order),
+    [categories]
   );
-
-  const update = useCallback((id: string, patch: Partial<Category>) => {
-    memoryState = memoryState.map((c) => (c.id === id ? { ...c, ...patch } : c));
-    persist();
-    emit();
-  }, []);
-
-  const remove = useCallback((id: string) => {
-    memoryState = memoryState.filter((c) => c.id !== id);
-    persist();
-    emit();
-  }, []);
-
-  const sorted = [...categories].sort((a, b) => a.order - b.order);
-  return { categories: sorted, create, update, remove };
+  return {
+    categories: sorted,
+    create: createCategory,
+    update: updateCategory,
+    remove: removeCategory,
+  };
 }

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { refreshPlans, usePlans } from "@/lib/plans-store";
+import { refreshIdeas } from "@/lib/ideas-store";
+import { refreshCategories } from "@/lib/categories-store";
 import { migrateLocalStorageOnce } from "@/lib/migrate-localstorage";
 import { startOfDay, toDateInputValue } from "@/lib/dates";
 import { Sidebar } from "./sidebar";
@@ -43,8 +45,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // store from server so the new rows appear.
   useEffect(() => {
     void (async () => {
-      const { imported } = await migrateLocalStorageOnce();
+      const { imported, reja } = await migrateLocalStorageOnce();
       if (imported > 0) await refreshPlans();
+      if (reja.categories > 0) await refreshCategories();
+      if (reja.ideas > 0) await refreshIdeas();
     })();
   }, []);
 
