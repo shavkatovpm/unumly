@@ -35,6 +35,10 @@
   --danger:          oklch(0.6 0.18 25);
   --danger-soft:     oklch(0.95 0.04 25);
 
+  /* Warning — kechikkan (vaqtsiz, o'tib ketgan kun) tasklar uchun amber */
+  --warning:         oklch(0.62 0.13 75);
+  --warning-soft:    oklch(0.95 0.06 85);
+
   /* Priority colors — minimal, low chroma */
   --priority-high:        oklch(0.55 0.13 25);
   --priority-medium:      oklch(0.68 0.09 70);
@@ -80,6 +84,10 @@
   --danger:         oklch(0.7 0.18 25);
   --danger-soft:    oklch(0.3 0.08 25);
 
+  /* Warning — amber (dark) */
+  --warning:        oklch(0.78 0.13 80);
+  --warning-soft:   oklch(0.32 0.06 80);
+
   /* Priority colors — minimal, slightly brighter on dark */
   --priority-high:        oklch(0.66 0.13 25);
   --priority-medium:      oklch(0.74 0.09 70);
@@ -119,6 +127,8 @@
 
   --color-danger:         var(--danger);
   --color-danger-soft:    var(--danger-soft);
+  --color-warning:        var(--warning);
+  --color-warning-soft:   var(--warning-soft);
 
   --color-priority-high:        var(--priority-high);
   --color-priority-medium:      var(--priority-medium);

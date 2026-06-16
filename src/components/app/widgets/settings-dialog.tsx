@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LogOut, Volume2, VolumeX, X } from "lucide-react";
+import { LogOut, RotateCcw, Volume2, VolumeX, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -31,6 +31,7 @@ import {
   type LeadMin,
 } from "@/lib/notify-time";
 import { Dialog } from "./dialog";
+import { AutoHeight } from "./auto-height";
 
 type TabId = "menyu" | "ovoz" | "eslatma" | "akkaunt";
 
@@ -70,6 +71,9 @@ export function SettingsDialog({
       return next;
     });
   }
+
+  const isDefaultPrimary = primaryIds.length === DEFAULT_PRIMARY.length && primaryIds.every((x, i) => x === DEFAULT_PRIMARY[i]);
+  function resetPrimary() { setPrimaryIds(DEFAULT_PRIMARY); savePrimaryIds(DEFAULT_PRIMARY); }
 
   async function signOut() {
     if (signingOut) return;
@@ -164,7 +168,8 @@ export function SettingsDialog({
         ))}
       </div>
 
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
+      <AutoHeight className="min-h-0 max-h-[65vh]">
+      <div key={tab} className="fade-in px-5 py-5">
         {/* ── Mobil menyu (faqat mobil) ── */}
         <section className={cn("md:hidden", tab !== "menyu" && "hidden")}>
           <p className="mb-3 text-[11.5px] leading-relaxed text-faint">
@@ -214,6 +219,14 @@ export function SettingsDialog({
               );
             })}
           </div>
+          <button
+            type="button"
+            onClick={resetPrimary}
+            disabled={isDefaultPrimary}
+            className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-faint transition-colors hover:text-foreground disabled:opacity-40"
+          >
+            <RotateCcw className="size-3.5" /> Asl holatga qaytarish
+          </button>
         </section>
 
         {/* ── Ovoz ── */}
@@ -380,6 +393,7 @@ export function SettingsDialog({
           </button>
         </section>
       </div>
+      </AutoHeight>
     </Dialog>
   );
 }

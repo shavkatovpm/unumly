@@ -137,7 +137,7 @@ export function OdatView() {
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-xl px-5 pb-12 md:px-6">
+      <div key={tab} className="fade-in mx-auto w-full max-w-xl px-5 pb-24 md:px-6 md:pb-12">
         {tab === "habits" ? (
           <HabitsTab cats={cats} habits={habits} archived={archived} onOpen={setDetailId} onAddHabit={(pre) => { setAddCat(pre); setAddDaysPreset(undefined); setShowAdd(true); }} onAddCategory={() => setShowAddCat(true)} onEditCategory={(id) => setEditCatId(id)} onDeleteCategory={askRemoveCategory} onRestore={restore} onDeleteHabit={askRemoveHabit} />
         ) : (
@@ -502,33 +502,33 @@ function AddHabitModal({ cats, plans, initialCategory, initialDays, onClose, onA
   function createNow() { if (!newLabel.trim()) return; const id = onCreateCategory({ label: newLabel.trim(), icon: newIcon }); setCategoryId(id); setCreating(false); setNewLabel(""); setNewIcon(randomIcon()); }
   function submit() { if (!title.trim() || categoryId === undefined) return; onAdd({ title: title.trim(), categoryId, days: [...days].sort((a, b) => a - b), time: time || undefined }); onClose(); }
   return (
-    <Dialog open onClose={onClose} mobilePlacement="bottom">
+    <Dialog open onClose={onClose} mobilePlacement="center">
       <header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4"><p className="text-[16px] font-semibold tracking-[-0.01em]">Yangi odat</p><button type="button" onClick={onClose} aria-label="Yopish" className="-mr-1 grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><X className="size-4" /></button></header>
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-6">
+      <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-5 py-7">
         <div>
           <Lbl>Toifa</Lbl>
-          <div className="mt-1.5 flex flex-wrap gap-2">
-            {cats.map((c) => <button key={c.id} type="button" onClick={() => { setCategoryId(c.id); setCreating(false); }} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors", categoryId === c.id && !creating ? "border-transparent bg-foreground text-background" : "border-border text-muted hover:text-foreground")}><CategoryIcon k={c.icon} className="size-3.5" />{c.label}</button>)}
-            <button type="button" onClick={() => { setCategoryId(null); setCreating(false); }} className={cn("inline-flex items-center rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors", categoryId === null && !creating ? "border-transparent bg-foreground text-background" : "border-border text-muted hover:text-foreground")}>Toifasiz</button>
-            <button type="button" onClick={() => setCreating((v) => !v)} className={cn("inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors", creating ? "border-foreground text-foreground" : "border-dashed border-border text-faint hover:text-foreground")}><Plus className="size-3.5" /> Yangi</button>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {cats.map((c) => <button key={c.id} type="button" onClick={() => { setCategoryId(c.id); setCreating(false); }} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[15px] font-medium transition-colors", categoryId === c.id && !creating ? "border-transparent bg-foreground text-background" : "border-border text-muted hover:text-foreground")}><CategoryIcon k={c.icon} className="size-3.5" />{c.label}</button>)}
+            <button type="button" onClick={() => { setCategoryId(null); setCreating(false); }} className={cn("inline-flex items-center rounded-full border px-3.5 py-2 text-[15px] font-medium transition-colors", categoryId === null && !creating ? "border-transparent bg-foreground text-background" : "border-border text-muted hover:text-foreground")}>Toifasiz</button>
+            <button type="button" onClick={() => setCreating((v) => !v)} className={cn("inline-flex items-center gap-1 rounded-full border px-3.5 py-2 text-[15px] font-medium transition-colors", creating ? "border-foreground text-foreground" : "border-dashed border-border text-faint hover:text-foreground")}><Plus className="size-3.5" /> Yangi</button>
           </div>
           {creating && (
-            <div className="mt-3 space-y-3 rounded-xl border border-border p-3">
-              <input autoFocus value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Yangi toifa nomi" className="w-full border-b border-border bg-transparent pb-2 text-[14px] outline-none placeholder:text-faint focus:border-foreground" />
+            <div className="mt-3 space-y-3 rounded-xl border border-border p-3.5">
+              <input autoFocus value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Yangi toifa nomi" className="w-full border-b border-border bg-transparent pb-2.5 text-[16px] outline-none placeholder:text-faint focus:border-foreground" />
               <IconPicker value={newIcon} onChange={setNewIcon} />
-              <button type="button" onClick={createNow} disabled={!newLabel.trim()} className="w-full rounded-lg bg-foreground py-2 text-[13px] font-medium text-background transition-opacity disabled:opacity-30">Toifa qo&apos;shish</button>
+              <button type="button" onClick={createNow} disabled={!newLabel.trim()} className="w-full rounded-lg bg-foreground py-2.5 text-[15px] font-medium text-background transition-opacity disabled:opacity-30">Toifa qo&apos;shish</button>
             </div>
           )}
-          {!chosen && !creating && <p className="mt-2 text-[11.5px] text-faint">Avval toifa tanlang (yoki «Toifasiz»).</p>}
+          {!chosen && !creating && <p className="mt-2 text-[14px] text-faint">Avval toifa tanlang (yoki «Toifasiz»).</p>}
         </div>
 
         {chosen && <>
-          <div><Lbl>Nomi</Lbl><input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Masalan: Suv ichish" className="mt-1.5 w-full border-b border-border bg-transparent pb-2 text-[16px] outline-none placeholder:text-faint focus:border-foreground" /></div>
-          <div><div className="mb-2.5 flex items-center justify-between"><Lbl>Qaysi kunlari</Lbl><button type="button" onClick={() => setDays(daily ? [] : [...ALL_DAYS])} className={cn("text-[12px] font-medium transition-colors", daily ? "text-foreground" : "text-faint hover:text-muted")}>Har kuni</button></div><div className="flex gap-1.5">{WEEK_FROM_MON.map((idx) => { const on = days.includes(idx); return <button key={idx} type="button" onClick={() => setDays((p) => on ? p.filter((x) => x !== idx) : [...p, idx])} className={cn("flex-1 rounded-md border py-2 text-[12px] font-medium transition-colors", on ? "border-foreground bg-foreground text-background" : "border-border text-faint hover:border-border-strong")}>{UZ_DAYS_SHORT[idx]}</button>; })}</div></div>
-          <div><Lbl>Eslatma vaqti (ixtiyoriy)</Lbl><TimeField value={time} occupiedSlots={occupiedForDays(plans, days)} onChange={(t) => setTime(t ?? "")} /></div>
+          <div><Lbl>Nomi</Lbl><input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Masalan: Suv ichish" className="mt-2 w-full border-b border-border bg-transparent pb-2.5 text-[20px] outline-none placeholder:text-faint focus:border-foreground" /></div>
+          <div><div className="mb-3 flex items-center justify-between"><Lbl>Qaysi kunlari</Lbl><button type="button" onClick={() => setDays(daily ? [] : [...ALL_DAYS])} className={cn("text-[14px] font-medium transition-colors", daily ? "text-foreground" : "text-faint hover:text-muted")}>Har kuni</button></div><div className="flex gap-1.5">{WEEK_FROM_MON.map((idx) => { const on = days.includes(idx); return <button key={idx} type="button" onClick={() => setDays((p) => on ? p.filter((x) => x !== idx) : [...p, idx])} className={cn("flex-1 rounded-md border py-2.5 text-[15px] font-medium transition-colors", on ? "border-foreground bg-foreground text-background" : "border-border text-faint hover:border-border-strong")}>{UZ_DAYS_SHORT[idx]}</button>; })}</div></div>
+          <div><Lbl>Eslatma vaqti (ixtiyoriy)</Lbl><div className="mt-2"><TimeField value={time} occupiedSlots={occupiedForDays(plans, days)} onChange={(t) => setTime(t ?? "")} big /></div></div>
         </>}
       </div>
-      <div className="shrink-0 border-t border-border px-5 py-4"><button type="button" onClick={submit} disabled={!chosen || !title.trim() || days.length === 0} className="w-full rounded-lg bg-foreground py-3 text-[14px] font-medium text-background transition-opacity disabled:opacity-30">Qo&apos;shish</button></div>
+      <div className="shrink-0 border-t border-border px-5 py-4"><button type="button" onClick={submit} disabled={!chosen || !title.trim() || days.length === 0} className="w-full rounded-lg bg-foreground py-3.5 text-[16px] font-medium text-background transition-opacity disabled:opacity-30">Qo&apos;shish</button></div>
     </Dialog>
   );
 }
@@ -537,13 +537,13 @@ function AddCategoryModal({ onClose, onAdd }: { onClose: () => void; onAdd: (inp
   const [label, setLabel] = useState(""); const [icon, setIcon] = useState<IconKey>(randomIcon);
   function submit() { if (!label.trim()) return; onAdd({ label: label.trim(), icon }); onClose(); }
   return (
-    <Dialog open onClose={onClose} mobilePlacement="bottom">
+    <Dialog open onClose={onClose} mobilePlacement="center">
       <header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4"><p className="text-[16px] font-semibold tracking-[-0.01em]">Yangi toifa</p><button type="button" onClick={onClose} aria-label="Yopish" className="-mr-1 grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><X className="size-4" /></button></header>
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-6">
-        <div><Lbl>Nomi</Lbl><input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Masalan: Salomatlik" className="mt-1.5 w-full border-b border-border bg-transparent pb-2 text-[16px] outline-none placeholder:text-faint focus:border-foreground" /></div>
-        <div><Lbl>Ikona</Lbl><div className="mt-1.5"><IconPicker value={icon} onChange={setIcon} /></div></div>
+      <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-5 py-7">
+        <div><Lbl>Nomi</Lbl><input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Masalan: Salomatlik" className="mt-2 w-full border-b border-border bg-transparent pb-2.5 text-[21px] outline-none placeholder:text-faint focus:border-foreground" /></div>
+        <div><Lbl>Ikona</Lbl><div className="mt-2"><IconPicker value={icon} onChange={setIcon} /></div></div>
       </div>
-      <div className="shrink-0 border-t border-border px-5 py-4"><button type="button" onClick={submit} disabled={!label.trim()} className="w-full rounded-lg bg-foreground py-3 text-[14px] font-medium text-background transition-opacity disabled:opacity-30">Qo&apos;shish</button></div>
+      <div className="shrink-0 border-t border-border px-5 py-4"><button type="button" onClick={submit} disabled={!label.trim()} className="w-full rounded-lg bg-foreground py-3.5 text-[16px] font-medium text-background transition-opacity disabled:opacity-30">Qo&apos;shish</button></div>
     </Dialog>
   );
 }
@@ -552,7 +552,7 @@ function EditCategoryModal({ cat, onClose, onSave }: { cat: HabitCategory; onClo
   const [label, setLabel] = useState(cat.label); const [icon, setIcon] = useState<IconKey>(cat.icon as IconKey);
   function submit() { if (!label.trim()) return; onSave({ label: label.trim(), icon }); }
   return (
-    <Dialog open onClose={onClose} mobilePlacement="bottom">
+    <Dialog open onClose={onClose} mobilePlacement="center">
       <header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4"><p className="text-[16px] font-semibold tracking-[-0.01em]">Toifani tahrirlash</p><button type="button" onClick={onClose} aria-label="Yopish" className="-mr-1 grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><X className="size-4" /></button></header>
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-6">
         <div><Lbl>Nomi</Lbl><input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} className="mt-1.5 w-full border-b border-border bg-transparent pb-2 text-[16px] outline-none placeholder:text-faint focus:border-foreground" /></div>
@@ -566,12 +566,12 @@ function EditCategoryModal({ cat, onClose, onSave }: { cat: HabitCategory; onClo
 function Lbl({ children }: { children: React.ReactNode }) { return <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-faint">{children}</p>; }
 
 /* Ikona tanlash — ixcham (8 ustun, kichik), uzun scroll bo'lmasligi uchun. */
-function IconPicker({ value, onChange }: { value: string; onChange: (k: IconKey) => void }) {
+function IconPicker({ value, onChange, big }: { value: string; onChange: (k: IconKey) => void; big?: boolean }) {
   return (
-    <div className="grid grid-cols-8 gap-1.5">
+    <div className={cn("grid", big ? "grid-cols-6 gap-2" : "grid-cols-8 gap-1.5")}>
       {ICON_CHOICES.map((k) => (
         <button key={k} type="button" onClick={() => onChange(k)} className={cn("grid aspect-square place-items-center rounded-lg border transition-colors", value === k ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:text-foreground")}>
-          <CategoryIcon k={k} className="size-4" />
+          <CategoryIcon k={k} className={big ? "size-[21px]" : "size-4"} />
         </button>
       ))}
     </div>
@@ -579,7 +579,7 @@ function IconPicker({ value, onChange }: { value: string; onChange: (k: IconKey)
 }
 
 /* Vaqt tanlash — boshqa tasklardagi kabi (TimePickerPopover). */
-function TimeField({ value, onChange, occupiedSlots }: { value: string; onChange: (v: string | undefined) => void; occupiedSlots?: string[] }) {
+function TimeField({ value, onChange, occupiedSlots, big }: { value: string; onChange: (v: string | undefined) => void; occupiedSlots?: string[]; big?: boolean }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   return (
@@ -589,7 +589,8 @@ function TimeField({ value, onChange, occupiedSlots }: { value: string; onChange
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex items-center gap-2 rounded-md border px-3 py-2 font-mono text-[14px] tabular-nums transition-colors",
+          "flex items-center gap-2 rounded-md border font-mono tabular-nums transition-colors",
+          big ? "px-3.5 py-2.5 text-[16px]" : "px-3 py-2 text-[14px]",
           open ? "border-border-strong bg-subtle text-foreground" : "border-border bg-background text-foreground hover:border-border-strong",
           !value && "text-faint"
         )}

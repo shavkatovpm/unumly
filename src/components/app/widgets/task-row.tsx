@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Clock, Repeat } from "lucide-react";
+import { AlertCircle, Check, Clock, Repeat } from "lucide-react";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { playOnComplete } from "@/lib/sounds";
@@ -23,6 +23,7 @@ export function TaskRow({
   isNew = false,
   overdue = false,
   overdueDateLabel,
+  staleUntimed = false,
 }: {
   plan: Plan;
   onToggle: (id: string) => void;
@@ -33,6 +34,9 @@ export function TaskRow({
   overdue?: boolean;
   /** Optional date prefix shown inside the red time pill (e.g. "20-may"). */
   overdueDateLabel?: string;
+  /** Vaqti belgilanmagan, bajarilmagan va o'tib ketgan kundagi task — sariq
+   *  sana belgisi bilan ko'rsatiladi (o'sha kunda qolaveradi). */
+  staleUntimed?: boolean;
 }) {
   const done = plan.status === "DONE";
   const priorityDot = plan.priority ? PRIORITY_DOT[plan.priority] : "bg-faint/40";
@@ -117,7 +121,7 @@ export function TaskRow({
         )}
       />
 
-      {plan.time && (
+      {plan.time ? (
         <span
           className={cn(
             "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] tabular-nums",
@@ -131,7 +135,12 @@ export function TaskRow({
           <Clock className="size-2.5" />
           {overdueDateLabel ? `${overdueDateLabel} ${plan.time}` : plan.time}
         </span>
-      )}
+      ) : staleUntimed && !done && overdueDateLabel ? (
+        <span className="flex items-center gap-1 rounded-md bg-warning-soft px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-warning">
+          <AlertCircle className="size-2.5" />
+          {overdueDateLabel}
+        </span>
+      ) : null}
 
       <span
         className={cn(

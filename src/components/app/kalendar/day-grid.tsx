@@ -588,16 +588,20 @@ export function DayGrid({
                   <div
                     key={p.id}
                     title={p.title}
-                    onClick={(e) => {
+                    onClick={done ? undefined : (e) => {
                       e.stopPropagation();
                       setDetailId(p.id);
                     }}
                     className={cn(
-                      "group pointer-events-auto absolute left-2 right-2 cursor-pointer overflow-hidden rounded border border-l-2 transition-all hover:z-20 hover:overflow-visible hover:shadow-md",
+                      "group absolute left-2 right-2 overflow-hidden rounded border border-l-2 transition-all",
+                      // Bajarilgan task slotni bo'shatadi: blok bosishlarni o'tkazib
+                      // yuboradi, faqat checkbox/o'chirish tugmalari bosiladi.
+                      done
+                        ? "pointer-events-none opacity-70"
+                        : "pointer-events-auto cursor-pointer hover:z-20 hover:overflow-visible hover:shadow-md",
                       tiny ? "px-1.5 py-px" : compact ? "px-2 py-0.5" : "px-2 py-1",
                       pc.border,
-                      pc.bg,
-                      done && "opacity-70"
+                      pc.bg
                     )}
                     style={{ top, height: heightPx }}
                   >
@@ -612,7 +616,7 @@ export function DayGrid({
                         }}
                         aria-label="Holatni o'zgartirish"
                         className={cn(
-                          "grid shrink-0 place-items-center rounded-sm border transition-all",
+                          "pointer-events-auto grid shrink-0 place-items-center rounded-sm border transition-all",
                           tiny ? "size-[11px]" : "size-[13px]",
                           !compact && "mt-0.5",
                           done ? "border-accent bg-accent" : "border-border-strong hover:border-accent"
@@ -649,7 +653,10 @@ export function DayGrid({
                           onRemove(p.id);
                         }}
                         aria-label="O'chirish"
-                        className="shrink-0 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                        className={cn(
+                          "pointer-events-auto shrink-0 transition-opacity hover:text-foreground",
+                          done ? "opacity-60 hover:opacity-100" : "opacity-0 group-hover:opacity-100"
+                        )}
                       >
                         <X className={cn(tiny ? "size-[10px]" : "size-2.5", "text-faint")} />
                       </button>

@@ -483,6 +483,12 @@ export function BugunView() {
                                   onRemove={askRemove}
                                   onOpen={setDetailId}
                                   isNew={p.id === justCreatedId}
+                                  staleUntimed={p.scheduledFor < todayIso}
+                                  overdueDateLabel={
+                                    p.scheduledFor < todayIso
+                                      ? formatDateLong(fromDateInputValue(p.scheduledFor))
+                                      : undefined
+                                  }
                                 />
                               </div>
                             );

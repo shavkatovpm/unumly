@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Calendar as CalendarIcon, Check, Clock, Pencil, Plus, Repeat, X } from "lucide-react";
 import { useHydrated, usePlans } from "@/lib/plans-store";
 import { useDragReorder } from "@/lib/use-drag-reorder";
+import { useBlurInputOnScrollOut } from "@/lib/use-blur-on-scroll-out";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -234,6 +235,8 @@ export function AgendaView() {
   const mobileTimeBtnRef = useRef<HTMLButtonElement>(null);
   const calendarWrapRef = useRef<HTMLDivElement>(null);
   const mobileCalendarWrapRef = useRef<HTMLDivElement>(null);
+  const mobileSheetRef = useRef<HTMLDivElement>(null);
+  useBlurInputOnScrollOut(mobileSheetRef, mobileSheet);
 
   useScrollLock(mobileSheet);
 
@@ -641,6 +644,7 @@ export function AgendaView() {
             }}
           >
             <motion.div
+              ref={mobileSheetRef}
               initial={{ opacity: 0, y: -12, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.98 }}
