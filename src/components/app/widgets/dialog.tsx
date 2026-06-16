@@ -62,7 +62,9 @@ export function Dialog({
     <div
       className={cn(
         "fixed z-50 flex justify-center",
-        isCenter ? "inset-x-0 items-center p-4" : "inset-0",
+        // Klaviatura ochilib-yopilganda `top`/`height` silliq o'zgaradi
+        // (to'satdan sakramaydi).
+        isCenter ? "inset-x-0 items-center p-4 transition-[top,height] duration-300 ease-out" : "inset-0",
         mobilePlacement === "bottom" && "items-end p-0 sm:items-center sm:p-4",
         mobilePlacement === "top" && "items-start justify-center px-4 sm:items-center sm:p-4"
       )}
