@@ -7,7 +7,7 @@ import { FaqList } from "@/components/landing/faq-list";
 export const metadata: Metadata = {
   title: "Haqida: Unumly to'liq qo'llanma va dokumentatsiya",
   description:
-    "Unumly ilovasining to'liq dokumentatsiyasi: kirish, Bugun, Agenda, Kalendar, Reja, Bajarilgan, O'chirilgan bo'limlari, sozlamalar, Telegram bot va ma'lumotlar saqlash haqida o'zbekcha qo'llanma.",
+    "Unumly ilovasining to'liq dokumentatsiyasi: kirish, Bugun, Agenda, Kalendar, Reja, Odat, Bajarilgan, O'chirilgan bo'limlari, sozlamalar, Telegram bot va ma'lumotlar saqlash haqida o'zbekcha qo'llanma.",
   alternates: { canonical: "/haqida" },
   openGraph: {
     title: "Haqida: Unumly to'liq qo'llanma",
@@ -102,11 +102,12 @@ const TOC = [
   { id: "tezkor", label: "6. Tezkor bo'limi" },
   { id: "kalendar", label: "7. Kalendar bo'limi" },
   { id: "reja", label: "8. Reja bo'limi" },
-  { id: "bajarilgan-ochirilgan", label: "9. Bajarilgan va O'chirilgan" },
-  { id: "sozlamalar", label: "10. Sozlamalar" },
-  { id: "telegram-bot", label: "11. Telegram bot" },
-  { id: "malumotlar", label: "12. Ma'lumotlar va xavfsizlik" },
-  { id: "faq", label: "13. Tez-tez so'raladigan savollar" },
+  { id: "odat", label: "9. Odat bo'limi" },
+  { id: "bajarilgan-ochirilgan", label: "10. Bajarilgan va O'chirilgan" },
+  { id: "sozlamalar", label: "11. Sozlamalar" },
+  { id: "telegram-bot", label: "12. Telegram bot" },
+  { id: "malumotlar", label: "13. Ma'lumotlar va xavfsizlik" },
+  { id: "faq", label: "14. Tez-tez so'raladigan savollar" },
 ];
 
 export default function HaqidaPage() {
@@ -528,8 +529,49 @@ Gugurt`}</pre>
           </ul>
         </Section>
 
-        {/* ─── 8. Bajarilgan / O'chirilgan ──────────────────── */}
-        <Section id="bajarilgan-ochirilgan" title="9. Bajarilgan va O'chirilgan">
+        {/* ─── 9. Odat ──────────────────────────────────────── */}
+        <Section id="odat" title="9. Odat bo'limi">
+          <p className="text-faint">URL: <code>/odat</code></p>
+          <p>
+            <strong>Odat</strong> bo&apos;limi: muntazam takrorlanadigan ishlarni
+            kuzatish uchun. Reja&apos;dan farqi: Reja — bir martalik vazifa,
+            Odat — <strong>hafta kunlari bo&apos;yicha takrorlanadigan</strong>
+            ish (masalan &quot;Du, Se, Ju — sport&quot; yoki &quot;har kuni suv
+            ichish&quot;). Maqsad — har kuni belgilab borib izchillikni ko&apos;rish.
+          </p>
+
+          <h3>Plan tizimi bilan integratsiya</h3>
+          <p>
+            Odat yaratilganda u <strong>avtomatik vazifa</strong> bo&apos;lib,
+            belgilangan kunlari (va vaqtida) <em>Bugun</em>, <em>Agenda</em> va{" "}
+            <em>Kalendar</em>&apos;da ♻ belgisi bilan ko&apos;rinadi. Vaqt
+            belgilangan bo&apos;lsa, Telegram bot eslatmasi ham keladi. O&apos;sha
+            kundagi vazifa vaqtini Agenda/Bugun&apos;da o&apos;zgartirsangiz —{" "}
+            <strong>faqat o&apos;sha kunga</strong> ta&apos;sir qiladi, odatning
+            umumiy jadvali o&apos;zgarmaydi.
+          </p>
+
+          <h3>Ikki bo&apos;lim</h3>
+          <h4>Odatlar (boshqaruv)</h4>
+          <ul>
+            <li>Odatlar toifalar (ikonali) bo&apos;yicha guruhlanadi; tepada &quot;Barchasi&quot; + toifa tablari</li>
+            <li>Yangi odat: nom, toifa (majburiy yoki &quot;Toifasiz&quot;), qaysi kunlari, ixtiyoriy vaqt</li>
+            <li>Odatni ochib tahrirlash: nom, toifa, kunlar, vaqt &mdash; <strong>Saqlash</strong> bilan</li>
+            <li>Toifa qo&apos;shish; toifani tahrirlash/o&apos;chirish: faol tab&apos;ni qayta bosib</li>
+            <li>Arxivlash (vaqtincha to&apos;xtatish) va qaytarish; o&apos;chirish &mdash; tasdiq bilan</li>
+          </ul>
+
+          <h4>Kalendar (kuzatuv)</h4>
+          <ul>
+            <li><strong>Hafta</strong> / <strong>Oy</strong> ko&apos;rinishi, oldingi/keyingi davrga o&apos;tish</li>
+            <li>Kunni bosib o&apos;sha kun odatlarini belgilash; o&apos;tib ketgan kunlarni ham to&apos;ldirish mumkin</li>
+            <li>Kelajak kunlarni ko&apos;rish va odat qo&apos;shish mumkin, lekin bajarish faqat o&apos;tmish/bugun</li>
+            <li>Pastda katta halqa: o&apos;sha hafta yoki oy bajarilish foizi</li>
+          </ul>
+        </Section>
+
+        {/* ─── 10. Bajarilgan / O'chirilgan ──────────────────── */}
+        <Section id="bajarilgan-ochirilgan" title="10. Bajarilgan va O'chirilgan">
           <h3>Bajarilgan bo&apos;limi</h3>
           <p className="text-faint">URL: <code>/bajarilgan</code></p>
           <p>
@@ -557,7 +599,7 @@ Gugurt`}</pre>
         </Section>
 
         {/* ─── 9. Sozlamalar ─────────────────────────────────── */}
-        <Section id="sozlamalar" title="10. Sozlamalar">
+        <Section id="sozlamalar" title="11. Sozlamalar">
           <p>
             Sozlamalar dialogini ochish: yuqori-o&apos;ng burchakdagi
             sozlamalar ikonkasini bosib. Dialog 4 qism bo&apos;limga ega:
@@ -624,7 +666,7 @@ Gugurt`}</pre>
         </Section>
 
         {/* ─── 10. Telegram bot ─────────────────────────────── */}
-        <Section id="telegram-bot" title="11. Telegram bot">
+        <Section id="telegram-bot" title="12. Telegram bot">
           <p>
             Unumly bot: <code>@unumlybot</code>: uch ish bajaradi: kirish
             uchun OTP yuborish, vaqt belgilangan rejalar uchun bildirishnoma
@@ -698,7 +740,7 @@ Gugurt`}</pre>
         </Section>
 
         {/* ─── 11. Ma'lumotlar va xavfsizlik ────────────────── */}
-        <Section id="malumotlar" title="12. Ma'lumotlar va xavfsizlik">
+        <Section id="malumotlar" title="13. Ma'lumotlar va xavfsizlik">
           <h3>Qaerda saqlanadi?</h3>
           <p>Ikki rejim bor:</p>
           <ul>
@@ -742,7 +784,7 @@ Gugurt`}</pre>
         </Section>
 
         {/* ─── 12. FAQ ───────────────────────────────────────── */}
-        <Section id="faq" title="13. Tez-tez so'raladigan savollar">
+        <Section id="faq" title="14. Tez-tez so'raladigan savollar">
           <FaqList items={FAQS} />
         </Section>
 

@@ -254,11 +254,12 @@ export function Sidebar({
             active={isActive("/reja")}
             onNavigate={closeOnMobile}
           />
-          <SidebarItem
+          <SidebarLink
+            href="/odat"
             label="Odat"
             icon={Repeat}
-            badge="tez orada"
-            disabled
+            active={isActive("/odat")}
+            onNavigate={closeOnMobile}
           />
           <SidebarItem
             label="Maqsad"

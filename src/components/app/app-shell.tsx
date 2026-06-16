@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { refreshPlans, usePlans } from "@/lib/plans-store";
 import { refreshIdeas } from "@/lib/ideas-store";
 import { refreshCategories } from "@/lib/categories-store";
+import { syncOccurrences } from "@/lib/habits-store";
 import { migrateLocalStorageOnce } from "@/lib/migrate-localstorage";
 import { startOfDay, toDateInputValue } from "@/lib/dates";
 import { Sidebar } from "./sidebar";
@@ -50,6 +51,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if (reja.categories > 0) await refreshCategories();
       if (reja.ideas > 0) await refreshIdeas();
     })();
+  }, []);
+
+  // Generate this week's habit occurrences (as Plan rows) so habits show up
+  // in Bugun/Agenda/Kalendar at their scheduled time. Idempotent.
+  useEffect(() => {
+    void syncOccurrences();
   }, []);
 
   // Telegram WebApp init — agar ilova Telegram Mini App ichida ishlasa,

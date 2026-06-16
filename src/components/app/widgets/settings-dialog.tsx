@@ -1,9 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, LogOut, Volume2, VolumeX, X } from "lucide-react";
+import { LogOut, Volume2, VolumeX, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import {
+  DEFAULT_PRIMARY,
+  MAX_PRIMARY,
+  MIN_PRIMARY,
+  NAV_ITEMS,
+  loadPrimaryIds,
+  savePrimaryIds,
+  type NavItemId,
+} from "@/lib/mobile-nav";
 import {
   loadSelection,
   playOnComplete,
@@ -23,6 +32,15 @@ import {
 } from "@/lib/notify-time";
 import { Dialog } from "./dialog";
 
+type TabId = "menyu" | "ovoz" | "eslatma" | "akkaunt";
+
+const TABS: { id: TabId; label: string; mobileOnly?: boolean }[] = [
+  { id: "menyu", label: "Menyu", mobileOnly: true },
+  { id: "ovoz", label: "Ovoz" },
+  { id: "eslatma", label: "Eslatmalar" },
+  { id: "akkaunt", label: "Akkaunt" },
+];
+
 export function SettingsDialog({
   open,
   onClose,
@@ -34,7 +52,24 @@ export function SettingsDialog({
   const [volume, setVolume] = useState(0.2);
   const [signingOut, setSigningOut] = useState(false);
   const [notifs, setNotifs] = useState<NotificationPrefs | null>(null);
+  const [primaryIds, setPrimaryIds] = useState<NavItemId[]>(DEFAULT_PRIMARY);
+  const [tab, setTab] = useState<TabId>("ovoz");
   const router = useRouter();
+
+  function togglePrimary(id: NavItemId) {
+    setPrimaryIds((prev) => {
+      let next: NavItemId[];
+      if (prev.includes(id)) {
+        if (prev.length <= MIN_PRIMARY) return prev; // keep the minimum
+        next = prev.filter((x) => x !== id);
+      } else {
+        if (prev.length >= MAX_PRIMARY) return prev; // at the maximum
+        next = [...prev, id];
+      }
+      savePrimaryIds(next);
+      return next;
+    });
+  }
 
   async function signOut() {
     if (signingOut) return;
@@ -51,6 +86,10 @@ export function SettingsDialog({
     setEnabled(s.enabled);
     setVolume(s.volume);
     setMasterVolume(s.volume);
+    setPrimaryIds(loadPrimaryIds());
+    // Mobil'da "Menyu" tabi default ochiladi; desktopda u yashirin, shu sabab "Ovoz".
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    setTab(isMobile ? "menyu" : "ovoz");
     void getNotificationPrefs().then((p) => p && setNotifs(p));
   }, [open]);
 
@@ -93,7 +132,7 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onClose={onClose} className="max-w-md" mobilePlacement="center">
-      <header className="flex items-center justify-between border-b border-border px-5 py-3">
+      <header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
         <p className="text-[15px] font-semibold tracking-[-0.01em]">Sozlamalar</p>
         <button
           type="button"
@@ -105,12 +144,80 @@ export function SettingsDialog({
         </button>
       </header>
 
-      <div className="space-y-6 px-5 py-5">
-        {/* ── Ovoz ── */}
-        <section>
-          <p className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.18em] text-faint">
-            Ovoz
+      {/* Tabs */}
+      <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-border px-3 py-2">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={cn(
+              "shrink-0 rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors",
+              t.mobileOnly && "md:hidden",
+              tab === t.id
+                ? "bg-foreground text-background"
+                : "text-muted hover:bg-hover hover:text-foreground"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
+        {/* ── Mobil menyu (faqat mobil) ── */}
+        <section className={cn("md:hidden", tab !== "menyu" && "hidden")}>
+          <p className="mb-3 text-[11.5px] leading-relaxed text-faint">
+            Mobil pastki menyuda qaysi bo&apos;limlar ko&apos;rinishini tanlang.
+            «Boshqaruv» doim o&apos;ng tarafda qoladi. {MIN_PRIMARY}–{MAX_PRIMARY}{" "}
+            ta bo&apos;lim tanlash mumkin.
           </p>
+          <div className="space-y-2">
+            {NAV_ITEMS.map((item) => {
+              const selected = primaryIds.includes(item.id);
+              const atMax = !selected && primaryIds.length >= MAX_PRIMARY;
+              const atMin = selected && primaryIds.length <= MIN_PRIMARY;
+              const disabled = atMax || atMin;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => togglePrimary(item.id)}
+                  disabled={disabled}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-md border bg-surface px-3.5 py-2.5 transition-colors",
+                    selected
+                      ? "border-foreground/30"
+                      : "border-border hover:bg-hover/40",
+                    disabled && "opacity-50"
+                  )}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <item.icon className="size-4 text-faint" strokeWidth={2} />
+                    <p className="text-[13.5px] font-medium">{item.label}</p>
+                  </div>
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "relative h-5 w-9 rounded-full transition-colors",
+                      selected ? "bg-foreground" : "bg-subtle"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "absolute top-0.5 size-4 rounded-full bg-background shadow transition-[left] duration-200",
+                        selected ? "left-[18px]" : "left-0.5"
+                      )}
+                    />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ── Ovoz ── */}
+        <section className={cn(tab !== "ovoz" && "hidden")}>
           <div className="space-y-3">
             <button
               type="button"
@@ -179,11 +286,7 @@ export function SettingsDialog({
         </section>
 
         {/* ── Eslatmalar ── */}
-        <section>
-          <p className="mb-3 flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.18em] text-faint">
-            <Bell className="size-3" />
-            Eslatmalar
-          </p>
+        <section className={cn(tab !== "eslatma" && "hidden")}>
           <p className="mb-3 text-[11.5px] leading-relaxed text-faint">
             Bot eslatmasi vazifa vaqtidan biroz oldinroq yuboriladi —
             tayyorlanishga ulgurish uchun. Quyida nechta daqiqa oldinligini
@@ -258,10 +361,7 @@ export function SettingsDialog({
         </section>
 
         {/* ── Akkaunt ── */}
-        <section>
-          <p className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.18em] text-faint">
-            Akkaunt
-          </p>
+        <section className={cn(tab !== "akkaunt" && "hidden")}>
           <button
             type="button"
             onClick={signOut}

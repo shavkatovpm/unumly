@@ -19,6 +19,28 @@ export type Plan = {
   deletedAt?: string;     // ISO datetime — set when soft-deleted; 30 days later auto-purged
   createdAt: string;      // ISO datetime
   order: number;
+  /** Set when this plan is a generated occurrence of a recurring Habit. */
+  habitId?: string;
+};
+
+/* ─── Odat (Habits) ─── */
+
+export type HabitCategory = {
+  id: string;
+  label: string;
+  icon: string;   // lucide key
+  order: number;
+};
+
+export type Habit = {
+  id: string;
+  title: string;
+  categoryId: string | null;
+  days: number[];          // weekdays getDay() 0=Sun..6=Sat
+  time?: string;           // HH:MM
+  notifyLeadMin?: number;
+  order: number;
+  archivedAt?: string;     // ISO datetime when archived
 };
 
 export type CategoryColor =

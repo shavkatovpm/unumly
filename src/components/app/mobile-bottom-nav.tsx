@@ -8,8 +8,6 @@ import {
   Calendar as CalendarIcon,
   CheckCircle2,
   ClipboardList,
-  Inbox,
-  ListChecks,
   Menu,
   Moon,
   Repeat,
@@ -19,11 +17,16 @@ import {
   Target,
   Trash2,
   X,
-  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/color-store";
 import { useScrollLock } from "@/lib/use-scroll-lock";
+import {
+  DEFAULT_PRIMARY,
+  NAV_CHANGE_EVENT,
+  loadPrimaryIds,
+  resolvePrimaryItems,
+} from "@/lib/mobile-nav";
 import { SettingsDialog } from "./widgets/settings-dialog";
 
 type CustomItem = { id: string; label: string };
@@ -41,23 +44,37 @@ function readJSON<T>(key: string, fallback: T): T {
   }
 }
 
-const PRIMARY = [
-  { href: "/bugun",   label: "Bugun",   icon: Inbox },
-  { href: "/agenda",  label: "Agenda",  icon: ListChecks },
-  { href: "/tezkor",  label: "Tezkor",  icon: Zap },
-];
-
-// Routes that live inside the Boshqaruv group (used to highlight the tab)
-const BOSHQARUV_ROUTES = ["/reja", "/kalendar", "/bajarilgan", "/ochirilgan"];
+// Routes that always live inside the Boshqaruv sheet (never primary slots).
+const BOSHQARUV_ROUTES = ["/bajarilgan", "/ochirilgan"];
 
 export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
 
+  // Configurable primary slots (Boshqaruv is always pinned on the right).
+  const [primaryIds, setPrimaryIds] = useState(DEFAULT_PRIMARY);
+  useEffect(() => {
+    const sync = () => setPrimaryIds(loadPrimaryIds());
+    sync();
+    window.addEventListener(NAV_CHANGE_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(NAV_CHANGE_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+  const primary = resolvePrimaryItems(primaryIds);
+
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
-  const isBoshqaruvActive = BOSHQARUV_ROUTES.some(isActive);
+  // Boshqaruv highlights for any route not surfaced in the primary slots.
+  const primaryHrefs = new Set(primary.map((p) => p.href));
+  const isBoshqaruvActive =
+    !sheetOpen &&
+    [...BOSHQARUV_ROUTES, "/reja", "/kalendar", "/odat"].some(
+      (href) => !primaryHrefs.has(href) && isActive(href)
+    );
 
   // Klaviatura ochilishini focus orqali aniqlash — bu iOS visual viewport
   // o'zgarishidan oldin sodir bo'ladi, shuning uchun nav klaviatura
@@ -93,16 +110,17 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
     <>
       <nav
         className={cn(
-          "fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border bg-surface md:hidden",
+          "fixed inset-x-0 bottom-0 z-30 grid border-t border-border bg-surface md:hidden",
           "transition-[transform,opacity] duration-200 ease-out",
           keyboardOpen && "pointer-events-none translate-y-full opacity-0"
         )}
         style={{
+          gridTemplateColumns: `repeat(${primary.length + 1}, minmax(0, 1fr))`,
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
           boxShadow: "0 -4px 20px -10px rgba(0,0,0,0.15)",
         }}
       >
-        {PRIMARY.map((t) => {
+        {primary.map((t) => {
           const active = isActive(t.href);
           return (
             <Link
@@ -120,7 +138,7 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
                     active ? "stroke-[2.4]" : "stroke-[1.8]"
                   )}
                 />
-                {t.label === "Bugun" && todayCount > 0 && (
+                {t.showTodayCount && todayCount > 0 && (
                   <span className="absolute -right-2 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-foreground px-1 font-mono text-[9px] tabular-nums text-background">
                     {todayCount}
                   </span>
@@ -165,7 +183,11 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
 
       <AnimatePresence>
         {sheetOpen && (
-          <BoshqaruvSheet onClose={() => setSheetOpen(false)} pathname={pathname} />
+          <BoshqaruvSheet
+            onClose={() => setSheetOpen(false)}
+            pathname={pathname}
+            primaryHrefs={primaryHrefs}
+          />
         )}
       </AnimatePresence>
     </>
@@ -177,9 +199,11 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
 function BoshqaruvSheet({
   onClose,
   pathname,
+  primaryHrefs,
 }: {
   onClose: () => void;
   pathname: string;
+  primaryHrefs: Set<string>;
 }) {
   const { theme, toggle } = useTheme();
   const isDark = theme === "noir";
@@ -248,24 +272,34 @@ function BoshqaruvSheet({
           </button>
         </header>
 
-        {/* Boshqaruv links */}
+        {/* Boshqaruv links — items already in the primary nav are hidden here */}
         <div className="px-3 py-2.5">
-          <SheetLink
-            href="/reja"
-            label="Reja"
-            icon={ClipboardList}
-            active={isActive("/reja")}
-            onNavigate={onClose}
-          />
-          <SheetLink
-            href="/kalendar"
-            label="Kalendar"
-            icon={CalendarIcon}
-            active={isActive("/kalendar")}
-            onNavigate={onClose}
-          />
-          {!hidden.includes("odat") && (
-            <SheetItem label="Odat" icon={Repeat} badge="tez orada" />
+          {!primaryHrefs.has("/reja") && (
+            <SheetLink
+              href="/reja"
+              label="Reja"
+              icon={ClipboardList}
+              active={isActive("/reja")}
+              onNavigate={onClose}
+            />
+          )}
+          {!primaryHrefs.has("/kalendar") && (
+            <SheetLink
+              href="/kalendar"
+              label="Kalendar"
+              icon={CalendarIcon}
+              active={isActive("/kalendar")}
+              onNavigate={onClose}
+            />
+          )}
+          {!hidden.includes("odat") && !primaryHrefs.has("/odat") && (
+            <SheetLink
+              href="/odat"
+              label="Odat"
+              icon={Repeat}
+              active={isActive("/odat")}
+              onNavigate={onClose}
+            />
           )}
           {!hidden.includes("maqsad") && (
             <SheetItem label="Maqsad" icon={Target} badge="tez orada" />
@@ -356,14 +390,14 @@ function SheetLink({
       href={href}
       onClick={onNavigate}
       className={cn(
-        "flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] transition-colors",
+        "flex items-center gap-3.5 rounded-lg px-[18px] py-[18px] text-[19px] transition-colors",
         active
           ? "bg-subtle text-foreground"
           : "text-muted hover:bg-hover hover:text-foreground"
       )}
     >
-      <Icon className="size-[18px] shrink-0 text-faint" strokeWidth={2} />
-      <span className="flex-1 font-medium">{label}</span>
+      <span className="flex-1 text-right font-medium">{label}</span>
+      <Icon className="size-[25px] shrink-0 text-faint" strokeWidth={2} />
     </Link>
   );
 }
@@ -381,15 +415,15 @@ function SheetItem({
     <button
       type="button"
       disabled
-      className="flex w-full cursor-not-allowed items-center gap-3 rounded-md px-3 py-2.5 text-left text-[15px] text-faint/80"
+      className="flex w-full cursor-not-allowed items-center gap-3.5 rounded-lg px-[18px] py-[18px] text-right text-[19px] text-faint/80"
     >
-      <Icon className="size-[18px] shrink-0 text-faint/70" strokeWidth={2} />
-      <span className="flex-1">{label}</span>
       {badge && (
         <span className="rounded bg-subtle px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-faint">
           {badge}
         </span>
       )}
+      <span className="flex-1 text-right">{label}</span>
+      <Icon className="size-[25px] shrink-0 text-faint/70" strokeWidth={2} />
     </button>
   );
 }

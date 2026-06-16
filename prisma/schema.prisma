@@ -58,6 +58,8 @@ model User {
   quickLists   QuickList[]
   categories   Category[]
   ideas        Idea[]
+  habits          Habit[]
+  habitCategories HabitCategory[]
 
   @@index([telegramId])
   @@index([phone])
@@ -144,16 +146,66 @@ model Plan {
   deletedAt    DateTime?     // soft delete; purged after 30 days
   order        Int           @default(0)
 
+  // When this plan is a generated occurrence of a recurring Habit, this links
+  // back to it. Editing the plan's time/status affects only this day's
+  // occurrence — the Habit's recurring schedule is untouched.
+  habitId      String?
+
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit        Habit?        @relation(fields: [habitId], references: [id], onDelete: Cascade)
   botMessages  BotMessage[]
 
+  @@unique([habitId, scheduledFor])  // one occurrence per habit per day
   @@index([userId, scope, scheduledFor])
   @@index([userId, status])
   @@index([userId, deletedAt])
   @@index([notifyAt, notifiedAt, status])
+}
+
+// ───────────────────────── Odat (Habits) ─────────────────────────
+// Recurring habits. Each habit materialises as Plan rows (occurrences) for a
+// rolling 1-week window on its scheduled weekdays — so it shows up in
+// Bugun/Agenda/Kalendar and reuses all the task machinery (time edit,
+// completion, bot reminders). Streaks/stats are computed from those plans.
+
+model HabitCategory {
+  id        String   @id @default(cuid())
+  userId    String
+
+  label     String
+  icon      String   // lucide key (heart/dumbbell/book/...)
+  order     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Habit {
+  id         String   @id @default(cuid())
+  userId     String
+
+  title      String
+  categoryId String?              // loose ref to HabitCategory (null = uncategorized)
+  days       Int[]                // scheduled weekdays, getDay() 0=Sun..6=Sat
+  time       String?  @db.VarChar(5)  // "HH:MM" — occurrence time / reminder
+  notifyLeadMin Int?
+  order      Int      @default(0)
+  archivedAt DateTime?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plans      Plan[]
+
+  @@index([userId])
 }
 
 // Telegram messages we sent for a given plan (reminder + inline buttons).

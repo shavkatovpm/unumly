@@ -37,6 +37,7 @@ function toPlan(p: DbPlan): Plan {
     deletedAt: p.deletedAt ? p.deletedAt.toISOString() : undefined,
     createdAt: p.createdAt.toISOString(),
     order: p.order,
+    habitId: p.habitId ?? undefined,
   };
 }
 

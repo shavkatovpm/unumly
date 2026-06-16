@@ -341,6 +341,15 @@
   display: none;
 }
 
+/* Generic — hide scrollbar, keep scrolling */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* New-task pop-in — smooth slide + scale + fade, no max-height conflict */
 @utility task-pop {
   animation: task-pop 0.5s var(--ease-out) both;

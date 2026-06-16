@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Clock } from "lucide-react";
+import { Check, Clock, Repeat } from "lucide-react";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { playOnComplete } from "@/lib/sounds";
@@ -141,6 +141,8 @@ export function TaskRow({
       >
         {plan.title}
       </span>
+
+      {plan.habitId && <Repeat className="size-3.5 shrink-0 text-faint" aria-label="Odat" />}
 
       <button
         type="button"

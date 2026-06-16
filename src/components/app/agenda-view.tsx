@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Calendar as CalendarIcon, Check, Clock, Pencil, Plus, X } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Clock, Pencil, Plus, Repeat, X } from "lucide-react";
 import { useHydrated, usePlans } from "@/lib/plans-store";
 import { useDragReorder } from "@/lib/use-drag-reorder";
 import type { Plan } from "@/lib/types";
@@ -150,6 +150,8 @@ function AgendaRow({
       >
         {plan.title}
       </span>
+
+      {plan.habitId && <Repeat className="size-3.5 shrink-0 text-faint" aria-label="Odat" />}
 
       <button
         type="button"
