@@ -207,11 +207,12 @@ function BoshqaruvSheet({
   const [hidden, setHidden] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const dragControls = useDragControls();
-  // Arxiv/Maxsus — dropdown; Arxiv joriy route shu yerda bo'lsa ochiq boshlanadi.
-  const [arxivOpen, setArxivOpen] = useState(
-    pathname.startsWith("/bajarilgan") || pathname.startsWith("/ochirilgan")
+  // Arxiv/Maxsus — accordion: bir vaqtda faqat bittasi ochiq.
+  // Joriy route Arxiv ichida bo'lsa — Arxiv ochiq boshlanadi.
+  const [openSection, setOpenSection] = useState<"arxiv" | "maxsus" | null>(
+    pathname.startsWith("/bajarilgan") || pathname.startsWith("/ochirilgan") ? "arxiv" : null
   );
-  const [maxsusOpen, setMaxsusOpen] = useState(false);
+  const toggleSection = (s: "arxiv" | "maxsus") => setOpenSection((cur) => (cur === s ? null : s));
 
   // Lock background scroll while sheet is open — also locks any
   // [data-scroll-lock-on-focus] containers (Bugun/Agenda/Kalendar).
@@ -319,7 +320,7 @@ function BoshqaruvSheet({
         </div>
 
         {/* Arxiv — dropdown */}
-        <SheetCollapsible label="Arxiv" open={arxivOpen} onToggle={() => setArxivOpen((v) => !v)}>
+        <SheetCollapsible label="Arxiv" open={openSection === "arxiv"} onToggle={() => toggleSection("arxiv")}>
           <SheetLink
             href="/bajarilgan"
             label="Bajarilgan"
@@ -339,7 +340,7 @@ function BoshqaruvSheet({
         </SheetCollapsible>
 
         {/* Maxsus — dropdown (Loyiha) */}
-        <SheetCollapsible label="Maxsus" open={maxsusOpen} onToggle={() => setMaxsusOpen((v) => !v)}>
+        <SheetCollapsible label="Maxsus" open={openSection === "maxsus"} onToggle={() => toggleSection("maxsus")}>
           <SheetItem label="Loyiha" icon={Sparkles} badge="tez orada" secondary />
         </SheetCollapsible>
 
@@ -483,7 +484,19 @@ function SheetCollapsible({
         <span className="text-[10.5px] font-medium uppercase tracking-[0.15em]">{label}</span>
         <ChevronDown className={cn("size-4 transition-transform duration-200", open && "rotate-180")} />
       </button>
-      {open && <div className="mt-1 space-y-1.5">{children}</div>}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="mt-1 space-y-1.5">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
