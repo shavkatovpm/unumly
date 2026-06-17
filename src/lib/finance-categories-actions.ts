@@ -9,17 +9,26 @@ import type { CategoryColor, FinanceCategory, TransactionType } from "@/lib/type
 /* Default kirim/chiqim kategoriyalari — har user uchun bir marta seed qilinadi.
  * Id'lar berilmaydi (cuid avtomatik) — shu sabab userlar orasida kolliziya yo'q. */
 const DEFAULTS: Array<Omit<FinanceCategory, "id">> = [
-  // Kirim
+  // ─── Kirim ───
   { type: "INCOME", label: "Maosh", icon: "wallet", color: "emerald", order: 0 },
   { type: "INCOME", label: "Biznes", icon: "briefcase", color: "teal", order: 1 },
-  { type: "INCOME", label: "Boshqa", icon: "trending-up", color: "olive", order: 2 },
-  // Chiqim
+  { type: "INCOME", label: "Qo'shimcha ish", icon: "coins", color: "olive", order: 2 },
+  { type: "INCOME", label: "Investitsiya", icon: "trending-up", color: "indigo", order: 3 },
+  { type: "INCOME", label: "Ijara", icon: "home", color: "slate", order: 4 },
+  { type: "INCOME", label: "Sovg'a", icon: "gift", color: "pink", order: 5 },
+  { type: "INCOME", label: "Boshqa", icon: "circle-dashed", color: "gray", order: 6 },
+  // ─── Chiqim ───
   { type: "EXPENSE", label: "Oziq-ovqat", icon: "utensils", color: "pink", order: 0 },
   { type: "EXPENSE", label: "Transport", icon: "car", color: "indigo", order: 1 },
-  { type: "EXPENSE", label: "Uy", icon: "home", color: "slate", order: 2 },
-  { type: "EXPENSE", label: "Xaridlar", icon: "shopping-bag", color: "mocha", order: 3 },
-  { type: "EXPENSE", label: "Sog'liq", icon: "heart-pulse", color: "emerald", order: 4 },
-  { type: "EXPENSE", label: "Boshqa", icon: "circle-dashed", color: "gray", order: 5 },
+  { type: "EXPENSE", label: "Uy-joy", icon: "home", color: "slate", order: 2 },
+  { type: "EXPENSE", label: "Kommunal", icon: "receipt", color: "stone", order: 3 },
+  { type: "EXPENSE", label: "Xaridlar", icon: "shopping-bag", color: "mocha", order: 4 },
+  { type: "EXPENSE", label: "Kiyim", icon: "shirt", color: "teal", order: 5 },
+  { type: "EXPENSE", label: "Sog'liq", icon: "heart-pulse", color: "emerald", order: 6 },
+  { type: "EXPENSE", label: "Ta'lim", icon: "graduation-cap", color: "indigo", order: 7 },
+  { type: "EXPENSE", label: "Aloqa", icon: "smartphone", color: "olive", order: 8 },
+  { type: "EXPENSE", label: "Ko'ngilochar", icon: "gamepad-2", color: "pink", order: 9 },
+  { type: "EXPENSE", label: "Boshqa", icon: "circle-dashed", color: "gray", order: 10 },
 ];
 
 function toFinanceCategory(c: DbFinanceCategory): FinanceCategory {
