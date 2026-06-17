@@ -128,15 +128,15 @@ export function MoliyaView() {
       </header>
 
       {/* Tabs */}
-      <div className="mb-4 flex items-center gap-1 rounded-lg bg-subtle/60 p-0.5 text-[13px]">
+      <div className="mb-4 flex items-center gap-0.5 rounded-lg bg-subtle/60 p-0.5 text-[12px]">
         <TabButton active={tab === "umumiy"} onClick={() => setTab("umumiy")}>
           Umumiy
         </TabButton>
         <TabButton active={tab === "tranzaksiyalar"} onClick={() => setTab("tranzaksiyalar")}>
-          Yozuvlar
+          Kirim-chiqim
         </TabButton>
         <TabButton active={tab === "byudjet"} onClick={() => setTab("byudjet")}>
-          Byudjet
+          Limitlar
         </TabButton>
         <TabButton active={tab === "yigim"} onClick={() => setTab("yigim")}>
           Yig&apos;im
@@ -214,7 +214,7 @@ function TabButton({
     <button
       onClick={onClick}
       className={cn(
-        "flex-1 rounded-[7px] px-3 py-1.5 font-medium transition-colors",
+        "flex-1 whitespace-nowrap rounded-[7px] px-2 py-1.5 font-medium transition-colors",
         active ? "bg-surface text-foreground shadow-[0_1px_0_var(--border)]" : "text-muted hover:text-foreground"
       )}
     >
