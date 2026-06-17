@@ -73,6 +73,27 @@ export function Landing() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [menuOpen]);
 
+  // Landing ochiq ekan, butun hujjat foni ham grafit-dark (overscroll/chetlarda
+  // foydalanuvchi temasi oq ko'rinib qolmasligi uchun). Chiqishda tiklanadi.
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    const prev = {
+      rootBg: root.style.backgroundColor,
+      bodyBg: body.style.backgroundColor,
+      scheme: root.style.colorScheme,
+    };
+    const DARK = "oklch(0.16 0.006 255)";
+    root.style.backgroundColor = DARK;
+    body.style.backgroundColor = DARK;
+    root.style.colorScheme = "dark";
+    return () => {
+      root.style.backgroundColor = prev.rootBg;
+      body.style.backgroundColor = prev.bodyBg;
+      root.style.colorScheme = prev.scheme;
+    };
+  }, []);
+
   return (
     <div className="landing-graphite min-h-screen bg-subtle text-foreground">
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
