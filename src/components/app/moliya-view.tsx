@@ -181,14 +181,15 @@ export function MoliyaView() {
         </div>
       )}
 
-      {/* Qo'shish tugmasi (floating) — faqat yozuv tablarida */}
+      {/* Qo'shish FAB — vazifa qo'shish kabi (accent dumaloq), faqat yozuv tablarida */}
       {(tab === "umumiy" || tab === "tranzaksiyalar") && (
         <button
           onClick={() => { setEditing(null); setAddOpen(true); }}
-          className="fixed bottom-20 right-5 z-20 flex items-center gap-1.5 rounded-full bg-foreground px-4 py-3 text-[13px] font-medium text-background shadow-lg transition-transform active:scale-95 md:bottom-6"
+          aria-label="Qo'shish"
+          className="fixed bottom-20 right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 md:bottom-6"
+          style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
         >
-          <Plus className="size-4" />
-          Qo&apos;shish
+          <Plus className="size-6" strokeWidth={2.5} />
         </button>
       )}
 
@@ -944,7 +945,7 @@ function GoalDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} mobilePlacement="bottom" className="w-full max-w-md">
+    <Dialog open={open} onClose={onClose} mobilePlacement="top" className="w-full max-w-md">
       <div className="p-4">
         <div className="mb-4 flex items-center justify-between">
           <p className="text-[15px] font-semibold">{editing ? "Maqsadni tahrirlash" : "Yangi maqsad"}</p>
@@ -1099,7 +1100,7 @@ function TxnDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} mobilePlacement="bottom" className="w-full max-w-md">
+    <Dialog open={open} onClose={onClose} mobilePlacement="top" className="w-full max-w-md">
       <div className="p-4">
         <div className="mb-4 flex items-center justify-between">
           <p className="text-[15px] font-semibold">{editing ? "Yozuvni tahrirlash" : "Yangi yozuv"}</p>
