@@ -21,6 +21,7 @@ import {
   Sun,
   Target,
   Trash2,
+  Wallet,
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -200,6 +201,13 @@ export function Sidebar({
             label="Maqsad"
             icon={Target}
             active={isActive("/maqsad")}
+            onNavigate={closeOnMobile}
+          />
+          <SidebarLink
+            href="/moliya"
+            label="Moliya"
+            icon={Wallet}
+            active={isActive("/moliya")}
             onNavigate={closeOnMobile}
           />
         </Section>

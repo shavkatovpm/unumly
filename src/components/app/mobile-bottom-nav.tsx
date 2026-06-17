@@ -17,6 +17,7 @@ import {
   Sun,
   Target,
   Trash2,
+  Wallet,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -72,7 +73,7 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const primaryHrefs = new Set(primary.map((p) => p.href));
   const isBoshqaruvActive =
     !sheetOpen &&
-    [...BOSHQARUV_ROUTES, "/reja", "/kalendar", "/odat", "/maqsad"].some(
+    [...BOSHQARUV_ROUTES, "/reja", "/kalendar", "/odat", "/maqsad", "/moliya"].some(
       (href) => !primaryHrefs.has(href) && isActive(href)
     );
 
@@ -317,6 +318,15 @@ function BoshqaruvSheet({
               label="Maqsad"
               icon={Target}
               active={isActive("/maqsad")}
+              onNavigate={onClose}
+            />
+          )}
+          {!hidden.includes("moliya") && !primaryHrefs.has("/moliya") && (
+            <SheetLink
+              href="/moliya"
+              label="Moliya"
+              icon={Wallet}
+              active={isActive("/moliya")}
               onNavigate={onClose}
             />
           )}

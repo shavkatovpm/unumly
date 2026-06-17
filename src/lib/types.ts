@@ -119,3 +119,29 @@ export type Goal = {
   createdAt: string;      // ISO datetime
   subGoals: SubGoal[];
 };
+
+/* ─── Moliya (Finance) ─── */
+
+export type TransactionType = "INCOME" | "EXPENSE";
+
+/** Kirim/chiqim kategoriyasi. Har biri bir turga (kirim yoki chiqim) tegishli. */
+export type FinanceCategory = {
+  id: string;
+  type: TransactionType;
+  label: string;
+  icon: string;           // lucide key
+  color: CategoryColor;
+  order: number;
+};
+
+/** Bitta kirim yoki chiqim yozuvi. `amount` — so'mda butun son (string sifatida
+ *  uzatiladi, chunki BigInt JSON'da serialize bo'lmaydi). */
+export type Transaction = {
+  id: string;
+  type: TransactionType;
+  amount: number;         // so'm (butun son)
+  categoryId: string | null;
+  note?: string;
+  date: string;           // YYYY-MM-DD
+  createdAt: string;      // ISO datetime
+};

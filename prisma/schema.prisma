@@ -55,6 +55,10 @@ model User {
   // defaults doesn't bring them back on the next fetch.
   habitCategoriesSeeded Boolean @default(false)
 
+  // Same idea for Moliya (finance) categories — kirim/chiqim default'lari
+  // bir marta seed qilinadi.
+  financeCategoriesSeeded Boolean @default(false)
+
   createdAt    DateTime @default(now())
   lastSeenAt   DateTime @default(now())
 
@@ -65,6 +69,8 @@ model User {
   habits          Habit[]
   habitCategories HabitCategory[]
   goals           Goal[]
+  financeCategories FinanceCategory[]
+  transactions      Transaction[]
 
   @@index([telegramId])
   @@index([phone])
@@ -401,4 +407,58 @@ model Idea {
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ───────────────────────── Moliya (Finance) ─────────────────────────
+// Kirim/chiqim tracking. Pul so'mda butun son sifatida saqlanadi (tiyin
+// yo'q), BigInt — yillik yig'indi Int chegarasidan oshmasligi uchun.
+// Kategoriyalar Reja/Odat patternini takrorlaydi (label/icon/color/order),
+// lekin har biri kirim yoki chiqim turiga bog'langan.
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+model FinanceCategory {
+  id        String          @id @default(cuid())
+  userId    String
+
+  type      TransactionType
+  label     String
+  icon      String          // lucide key (wallet/utensils/car/...)
+  color     String          // CategoryColor union (olive/emerald/.../gray)
+  order     Int             @default(0)
+
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([userId, type])
+}
+
+model Transaction {
+  id         String          @id @default(cuid())
+  userId     String
+
+  type       TransactionType
+  amount     BigInt          // so'm (butun son, tiyinsiz)
+  categoryId String?         // FinanceCategory.id — null = kategoriyasiz
+  note       String?
+  // Sana YYYY-MM-DD string — Plan kabi (timezone aniqligi uchun).
+  date       String          @db.VarChar(10)
+
+  deletedAt  DateTime?       // soft delete; 30 kundan keyin tozalanadi
+
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Kategoriya o'chsa tranzaksiya saqlanadi, faqat categoryId null bo'ladi.
+  category FinanceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId, deletedAt])
+  @@index([userId, type, date])
 }
