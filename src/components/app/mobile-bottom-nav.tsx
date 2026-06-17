@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   Calendar as CalendarIcon,
   CheckCircle2,
+  ChevronDown,
   ClipboardList,
   Menu,
   Moon,
@@ -206,6 +207,11 @@ function BoshqaruvSheet({
   const [hidden, setHidden] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const dragControls = useDragControls();
+  // Arxiv/Maxsus — dropdown; Arxiv joriy route shu yerda bo'lsa ochiq boshlanadi.
+  const [arxivOpen, setArxivOpen] = useState(
+    pathname.startsWith("/bajarilgan") || pathname.startsWith("/ochirilgan")
+  );
+  const [maxsusOpen, setMaxsusOpen] = useState(false);
 
   // Lock background scroll while sheet is open — also locks any
   // [data-scroll-lock-on-focus] containers (Bugun/Agenda/Kalendar).
@@ -312,11 +318,8 @@ function BoshqaruvSheet({
           )}
         </div>
 
-        {/* Arxiv — ikkinchi darajali (kichik kartalar) */}
-        <div className="space-y-1.5 border-t border-border px-3 py-2.5">
-          <p className="px-3 pb-1 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
-            Arxiv
-          </p>
+        {/* Arxiv — dropdown */}
+        <SheetCollapsible label="Arxiv" open={arxivOpen} onToggle={() => setArxivOpen((v) => !v)}>
           <SheetLink
             href="/bajarilgan"
             label="Bajarilgan"
@@ -333,12 +336,12 @@ function BoshqaruvSheet({
             onNavigate={onClose}
             secondary
           />
-        </div>
+        </SheetCollapsible>
 
-        {/* Loyiha — to'liq workspace (hozircha tez orada, qulflangan) */}
-        <div className="border-t border-border px-3 py-2.5">
-          <SheetItem label="Loyiha" icon={Sparkles} badge="tez orada" />
-        </div>
+        {/* Maxsus — dropdown (Loyiha) */}
+        <SheetCollapsible label="Maxsus" open={maxsusOpen} onToggle={() => setMaxsusOpen((v) => !v)}>
+          <SheetItem label="Loyiha" icon={Sparkles} badge="tez orada" secondary />
+        </SheetCollapsible>
 
         {/* Profile + theme + settings */}
         <div className="border-t border-border bg-subtle/30 p-3">
@@ -429,16 +432,23 @@ function SheetItem({
   label,
   icon: Icon,
   badge,
+  secondary = false,
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   badge?: string;
+  secondary?: boolean;
 }) {
   return (
     <button
       type="button"
       disabled
-      className="flex w-full cursor-not-allowed items-center gap-3.5 rounded-xl border border-border bg-surface/50 px-[18px] py-[18px] text-left text-[19px] text-faint/80"
+      className={cn(
+        "flex w-full cursor-not-allowed items-center border border-border bg-surface/50 text-left text-faint/80",
+        secondary
+          ? "gap-3 rounded-lg px-3.5 py-3 text-[15px]"
+          : "gap-3.5 rounded-xl px-[18px] py-[18px] text-[19px]"
+      )}
     >
       <span className="flex-1 text-left">{label}</span>
       {badge && (
@@ -446,7 +456,34 @@ function SheetItem({
           {badge}
         </span>
       )}
-      <Icon className="size-[25px] shrink-0 text-faint/70" strokeWidth={2} />
+      <Icon className={cn("shrink-0 text-faint/70", secondary ? "size-[19px]" : "size-[25px]")} strokeWidth={2} />
     </button>
+  );
+}
+
+/* Yopiladigan bo'lim (dropdown) — Arxiv/Maxsus uchun. */
+function SheetCollapsible({
+  label,
+  open,
+  onToggle,
+  children,
+}: {
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border-t border-border px-3 py-2">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-faint transition-colors hover:text-foreground"
+      >
+        <span className="text-[10.5px] font-medium uppercase tracking-[0.15em]">{label}</span>
+        <ChevronDown className={cn("size-4 transition-transform duration-200", open && "rotate-180")} />
+      </button>
+      {open && <div className="mt-1 space-y-1.5">{children}</div>}
+    </div>
   );
 }
