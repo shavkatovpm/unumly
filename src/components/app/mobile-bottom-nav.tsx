@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -205,6 +205,7 @@ function BoshqaruvSheet({
   const { isDark, toggleMode } = useTheme();
   const [hidden, setHidden] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const dragControls = useDragControls();
 
   // Lock background scroll while sheet is open — also locks any
   // [data-scroll-lock-on-focus] containers (Bugun/Agenda/Kalendar).
@@ -233,7 +234,8 @@ function BoshqaruvSheet({
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 32, stiffness: 320 }}
         drag="y"
-        dragDirectionLock
+        dragListener={false}
+        dragControls={dragControls}
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={{ top: 0, bottom: 0.5 }}
         dragMomentum={false}
@@ -243,19 +245,20 @@ function BoshqaruvSheet({
             onClose();
           }
         }}
-        className="fixed inset-x-0 bottom-0 z-50 max-h-[92vh] touch-none rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92vh] flex-col rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
-        {/* Drag handle — also doubles as a tap-to-close target */}
+        {/* Drag handle — swipe-close (drag faqat shu yerdan boshlanadi) yoki tap-to-close */}
         <button
           onClick={onClose}
+          onPointerDown={(e) => dragControls.start(e)}
           aria-label="Yopish"
-          className="flex w-full items-center justify-center py-2"
+          className="flex w-full shrink-0 touch-none items-center justify-center py-2"
         >
           <span className="h-1 w-10 rounded-full bg-faint/60" />
         </button>
 
-        <header className="flex items-center justify-between border-b border-border px-4 pb-2.5">
+        <header className="flex shrink-0 items-center justify-between border-b border-border px-4 pb-2.5">
           <p className="text-[16px] font-semibold tracking-[-0.01em]">Boshqaruv</p>
           <button
             onClick={onClose}
@@ -265,6 +268,9 @@ function BoshqaruvSheet({
             <X className="size-4" />
           </button>
         </header>
+
+        {/* Scroll qilinadigan tana — kontent uzun bo'lsa pastki elementlar ham ko'rinadi */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
 
         {/* Boshqaruv links — items already in the primary nav are hidden here */}
         <div className="space-y-2 px-3 py-2.5">
@@ -360,6 +366,7 @@ function BoshqaruvSheet({
               <Settings className="size-[22px]" />
             </button>
           </div>
+        </div>
         </div>
       </motion.div>
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
