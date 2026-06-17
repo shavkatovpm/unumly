@@ -73,6 +73,7 @@ model User {
   transactions      Transaction[]
   budgets           Budget[]
   financialGoals    FinancialGoal[]
+  debts             Debt[]
 
   @@index([telegramId])
   @@index([phone])
@@ -505,4 +506,43 @@ model FinancialGoal {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ───────────────────────── Qarzdorlik (Debts) ─────────────────────────
+// Olingan (BORROWED — men qarzdorman) yoki berilgan (LENT — menga qarzdor)
+// qarzlar. Qisman qaytarish paidAmount orqali; to'liq hal qilinsa settledAt.
+// dueDate bo'lsa notifyAt hisoblanadi va cron muddatda bot eslatmasi yuboradi
+// (Plan reminderlari bilan bir xil mexanizm).
+
+enum DebtType {
+  BORROWED // men oldim — qarzdorman
+  LENT     // men berdim — menga qarzdor
+}
+
+model Debt {
+  id           String    @id @default(cuid())
+  userId       String
+
+  type         DebtType
+  counterparty String    // kim bilan (ism)
+  amount       BigInt    // umumiy summa (so'm)
+  paidAmount   BigInt    @default(0) // qaytarilgan qism
+
+  dueDate      String?   @db.VarChar(10) // YYYY-MM-DD — ixtiyoriy muddat
+  note         String?
+
+  // Bot eslatmasi (Plan kabi) — dueDate bo'yicha hisoblanadi.
+  notifyAt     DateTime?
+  notifiedAt   DateTime?
+
+  settledAt    DateTime? // to'liq hal qilingan
+  order        Int       @default(0)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([notifyAt, notifiedAt, settledAt])
 }

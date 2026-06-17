@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardList,
+  HandCoins,
   Inbox,
   ListChecks,
   Moon,
@@ -134,7 +135,7 @@ export function Sidebar({
       >
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-40 flex w-[240px] flex-col overflow-hidden border-r border-border bg-subtle/40 md:absolute",
+            "fixed inset-y-0 left-0 z-40 flex w-[240px] flex-col overflow-hidden border-r border-border bg-subtle/40",
             hasMounted && "transition-transform duration-300 ease-out",
             open ? "translate-x-0" : "-translate-x-full"
           )}
@@ -208,6 +209,13 @@ export function Sidebar({
             label="Moliya"
             icon={Wallet}
             active={isActive("/moliya")}
+            onNavigate={closeOnMobile}
+          />
+          <SidebarLink
+            href="/qarz"
+            label="Qarz"
+            icon={HandCoins}
+            active={isActive("/qarz")}
             onNavigate={closeOnMobile}
           />
         </Section>

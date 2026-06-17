@@ -167,6 +167,44 @@ export async function sendTaskReminder(opts: {
   return id;
 }
 
+/**
+ * Qarz muddati eslatmasi. dueDate kuni cron tomonidan yuboriladi.
+ * BORROWED — foydalanuvchi qaytarishi kerak; LENT — qaytarib olishi kerak.
+ */
+export async function sendDebtReminder(opts: {
+  chatId: number | string;
+  type: "BORROWED" | "LENT";
+  counterparty: string;
+  outstanding: number;
+  dueDate?: string | null;
+  appUrl: string;
+}): Promise<void> {
+  const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const who = escapeMarkdown(opts.counterparty);
+  const sum = `*${fmt(opts.outstanding)} so'm*`;
+  const body =
+    opts.type === "BORROWED"
+      ? `${who}dan olgan ${sum} qarz muddati bugun yetdi.\nQaytarishni unutmang.`
+      : `${who}ga bergan ${sum} qarzni qaytarib olish muddati bugun yetdi.`;
+
+  const res = await fetch(`${BASE}/bot${token()}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: opts.chatId,
+      text: `💳 *Qarz muddati*\n\n${body}`,
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [[{ text: "→ Qarzlar", web_app: { url: opts.appUrl } }]],
+      },
+    }),
+  });
+  if (!res.ok) {
+    const b = await res.text().catch(() => "");
+    throw new Error(`sendDebtReminder failed (${res.status}): ${b}`);
+  }
+}
+
 /** Mark a reminder as completed: remove buttons, prepend ✅. Best-effort. */
 export async function markReminderDone(opts: {
   chatId: number | string;

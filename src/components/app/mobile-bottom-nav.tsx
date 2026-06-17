@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ClipboardList,
+  HandCoins,
   Menu,
   Moon,
   Repeat,
@@ -73,7 +74,7 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const primaryHrefs = new Set(primary.map((p) => p.href));
   const isBoshqaruvActive =
     !sheetOpen &&
-    [...BOSHQARUV_ROUTES, "/reja", "/kalendar", "/odat", "/maqsad", "/moliya"].some(
+    [...BOSHQARUV_ROUTES, "/reja", "/kalendar", "/odat", "/maqsad", "/moliya", "/qarz"].some(
       (href) => !primaryHrefs.has(href) && isActive(href)
     );
 
@@ -327,6 +328,15 @@ function BoshqaruvSheet({
               label="Moliya"
               icon={Wallet}
               active={isActive("/moliya")}
+              onNavigate={onClose}
+            />
+          )}
+          {!hidden.includes("qarz") && !primaryHrefs.has("/qarz") && (
+            <SheetLink
+              href="/qarz"
+              label="Qarz"
+              icon={HandCoins}
+              active={isActive("/qarz")}
               onNavigate={onClose}
             />
           )}

@@ -163,3 +163,20 @@ export type FinancialGoal = {
   deadline?: string;      // YYYY-MM-DD
   order: number;
 };
+
+/* ─── Qarzdorlik (Debts) ─── */
+
+/** BORROWED — men oldim (qarzdorman); LENT — men berdim (menga qarzdor). */
+export type DebtType = "BORROWED" | "LENT";
+
+export type Debt = {
+  id: string;
+  type: DebtType;
+  counterparty: string;   // kim bilan
+  amount: number;         // umumiy summa (so'm)
+  paidAmount: number;     // qaytarilgan qism (so'm)
+  dueDate?: string;       // YYYY-MM-DD
+  note?: string;
+  settledAt?: string;     // ISO — to'liq hal qilingan bo'lsa
+  order: number;
+};

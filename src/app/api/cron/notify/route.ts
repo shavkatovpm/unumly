@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
   refreshQuickListSummary,
+  sendDebtReminder,
   sendQuickListSummary,
   sendTaskReminder,
 } from "@/lib/telegram-bot";
@@ -12,6 +13,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const APP_URL = "https://www.unumly.uz/bugun";
+const DEBT_URL = "https://www.unumly.uz/qarz";
 
 // Window: how far in the past we still consider "due" (in case the cron
 // was delayed or skipped). The cron runs every 10 minutes, so the window
@@ -115,13 +117,60 @@ export async function GET(req: Request) {
   // ── Tezkor: close stale open lists and send their summary ──
   const tezkorResult = await processStaleQuickLists();
 
+  // ── Qarz: muddati yetgan qarzlar uchun bot eslatmasi ──
+  const debtResult = await processDueDebts();
+
   return NextResponse.json({
     ok: true,
     scanned: due.length,
     sent,
     failed,
     tezkor: tezkorResult,
+    debts: debtResult,
   });
+}
+
+/** Muddati [now-WINDOW, now] oralig'iga tushgan, hali eslatilmagan va hal
+ *  qilinmagan qarzlar uchun bot eslatmasi yuboradi va notifiedAt qo'yadi. */
+async function processDueDebts() {
+  const now = new Date();
+  const earliest = new Date(now.getTime() - WINDOW_MS);
+  const due = await prisma.debt.findMany({
+    where: {
+      settledAt: null,
+      notifiedAt: null,
+      notifyAt: { gt: earliest, lte: now },
+    },
+    include: { user: { select: { telegramId: true } } },
+    take: 100,
+  });
+
+  let sent = 0;
+  let failed = 0;
+  for (const d of due) {
+    const outstanding = Number(d.amount) - Number(d.paidAmount);
+    try {
+      if (outstanding > 0) {
+        await sendDebtReminder({
+          chatId: Number(d.user.telegramId),
+          type: d.type,
+          counterparty: d.counterparty,
+          outstanding,
+          dueDate: d.dueDate,
+          appUrl: DEBT_URL,
+        });
+        sent++;
+      }
+      await prisma.debt.update({ where: { id: d.id }, data: { notifiedAt: new Date() } });
+    } catch (err) {
+      console.error(`debt reminder ${d.id} failed`, err);
+      await prisma.debt
+        .update({ where: { id: d.id }, data: { notifiedAt: new Date() } })
+        .catch(() => { /* ignore */ });
+      failed++;
+    }
+  }
+  return { scanned: due.length, sent, failed };
 }
 
 /** Find every bot-created QuickList that has been idle for > TEZKOR_IDLE_MS,

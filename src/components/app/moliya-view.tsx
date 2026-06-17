@@ -146,7 +146,7 @@ export function MoliyaView() {
       {!hydrated ? (
         <ListLoader />
       ) : (
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {tab === "umumiy" ? (
             <OverviewTab summary={summary} catMap={catMap} />
           ) : tab === "tranzaksiyalar" ? (
