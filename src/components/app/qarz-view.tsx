@@ -20,6 +20,7 @@ import { dateKey, formatSom } from "@/lib/money";
 import { Dialog } from "./widgets/dialog";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
+import { TestBadge } from "./widgets/test-badge";
 
 const LENT_COLOR = "oklch(0.62 0.13 158)"; // yashil — menga qarzdor (keladi)
 const BORROWED_COLOR = "oklch(0.62 0.17 22)"; // qizil — men qarzdorman
@@ -72,8 +73,9 @@ export function QarzView() {
 
   return (
     <div className="mx-auto flex h-full max-w-2xl flex-col px-4 pb-24 pt-3 md:pb-6">
-      <header className="mb-3 flex items-center justify-between">
+      <header className="mb-3 flex items-center gap-2">
         <h1 className="text-[18px] font-semibold tracking-[-0.01em]">Qarzdorlik</h1>
+        <TestBadge />
       </header>
 
       {/* Summary */}

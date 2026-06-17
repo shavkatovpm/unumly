@@ -35,6 +35,7 @@ import {
 import { Dialog } from "./widgets/dialog";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
+import { TestBadge } from "./widgets/test-badge";
 
 const INCOME_COLOR = "oklch(0.62 0.13 158)"; // yashil
 const EXPENSE_COLOR = "oklch(0.62 0.17 22)"; // qizil
@@ -105,7 +106,10 @@ export function MoliyaView() {
     <div className="mx-auto flex h-full max-w-2xl flex-col px-4 pb-24 pt-3 md:pb-6">
       {/* Header — oy navigatsiyasi */}
       <header className="mb-3 flex items-center justify-between">
-        <h1 className="text-[18px] font-semibold tracking-[-0.01em]">Moliya</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-[18px] font-semibold tracking-[-0.01em]">Moliya</h1>
+          <TestBadge />
+        </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setMonth((m) => shiftMonth(m, -1))}
