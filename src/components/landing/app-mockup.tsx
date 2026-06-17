@@ -21,7 +21,6 @@ type Task = {
 };
 type Section = { label: string; tasks: Task[] };
 
-// Bo'limlar tartibiga mos ikonkalar (matn i18n dan)
 const SECTION_ICONS: LucideIcon[] = [Sunrise, Sun, Sunset, Coffee];
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -31,24 +30,21 @@ const PRIORITY_DOT: Record<string, string> = {
   none: "bg-faint/40",
 };
 
-/**
- * "Bugun" ko'rinishining statik nusxasi — asl ilovaning UI'siga mos:
- * chapda priority nuqta + vaqt belgisi, sarlavha o'rtada, "bajarildi"
- * belgisi (checkbox) o'ngda.
- */
-export function AppMockup() {
+function useBugun() {
   const t = useT();
-  const b = t.bugun;
-  const sections = b.sections as unknown as Section[];
-
+  const sections = t.bugun.sections as unknown as Section[];
   const all = sections.flatMap((s) => s.tasks);
   const total = all.length;
   const done = all.filter((x) => x.done).length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return { b: t.bugun, sections, total, done, pct };
+}
 
+/** Qotib turadigan yuqori qism: sarlavha + progress + qo'shish satri */
+export function BugunHead() {
+  const { b, total, done, pct } = useBugun();
   return (
-    <div className="flex flex-col bg-background">
-      {/* Bugun header */}
+    <>
       <header className="flex h-11 items-center justify-between border-b border-border px-4">
         <div className="flex min-w-0 items-center gap-2">
           <h3 className="text-[13px] font-semibold tracking-[-0.01em]">
@@ -61,8 +57,7 @@ export function AppMockup() {
         </span>
       </header>
 
-      <div className="p-4 sm:p-5">
-        {/* Salomlashish + progress */}
+      <div className="px-4 pt-4 sm:px-5 sm:pt-5">
         <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
           <h4 className="min-w-0 truncate text-[15px] font-semibold leading-tight tracking-[-0.02em]">
             {b.greeting}
@@ -80,8 +75,7 @@ export function AppMockup() {
           </div>
         </div>
 
-        {/* Vazifa qo'shish satri */}
-        <div className="mt-5 flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-[0_1px_0_var(--border)]">
+        <div className="mt-4 flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-[0_1px_0_var(--border)]">
           <Plus className="size-3.5 text-faint" />
           <span className="flex-1 text-[13px] text-faint">
             {b.addPlaceholder}
@@ -94,39 +88,44 @@ export function AppMockup() {
             ↵
           </kbd>
         </div>
-
-        {/* Bo'limlar */}
-        <div className="mt-5 space-y-3">
-          {sections.map((s, si) => {
-            const Icon = SECTION_ICONS[si] ?? Coffee;
-            return (
-              <section
-                key={s.label}
-                className="overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]"
-              >
-                <header className="flex items-center justify-between border-b border-border bg-subtle/30 px-3 py-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="grid size-5 place-items-center text-faint">
-                      <Icon className="size-3.5" />
-                    </span>
-                    <p className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-faint">
-                      {s.label}
-                    </p>
-                  </div>
-                  <p className="font-mono text-[10.5px] tabular-nums text-faint">
-                    {s.tasks.length}
-                  </p>
-                </header>
-                <ul className="divide-y divide-border/70">
-                  {s.tasks.map((task) => (
-                    <TaskRow key={task.title} task={task} />
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
-        </div>
       </div>
+    </>
+  );
+}
+
+/** Scroll bo'ladigan pastki qism: vazifa bo'limlari */
+export function BugunBody() {
+  const { sections } = useBugun();
+  return (
+    <div className="space-y-3 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
+      {sections.map((s, si) => {
+        const Icon = SECTION_ICONS[si] ?? Coffee;
+        return (
+          <section
+            key={s.label}
+            className="overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)]"
+          >
+            <header className="flex items-center justify-between border-b border-border bg-subtle/30 px-3 py-1.5">
+              <div className="flex items-center gap-2">
+                <span className="grid size-5 place-items-center text-faint">
+                  <Icon className="size-3.5" />
+                </span>
+                <p className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-faint">
+                  {s.label}
+                </p>
+              </div>
+              <p className="font-mono text-[10.5px] tabular-nums text-faint">
+                {s.tasks.length}
+              </p>
+            </header>
+            <ul className="divide-y divide-border/70">
+              {s.tasks.map((task) => (
+                <TaskRow key={task.title} task={task} />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }

@@ -1,16 +1,30 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Check } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowUpRight, Check, Menu, X, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/wordmark";
 import { Reveal } from "./reveal";
 import { Hero } from "./hero";
-import { AppMockup } from "./app-mockup";
-import { FinanceMockup } from "./finance-mockup";
+import { BugunHead, BugunBody } from "./app-mockup";
+import { FinanceHead, FinanceBody } from "./finance-mockup";
 import { StickyShowcase } from "./showcase";
 import { MODULES, PLANS } from "./data";
 import { useT, useLang, LANGS } from "./i18n";
+import { useStart } from "./start-modal";
+
+const menuListV = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06, delayChildren: 0.06 } },
+  exit: { transition: { staggerChildren: 0.03, staggerDirection: -1 } },
+};
+const menuItemV = {
+  hidden: { opacity: 0, x: -12 },
+  show: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -12 },
+};
 
 function LangToggle() {
   const { lang, setLang } = useLang();
@@ -39,12 +53,28 @@ function LangToggle() {
 export function Landing() {
   const t = useT();
   const { lang } = useLang();
+  const { handleStart } = useStart();
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  const scrollTop = () =>
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+  const closeMenu = () => setMenuOpen(false);
+
+  const mobileLinks = [
+    { label: t.nav.features, href: "#imkoniyatlar", route: false },
+    { label: t.nav.price, href: "#narx", route: false },
+    { label: t.nav.blog, href: "/blog", route: true },
+  ];
+
+  // Menyu ochiq bo'lsa: scroll qilinganda yopiladi
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onScroll = () => setMenuOpen(false);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [menuOpen]);
 
   return (
-    <div className="min-h-screen bg-subtle/50">
+    <div className="landing-graphite min-h-screen bg-subtle text-foreground">
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
         <nav className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-5">
           <button
@@ -56,6 +86,7 @@ export function Landing() {
             <Wordmark className="text-[17px]" />
           </button>
 
+          {/* Desktop linklar */}
           <div className="hidden items-center gap-7 md:flex">
             <a
               href="#imkoniyatlar"
@@ -77,16 +108,115 @@ export function Landing() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          {/* Desktop o'ng tomon */}
+          <div className="hidden items-center gap-2.5 md:flex">
             <LangToggle />
             <Link
               href="/bugun"
+              onClick={handleStart}
               className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-4 py-2 text-[13px] font-medium text-background transition-opacity hover:opacity-90"
             >
               {t.nav.login} <ArrowUpRight className="size-3.5" />
             </Link>
           </div>
+
+          {/* Mobil hamburger */}
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="Menyu"
+            aria-expanded={menuOpen}
+            className="grid size-9 place-items-center overflow-hidden rounded-md text-foreground transition-colors hover:bg-subtle md:hidden"
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={menuOpen ? "x" : "m"}
+                initial={{ rotate: -90, opacity: 0 }}
+                animate={{ rotate: 0, opacity: 1 }}
+                exit={{ rotate: 90, opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                className="grid place-items-center"
+              >
+                {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+              </motion.span>
+            </AnimatePresence>
+          </button>
         </nav>
+
+        {/* Mobil menyu — navbar ostidan suzuvchi karta, stagger animatsiya */}
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={closeMenu}
+              className="fixed inset-0 top-14 z-30 bg-foreground/15 backdrop-blur-sm md:hidden"
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              key="panel"
+              initial={{ opacity: 0, y: -12, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.97 }}
+              transition={{ type: "spring", damping: 26, stiffness: 320 }}
+              className="fixed inset-x-3 top-[4.25rem] z-40 origin-top overflow-hidden rounded-2xl border border-border bg-surface p-2 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)] md:hidden"
+            >
+              <motion.div
+                variants={menuListV}
+                initial="hidden"
+                animate="show"
+                className="flex flex-col"
+              >
+                {mobileLinks.map((l) => (
+                  <motion.div key={l.href} variants={menuItemV}>
+                    {l.route ? (
+                      <Link
+                        href={l.href}
+                        onClick={closeMenu}
+                        className="group flex items-center justify-between rounded-xl px-3 py-3 text-[15px] font-medium text-foreground transition-colors hover:bg-subtle"
+                      >
+                        {l.label}
+                        <ChevronRight className="size-4 text-faint transition-transform group-hover:translate-x-0.5" />
+                      </Link>
+                    ) : (
+                      <a
+                        href={l.href}
+                        onClick={closeMenu}
+                        className="group flex items-center justify-between rounded-xl px-3 py-3 text-[15px] font-medium text-foreground transition-colors hover:bg-subtle"
+                      >
+                        {l.label}
+                        <ChevronRight className="size-4 text-faint transition-transform group-hover:translate-x-0.5" />
+                      </a>
+                    )}
+                  </motion.div>
+                ))}
+
+                <motion.div
+                  variants={menuItemV}
+                  className="mt-1 flex items-center justify-between gap-3 border-t border-border px-1 pt-3"
+                >
+                  <LangToggle />
+                  <Link
+                    href="/bugun"
+                    onClick={(e) => {
+                      handleStart(e);
+                      closeMenu();
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-4 py-2 text-[13px] font-medium text-background transition-opacity hover:opacity-90"
+                  >
+                    {t.hero.ctaStart} <ArrowUpRight className="size-3.5" />
+                  </Link>
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       <main className="mx-auto max-w-6xl px-5 py-12 sm:py-16">
@@ -107,9 +237,9 @@ export function Landing() {
             key={`bugun-${lang}`}
             activeKey="bugun"
             url="unumly.uz/bugun"
-          >
-            <AppMockup />
-          </StickyShowcase>
+            head={<BugunHead />}
+            body={<BugunBody />}
+          />
         </div>
 
         {/* Showcase 2 — Moliya */}
@@ -126,9 +256,9 @@ export function Landing() {
             key={`moliya-${lang}`}
             activeKey="moliya"
             url="unumly.uz/moliya"
-          >
-            <FinanceMockup />
-          </StickyShowcase>
+            head={<FinanceHead />}
+            body={<FinanceBody />}
+          />
         </div>
 
         {/* Imkoniyatlar */}
@@ -255,6 +385,7 @@ export function Landing() {
                   </ul>
                   <Link
                     href={plan.href}
+                    onClick={handleStart}
                     className={cn(
                       "mt-7 inline-flex items-center justify-center gap-2 rounded-md px-5 py-3 text-[14px] font-medium transition-opacity hover:opacity-90",
                       plan.featured

@@ -1,11 +1,14 @@
 import { Landing } from "@/components/landing/landing";
 import { LangProvider } from "@/components/landing/i18n";
+import { StartProvider } from "@/components/landing/start-modal";
 
 export default function HomePage() {
   return (
     <>
       <LangProvider>
-        <Landing />
+        <StartProvider>
+          <Landing />
+        </StartProvider>
       </LangProvider>
 
       {/* Crawler/AEO-friendly content: visually subtle, semantically rich */}

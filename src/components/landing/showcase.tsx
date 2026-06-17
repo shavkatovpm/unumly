@@ -19,11 +19,13 @@ const SCROLL_GAIN = 1.5; // ichki scroll masofasi (1.5 = 50% ko'proq)
 export function StickyShowcase({
   activeKey,
   url,
-  children,
+  head,
+  body,
 }: {
   activeKey: ModuleKey;
   url: string;
-  children: React.ReactNode;
+  head: React.ReactNode;
+  body: React.ReactNode;
 }) {
   const t = useT();
   const trackRef = useRef<HTMLDivElement>(null);
@@ -175,18 +177,24 @@ export function StickyShowcase({
               })}
             </aside>
 
-            {/* Ichki scroll oynasi */}
-            <div
-              ref={viewportRef}
-              className="relative min-h-0 overflow-hidden bg-background"
-            >
-              <div ref={innerRef} style={{ willChange: "transform" }}>
-                {children}
-              </div>
+            {/* Kontent ustuni: qotadigan bosh + scroll bo'ladigan tana */}
+            <div className="flex min-h-0 flex-col">
+              {/* Qotib turadigan yuqori qism */}
+              <div className="shrink-0">{head}</div>
+
+              {/* Faqat shu qism scroll bo'ladi */}
               <div
-                aria-hidden
-                className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-background to-transparent"
-              />
+                ref={viewportRef}
+                className="relative min-h-0 flex-1 overflow-hidden bg-background"
+              >
+                <div ref={innerRef} style={{ willChange: "transform" }}>
+                  {body}
+                </div>
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-background to-transparent"
+                />
+              </div>
             </div>
           </div>
         </div>

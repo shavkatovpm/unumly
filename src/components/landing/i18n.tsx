@@ -14,7 +14,16 @@ const STORAGE_KEY = "unumly-lang";
 
 /* ───────────────────────── UZ ───────────────────────── */
 const uz = {
+  metaTitle: "Unumly: Rejalashtirish va boshqarish ilovasi",
   nav: { features: "Imkoniyatlar", price: "Narx", blog: "Blog", login: "Kirish" },
+  modal: {
+    title: "Qanday boshlaymiz?",
+    telegramTitle: "Telegram bot orqali",
+    telegramDesc: "Eng qulay yoʻl — eslatmalar va tezkor kirish bot orqali.",
+    recommended: "Tavsiya",
+    webTitle: "Saytda davom etish",
+    webDesc: "Toʻgʻridan-toʻgʻri brauzerda ilovaga oʻting.",
+  },
   hero: {
     line1: "Kunlik ishlarni rejalashtirish",
     line2a: "Shaxsiy moliyani",
@@ -117,6 +126,10 @@ const uz = {
           { priority: "medium", title: "Kitob oʻqish — 30 daqiqa" },
           { priority: "low", title: "Haftalik rejani koʻrib chiqish" },
           { priority: "none", title: "Doʻstga qoʻngʻiroq qilish" },
+          { priority: "low", title: "Xaridlar roʻyxatini tuzish" },
+          { priority: "medium", title: "Byudjetni yangilash" },
+          { priority: "none", title: "Rasmlarni saralash" },
+          { priority: "low", title: "Eski fayllarni tozalash" },
           { priority: "none", title: "Suv ichishni unutmaslik", done: true },
         ],
       },
@@ -165,7 +178,16 @@ type Translation = typeof uz;
 
 /* ───────────────────────── EN ───────────────────────── */
 const en: Translation = {
+  metaTitle: "Unumly: Plan it, manage it, master it",
   nav: { features: "Features", price: "Pricing", blog: "Blog", login: "Sign in" },
+  modal: {
+    title: "How would you like to start?",
+    telegramTitle: "Via Telegram bot",
+    telegramDesc: "The easiest way — reminders and quick access through the bot.",
+    recommended: "Recommended",
+    webTitle: "Continue on the website",
+    webDesc: "Go straight to the app in your browser.",
+  },
   hero: {
     line1: "Plan your daily tasks,",
     line2a: "manage personal finance",
@@ -268,6 +290,10 @@ const en: Translation = {
           { priority: "medium", title: "Read — 30 minutes" },
           { priority: "low", title: "Review weekly plan" },
           { priority: "none", title: "Call a friend" },
+          { priority: "low", title: "Make a shopping list" },
+          { priority: "medium", title: "Update the budget" },
+          { priority: "none", title: "Sort photos" },
+          { priority: "low", title: "Clean up old files" },
           { priority: "none", title: "Don't forget water", done: true },
         ],
       },
@@ -314,7 +340,16 @@ const en: Translation = {
 
 /* ───────────────────────── RU ───────────────────────── */
 const ru: Translation = {
+  metaTitle: "Unumly: планируй, управляй, достигай",
   nav: { features: "Возможности", price: "Цены", blog: "Blog", login: "Войти" },
+  modal: {
+    title: "Как начнём?",
+    telegramTitle: "Через Telegram-бот",
+    telegramDesc: "Самый удобный способ — напоминания и быстрый вход через бота.",
+    recommended: "Рекомендуем",
+    webTitle: "Продолжить на сайте",
+    webDesc: "Перейти в приложение прямо в браузере.",
+  },
   hero: {
     line1: "Планируйте дела,",
     line2a: "управляйте финансами",
@@ -417,6 +452,10 @@ const ru: Translation = {
           { priority: "medium", title: "Чтение — 30 минут" },
           { priority: "low", title: "Просмотреть план недели" },
           { priority: "none", title: "Позвонить другу" },
+          { priority: "low", title: "Составить список покупок" },
+          { priority: "medium", title: "Обновить бюджет" },
+          { priority: "none", title: "Разобрать фото" },
+          { priority: "low", title: "Удалить старые файлы" },
           { priority: "none", title: "Не забыть про воду", done: true },
         ],
       },
@@ -475,6 +514,11 @@ export function LangProvider({ children }: { children: React.ReactNode }) {
       setLangState(saved);
     }
   }, []);
+
+  // Tab/SEO sarlavhasini tanlangan tilga moslash
+  useEffect(() => {
+    document.title = DICT[lang].metaTitle;
+  }, [lang]);
 
   const setLang = (l: Lang) => {
     setLangState(l);

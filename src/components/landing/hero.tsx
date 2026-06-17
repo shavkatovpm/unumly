@@ -4,10 +4,12 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { useT, useLang } from "./i18n";
+import { useStart } from "./start-modal";
 
 export function Hero() {
   const t = useT();
   const { lang } = useLang();
+  const { handleStart } = useStart();
   const h = t.hero;
 
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -61,16 +63,17 @@ export function Hero() {
         <span className="hidden sm:inline">{h.sub}</span>
       </p>
 
-      <div className="mt-8 flex flex-row items-center justify-center gap-3">
+      <div className="mx-auto mt-8 flex w-full max-w-sm gap-3">
         <Link
           href="/bugun"
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-foreground px-6 py-3 text-[14px] font-medium text-background transition-opacity hover:opacity-90"
+          onClick={handleStart}
+          className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-foreground px-5 py-3 text-[14px] font-medium text-background transition-opacity hover:opacity-90"
         >
           {h.ctaStart} <ArrowUpRight className="size-4" />
         </Link>
         <a
           href="#imkoniyatlar"
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-6 py-3 text-[14px] font-medium text-foreground transition-colors hover:bg-subtle"
+          className="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-border-strong px-5 py-3 text-[14px] font-medium text-foreground transition-colors hover:bg-subtle"
         >
           {h.ctaFeatures}
         </a>
