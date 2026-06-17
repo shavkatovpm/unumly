@@ -83,7 +83,7 @@ export function UserDetail({ data }: { data: UserDetailData }) {
         <span
           className={cn(
             "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium",
-            data.isActive ? "bg-accent-soft text-accent-ink" : "bg-subtle text-faint",
+            data.isActive ? "bg-accent-soft text-accent" : "bg-subtle text-faint",
           )}
         >
           <span

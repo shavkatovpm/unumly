@@ -418,7 +418,7 @@ export function AgendaView() {
               className={cn(
                 "flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] transition-colors",
                 showCalendar
-                  ? "bg-accent-soft text-accent-ink"
+                  ? "bg-accent-soft text-accent"
                   : isPastSelected
                   ? "bg-warm/10 text-warm hover:bg-warm/20"
                   : "text-muted hover:bg-hover hover:text-foreground"
@@ -452,7 +452,7 @@ export function AgendaView() {
               className={cn(
                 "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] transition-colors",
                 showTime
-                  ? "bg-accent-soft text-accent-ink"
+                  ? "bg-accent-soft text-accent"
                   : "text-faint hover:bg-hover hover:text-foreground"
               )}
             >

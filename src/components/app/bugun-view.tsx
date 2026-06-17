@@ -336,7 +336,7 @@ export function BugunView() {
                 isTimePast
                   ? "bg-danger-soft text-danger"
                   : showTime
-                  ? "bg-accent-soft text-accent-ink"
+                  ? "bg-accent-soft text-accent"
                   : "text-faint hover:bg-hover hover:text-foreground"
               )}
               title={isTimePast ? "O'tib ketgan vaqt" : undefined}

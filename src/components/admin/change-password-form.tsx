@@ -68,7 +68,7 @@ export function ChangePasswordForm({ usingDefault }: { usingDefault: boolean }) 
           </div>
         )}
         {state?.success && (
-          <div className="flex items-start gap-2 rounded-md border border-accent/30 bg-accent-soft px-3 py-2 text-[12px] text-accent-ink">
+          <div className="flex items-start gap-2 rounded-md border border-accent/30 bg-accent-soft px-3 py-2 text-[12px] text-accent">
             <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />
             <p>Parol o&apos;zgartirildi. Keyingi kirishda yangisini ishlating.</p>
           </div>

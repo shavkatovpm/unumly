@@ -141,7 +141,7 @@ export function IdeaDetail({
               className={cn(
                 "flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors",
                 idea.done
-                  ? "bg-accent-soft text-accent-ink hover:bg-accent-soft/80"
+                  ? "bg-accent-soft text-accent hover:bg-accent-soft/80"
                   : "text-faint hover:bg-hover hover:text-foreground"
               )}
             >
@@ -204,7 +204,7 @@ export function IdeaDetail({
                   >
                     <span
                       className="size-1.5 rounded-full"
-                      style={{ background: isA ? "rgba(255,255,255,0.7)" : color }}
+                      style={{ background: isA ? "color-mix(in oklab, var(--accent-ink) 70%, transparent)" : color }}
                     />
                     {c.label}
                   </button>

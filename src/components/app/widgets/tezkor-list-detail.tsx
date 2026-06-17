@@ -306,7 +306,7 @@ export function TezkorListDetail({
                 onCompleteList(list.id);
                 onClose();
               }}
-              className="flex items-center gap-1.5 rounded-md border border-accent bg-accent-soft px-3 py-1.5 text-[12px] font-medium text-accent-ink transition-colors hover:bg-accent hover:text-background"
+              className="flex items-center gap-1.5 rounded-md border border-accent bg-accent-soft px-3 py-1.5 text-[12px] font-medium text-accent transition-colors hover:bg-accent hover:text-background"
             >
               <CheckCircle2 className="size-3.5" />
               Bajardim

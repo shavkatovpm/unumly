@@ -120,7 +120,7 @@ function AnnounceModal({
           </div>
 
           {result?.kind === "success" && (
-            <div className="mt-3 flex items-start gap-2 rounded-md border border-accent/30 bg-accent-soft px-3 py-2 text-[12px] text-accent-ink">
+            <div className="mt-3 flex items-start gap-2 rounded-md border border-accent/30 bg-accent-soft px-3 py-2 text-[12px] text-accent">
               <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />
               <p>
                 Yuborildi: <span className="font-medium">{result.sent}</span>

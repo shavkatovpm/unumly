@@ -524,22 +524,22 @@ function TabView(props: ViewProps) {
 
         {/* Bottom done dropdown */}
         {dn.length > 0 && (
-          <section className="border-t border-border bg-subtle/20">
+          <section className="border-t border-border bg-subtle/40">
             <button
               onClick={() => setDoneOpen((v) => !v)}
-              className="flex w-full items-center gap-2 px-5 py-2 text-left hover:bg-hover/40"
+              className="flex w-full items-center gap-2 px-5 py-2 text-left text-muted hover:bg-hover/40 hover:text-foreground"
             >
               <ChevronRight
                 className={cn(
-                  "size-3 text-faint transition-transform",
+                  "size-3 transition-transform",
                   doneOpen && "rotate-90"
                 )}
               />
-              <Check className="size-3 text-accent" strokeWidth={3} />
-              <span className="text-[11.5px] font-medium uppercase tracking-wider text-faint">
+              <Check className="size-3" strokeWidth={3} />
+              <span className="text-[11.5px] font-medium uppercase tracking-wider">
                 Bajarilgan
               </span>
-              <span className="font-mono text-[10.5px] tabular-nums text-faint">
+              <span className="font-mono text-[10.5px] tabular-nums">
                 {dn.length}
               </span>
             </button>
@@ -974,13 +974,13 @@ function KanbanColumn({
 
         {/* Done dropdown */}
         {done.length > 0 && (
-          <div className="border-t border-border bg-subtle/20">
+          <div className="border-t border-border bg-subtle/40">
             <button
               onClick={() => setShowDone((v) => !v)}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[10.5px] uppercase tracking-wider text-faint hover:bg-hover/40 hover:text-muted"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[10.5px] uppercase tracking-wider text-muted hover:bg-hover/40 hover:text-foreground"
             >
               <ChevronRight className={cn("size-3 transition-transform", showDone && "rotate-90")} />
-              <Check className="size-3 text-accent" strokeWidth={3} />
+              <Check className="size-3" strokeWidth={3} />
               <span className="flex-1">Bajarilgan</span>
               <span className="font-mono tabular-nums">{done.length}</span>
             </button>

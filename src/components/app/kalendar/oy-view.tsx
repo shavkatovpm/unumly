@@ -127,7 +127,7 @@ export function OyView({
                         "flex items-center gap-1 truncate rounded-sm px-1 py-px text-[10.5px] leading-tight",
                         done
                           ? "text-faint line-through"
-                          : "bg-accent-soft/60 text-accent-ink"
+                          : "bg-accent-soft/60 text-accent"
                       )}
                     >
                       {p.time && (

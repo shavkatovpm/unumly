@@ -368,7 +368,7 @@ function SidebarLink({
         <span
           className={cn(
             "rounded px-1.5 font-mono text-[10px] tabular-nums",
-            active ? "bg-accent-soft text-accent-ink" : "text-faint"
+            active ? "bg-accent-soft text-accent" : "text-faint"
           )}
         >
           {badge}
