@@ -5,6 +5,7 @@ import {
   sendQuickListSummary,
   sendTaskReminder,
 } from "@/lib/telegram-bot";
+import { sanitizeLeadMin } from "@/lib/notify-time";
 
 export const runtime = "nodejs";
 // Cron pings frequently — make sure Vercel doesn't cache this
@@ -80,9 +81,11 @@ export async function GET(req: Request) {
         time: plan.time,
         priority: plan.priority,
         // Effective lead: per-task override (if set) takes precedence over
-        // the user's account default. Mirrors the value used to compute
-        // notifyAt so the "X daq. qoldi" hint is accurate.
-        leadMin: plan.notifyLeadMin ?? plan.user.notifyLeadMin,
+        // the user's account default. Sanitized so a stale stored value
+        // (e.g. a pre-migration 5) is coerced to a current preset — this
+        // mirrors how notifyAt was computed, keeping the "X daq. qoldi"
+        // hint consistent with the actual fire time.
+        leadMin: sanitizeLeadMin(plan.notifyLeadMin ?? plan.user.notifyLeadMin),
         appUrl: APP_URL,
       });
       await prisma.$transaction([
