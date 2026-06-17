@@ -249,7 +249,7 @@ export function TezkorListDetail({
               <button
                 type="submit"
                 aria-label="Qo'shish"
-                className="grid size-7 place-items-center rounded-md bg-foreground text-background hover:opacity-90"
+                className="grid size-7 place-items-center rounded-md bg-accent text-accent-ink hover:opacity-90"
               >
                 <Check className="size-3.5" />
               </button>

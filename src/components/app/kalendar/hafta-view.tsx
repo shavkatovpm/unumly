@@ -933,7 +933,7 @@ export function HaftaView({
                             "absolute left-1 top-1 rounded px-1 py-px font-mono text-[9px] tabular-nums shadow-sm",
                             blocked
                               ? "bg-danger text-white"
-                              : "bg-foreground text-background"
+                              : "bg-accent text-accent-ink"
                           )}
                         >
                           {blocked
@@ -1152,7 +1152,7 @@ export function HaftaView({
                           "rounded-md px-4 py-2 text-[13.5px] font-medium transition-opacity",
                           !editingTitle.trim()
                             ? "cursor-not-allowed bg-foreground/40 text-background"
-                            : "bg-foreground text-background hover:opacity-90"
+                            : "bg-accent text-accent-ink hover:opacity-90"
                         )}
                       >
                         Qo&apos;shish

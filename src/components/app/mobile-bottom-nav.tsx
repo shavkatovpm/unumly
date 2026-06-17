@@ -29,9 +29,6 @@ import {
 } from "@/lib/mobile-nav";
 import { SettingsDialog } from "./widgets/settings-dialog";
 
-type CustomItem = { id: string; label: string };
-
-const STORAGE_CUSTOM = "unumly:sidebar:custom";
 const STORAGE_HIDDEN = "unumly:sidebar:hidden";
 
 function readJSON<T>(key: string, fallback: T): T {
@@ -205,9 +202,7 @@ function BoshqaruvSheet({
   pathname: string;
   primaryHrefs: Set<string>;
 }) {
-  const { theme, toggle } = useTheme();
-  const isDark = theme === "noir";
-  const [custom, setCustom] = useState<CustomItem[]>([]);
+  const { isDark, toggleMode } = useTheme();
   const [hidden, setHidden] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -216,7 +211,6 @@ function BoshqaruvSheet({
   useScrollLock(true);
 
   useEffect(() => {
-    setCustom(readJSON<CustomItem[]>(STORAGE_CUSTOM, []));
     setHidden(readJSON<string[]>(STORAGE_HIDDEN, []));
   }, []);
 
@@ -312,9 +306,9 @@ function BoshqaruvSheet({
           )}
         </div>
 
-        {/* Arxiv */}
-        <div className="space-y-2 border-t border-border px-3 py-2.5">
-          <p className="px-2 pb-0.5 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
+        {/* Arxiv — ikkinchi darajali (kichik kartalar) */}
+        <div className="space-y-1.5 border-t border-border px-3 py-2.5">
+          <p className="px-3 pb-1 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
             Arxiv
           </p>
           <SheetLink
@@ -323,6 +317,7 @@ function BoshqaruvSheet({
             icon={CheckCircle2}
             active={isActive("/bajarilgan")}
             onNavigate={onClose}
+            secondary
           />
           <SheetLink
             href="/ochirilgan"
@@ -330,20 +325,14 @@ function BoshqaruvSheet({
             icon={Trash2}
             active={isActive("/ochirilgan")}
             onNavigate={onClose}
+            secondary
           />
         </div>
 
-        {/* Maxsus loyihalar */}
-        {custom.length > 0 && (
-          <div className="space-y-2 border-t border-border px-3 py-2.5">
-            <p className="px-2 pb-0.5 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
-              Maxsus
-            </p>
-            {custom.map((c) => (
-              <SheetItem key={c.id} label={c.label} icon={Sparkles} />
-            ))}
-          </div>
-        )}
+        {/* Loyiha — to'liq workspace (hozircha tez orada, qulflangan) */}
+        <div className="border-t border-border px-3 py-2.5">
+          <SheetItem label="Loyiha" icon={Sparkles} badge="tez orada" />
+        </div>
 
         {/* Profile + theme + settings */}
         <div className="border-t border-border bg-subtle/30 p-3">
@@ -352,11 +341,11 @@ function BoshqaruvSheet({
               U
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-medium">Sizning ish stolingiz</p>
+              <p className="text-[14px] font-medium">Ish stoli</p>
               <p className="text-[11px] text-faint">Lokal rejim</p>
             </div>
             <button
-              onClick={toggle}
+              onClick={toggleMode}
               aria-label={isDark ? "Yorug' rejim" : "Qorong'u rejim"}
               className="grid size-11 place-items-center rounded-md text-muted hover:bg-hover hover:text-foreground"
             >
@@ -384,13 +373,34 @@ function SheetLink({
   icon: Icon,
   active,
   onNavigate,
+  secondary = false,
 }: {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   active: boolean;
   onNavigate?: () => void;
+  /** Ikkinchi darajali (Arxiv) — ixchamroq, kartasiz, xira. */
+  secondary?: boolean;
 }) {
+  if (secondary) {
+    // Tepadagi asosiy kartaga o'xshash, ammo kichikroq.
+    return (
+      <Link
+        href={href}
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-3 rounded-lg border px-3.5 py-3 text-[15px] transition-colors",
+          active
+            ? "border-foreground/30 bg-subtle text-foreground"
+            : "border-border bg-surface text-muted hover:bg-hover hover:text-foreground"
+        )}
+      >
+        <span className="flex-1 text-left font-medium">{label}</span>
+        <Icon className="size-[19px] shrink-0 text-faint" strokeWidth={2} />
+      </Link>
+    );
+  }
   return (
     <Link
       href={href}

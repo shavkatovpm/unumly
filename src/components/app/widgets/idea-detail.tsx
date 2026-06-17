@@ -199,7 +199,7 @@ export function IdeaDetail({
                     onClick={() => setCategoryId(c.id)}
                     className={cn(
                       "flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11.5px] transition-colors",
-                      isA ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:border-border-strong hover:text-foreground"
+                      isA ? "border-accent bg-accent text-accent-ink" : "border-border text-muted hover:border-border-strong hover:text-foreground"
                     )}
                   >
                     <span
@@ -305,7 +305,7 @@ export function IdeaDetail({
                       className={cn(
                         "rounded-md border px-2 py-1 font-mono text-[11px] tabular-nums transition-colors",
                         duration === d
-                          ? "border-foreground bg-foreground text-background"
+                          ? "border-accent bg-accent text-accent-ink"
                           : "border-border text-muted hover:bg-hover hover:text-foreground"
                       )}
                     >
@@ -376,7 +376,7 @@ export function IdeaDetail({
                 "rounded-md px-3 py-1.5 text-[12px] font-medium transition-opacity",
                 blockSave
                   ? "cursor-not-allowed bg-foreground/40 text-background"
-                  : "bg-foreground text-background hover:opacity-90"
+                  : "bg-accent text-accent-ink hover:opacity-90"
               )}
             >
               Saqlash

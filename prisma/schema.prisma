@@ -51,6 +51,10 @@ model User {
   // the defaults without them being re-created on the next sync.
   categoriesSeeded Boolean @default(false)
 
+  // Same idea for Odat (habit) categories — seeded once so deleting the
+  // defaults doesn't bring them back on the next fetch.
+  habitCategoriesSeeded Boolean @default(false)
+
   createdAt    DateTime @default(now())
   lastSeenAt   DateTime @default(now())
 

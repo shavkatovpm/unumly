@@ -8,6 +8,14 @@ export type BlogPost = {
 
 export const BLOG_POSTS: BlogPost[] = [
   {
+    slug: "vaqtni-boshqarish",
+    title: "Vaqtni boshqarish: boshlovchilar uchun to'liq qo'llanma",
+    description:
+      "Vaqtni boshqarish nima va undan qanday boshlash kerak? Boshlovchilar uchun 7 qadamli o'zbekcha qo'llanma: mashhur usullar, asosiy xatolar va amaliy maslahatlar.",
+    publishedAt: "2026-06-17",
+    readingMinutes: 9,
+  },
+  {
     slug: "kunlik-rejalashtirish",
     title: "Kunlik rejalashtirish: 5 qadamda samarali kun",
     description:

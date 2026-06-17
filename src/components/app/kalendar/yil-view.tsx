@@ -113,7 +113,7 @@ export function YilView({
                       )}
                       style={{
                         backgroundColor: c
-                          ? `oklch(0.62 0.13 155 / ${0.12 + intensity * 0.45})`
+                          ? `oklch(from var(--accent) l c h / ${0.12 + intensity * 0.45})`
                           : undefined,
                       }}
                       title={c ? `${c.done}/${c.total} reja` : undefined}

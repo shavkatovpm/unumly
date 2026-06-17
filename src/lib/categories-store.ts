@@ -232,3 +232,7 @@ export function useCategories() {
     remove: removeCategory,
   };
 }
+
+export function useHydratedCategories(): boolean {
+  return useSyncExternalStore(subscribe, () => hydrated, () => false);
+}

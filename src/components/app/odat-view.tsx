@@ -16,14 +16,15 @@ import {
   Wallet, X, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useHabits, markHabitDay } from "@/lib/habits-store";
-import { useHabitCategories } from "@/lib/habit-categories-store";
+import { useHabits, useHydratedHabits, markHabitDay } from "@/lib/habits-store";
+import { useHabitCategories, useHydratedHabitCategories } from "@/lib/habit-categories-store";
 import { usePlans } from "@/lib/plans-store";
 import type { Habit, HabitCategory, Plan } from "@/lib/types";
 import { occupiedTimeSlots } from "@/lib/dates";
 import { Dialog } from "./widgets/dialog";
 import { ConfirmDialog } from "./widgets/confirm-dialog";
 import { TimePickerPopover } from "./widgets/time-picker-popover";
+import { ListLoader } from "./widgets/list-loader";
 
 /* ─── Ikonalar ─── */
 const ICONS = {
@@ -82,6 +83,9 @@ export function OdatView() {
   const [tab, setTab] = useState<Tab>("habits");
   const { categories: cats, create: createCat, update: updateCat, remove: removeCat } = useHabitCategories();
   const { habits, archived, create, update, archive, restore, remove } = useHabits();
+  const habitsHydrated = useHydratedHabits();
+  const catsHydrated = useHydratedHabitCategories();
+  const hydrated = habitsHydrated && catsHydrated;
   const { plans, toggleStatus } = usePlans();
   const [detailId, setDetailId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -139,7 +143,7 @@ export function OdatView() {
 
       <div key={tab} className="fade-in mx-auto w-full max-w-xl px-5 pb-24 md:px-6 md:pb-12">
         {tab === "habits" ? (
-          <HabitsTab cats={cats} habits={habits} archived={archived} onOpen={setDetailId} onAddHabit={(pre) => { setAddCat(pre); setAddDaysPreset(undefined); setShowAdd(true); }} onAddCategory={() => setShowAddCat(true)} onEditCategory={(id) => setEditCatId(id)} onDeleteCategory={askRemoveCategory} onRestore={restore} onDeleteHabit={askRemoveHabit} />
+          <HabitsTab hydrated={hydrated} cats={cats} habits={habits} archived={archived} onOpen={setDetailId} onAddHabit={(pre) => { setAddCat(pre); setAddDaysPreset(undefined); setShowAdd(true); }} onAddCategory={() => setShowAddCat(true)} onEditCategory={(id) => setEditCatId(id)} onDeleteCategory={askRemoveCategory} onRestore={restore} onDeleteHabit={askRemoveHabit} />
         ) : (
           <CalendarTab cats={cats} habits={habits} logs={logs} onToggle={toggleDay} onOpen={setDetailId} onAddExisting={addHabitWeekday} onNewHabit={newHabitForDay} />
         )}
@@ -168,11 +172,11 @@ export function OdatView() {
 
 /* ════════════════ ODATLAR — Halqa cardlar + 5 ro'yxat varianti ════════════════ */
 
-type P = { cats: HabitCategory[]; habits: Habit[]; archived: Habit[]; onOpen: (id: string) => void; onAddHabit: (preselect?: string | null) => void; onAddCategory: () => void; onEditCategory: (id: string) => void; onDeleteCategory: (id: string) => void; onRestore: (id: string) => void; onDeleteHabit: (id: string) => void };
+type P = { hydrated: boolean; cats: HabitCategory[]; habits: Habit[]; archived: Habit[]; onOpen: (id: string) => void; onAddHabit: (preselect?: string | null) => void; onAddCategory: () => void; onEditCategory: (id: string) => void; onDeleteCategory: (id: string) => void; onRestore: (id: string) => void; onDeleteHabit: (id: string) => void };
 /* helperlar */
 function iconOf(cats: HabitCategory[], id: string | null): string { return cats.find((c) => c.id === id)?.icon ?? "folder"; }
 
-function HabitsTab({ cats, habits, archived, onOpen, onAddHabit, onAddCategory, onEditCategory, onDeleteCategory, onRestore, onDeleteHabit }: P) {
+function HabitsTab({ hydrated, cats, habits, archived, onOpen, onAddHabit, onAddCategory, onEditCategory, onDeleteCategory, onRestore, onDeleteHabit }: P) {
   const [sel, setSel] = useState("all");
   const [menu, setMenu] = useState<{ id: string; rect: DOMRect } | null>(null);
   const [showArchive, setShowArchive] = useState(false);
@@ -205,9 +209,9 @@ function HabitsTab({ cats, habits, archived, onOpen, onAddHabit, onAddCategory, 
           className="no-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto"
           style={{ maskImage: maskVal, WebkitMaskImage: maskVal }}
         >
-          {cats.length === 0 ? (
+          {cats.length === 0 ? (hydrated ? (
             <button type="button" onClick={onAddCategory} className="flex shrink-0 items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium text-faint hover:text-foreground"><Plus className="size-3.5" /> Toifa qo&apos;shish</button>
-          ) : cats.map((c) => (
+          ) : null) : cats.map((c) => (
             <button key={c.id} type="button" onClick={(e) => onTabClick(c.id, e)} className={cn("relative flex shrink-0 items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium transition-colors", cur === c.id ? "text-foreground" : "text-faint hover:text-muted")}>
               <CategoryIcon k={c.icon} className="size-4" />{c.label}
               {cur === c.id && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-foreground" />}
@@ -217,7 +221,9 @@ function HabitsTab({ cats, habits, archived, onOpen, onAddHabit, onAddCategory, 
         {cats.length > 0 && <button type="button" onClick={onAddCategory} className="flex shrink-0 items-center gap-1 border-l border-border px-3 text-[13px] font-medium text-faint hover:text-foreground" aria-label="Toifa qo'shish"><Plus className="size-4" /></button>}
       </div>
 
-      {items.length === 0 ? (
+      {!hydrated && items.length === 0 ? (
+        <div className="mt-4"><ListLoader label="Odatlar yuklanmoqda…" /></div>
+      ) : items.length === 0 ? (
         <button type="button" onClick={() => onAddHabit(cur === "all" ? undefined : cur)} className="mt-4 flex w-full flex-col items-center rounded-2xl border border-dashed border-border py-12 text-center transition-colors hover:border-border-strong hover:bg-hover/30">
           <span className="grid size-12 place-items-center rounded-2xl bg-subtle text-foreground"><Plus className="size-6" /></span>
           <span className="mt-3 text-[14.5px] font-medium">Odat qo&apos;shish</span>
@@ -413,7 +419,7 @@ function DayAdd({ date, habits, onAddExisting, onNewHabit }: { date: Date; habit
 
 /* ─── Umumiy kichik komponentlar ─── */
 function CheckButton({ done, sched, onClick }: { done: boolean; sched: boolean; onClick: () => void }) {
-  return <button type="button" onClick={onClick} disabled={!sched} aria-label="Bajarildi" className={cn("grid size-7 shrink-0 place-items-center rounded-full border transition-[border-color,transform] active:scale-90 disabled:opacity-25", done ? "border-foreground bg-foreground text-background" : "border-border-strong text-transparent hover:border-foreground")}><Check className="size-3.5" strokeWidth={2.5} /></button>;
+  return <button type="button" onClick={onClick} disabled={!sched} aria-label="Bajarildi" className={cn("grid size-7 shrink-0 place-items-center rounded-full border transition-[border-color,transform] active:scale-90 disabled:opacity-25", done ? "border-accent bg-accent text-accent-ink" : "border-border-strong text-transparent hover:border-foreground")}><Check className="size-3.5" strokeWidth={2.5} /></button>;
 }
 function BigRing({ pct, caption }: { pct: number; caption: string }) {
   const R = 51, C = 2 * Math.PI * R;
@@ -422,7 +428,7 @@ function BigRing({ pct, caption }: { pct: number; caption: string }) {
       <span className="relative grid size-[138px] place-items-center">
         <svg className="size-[138px] -rotate-90" viewBox="0 0 138 138">
           <circle cx="69" cy="69" r={R} fill="none" stroke="var(--subtle)" strokeWidth="9" />
-          <circle cx="69" cy="69" r={R} fill="none" stroke="var(--foreground)" strokeWidth="9" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} style={{ transition: "stroke-dashoffset 0.5s ease-out" }} />
+          <circle cx="69" cy="69" r={R} fill="none" stroke="var(--accent)" strokeWidth="9" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} style={{ transition: "stroke-dashoffset 0.5s ease-out" }} />
         </svg>
         <span className="absolute text-[30px] font-semibold tabular-nums">{pct}%</span>
       </span>
@@ -435,7 +441,7 @@ function DayCircle({ day, ratio, due, future, isToday }: { day: number; ratio: n
   const showRing = due > 0 && !future && ratio > 0; const R = 11, C = 2 * Math.PI * R;
   return (
     <span className={cn("relative grid size-7 place-items-center rounded-full", isToday && "ring-1 ring-foreground ring-offset-1 ring-offset-surface")}>
-      {showRing && <svg className="absolute inset-0 size-7 -rotate-90" viewBox="0 0 28 28" aria-hidden><circle cx="14" cy="14" r={R} fill="none" stroke="var(--border)" strokeWidth="2.5" /><circle cx="14" cy="14" r={R} fill="none" stroke="var(--foreground)" strokeWidth="2.5" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - ratio)} /></svg>}
+      {showRing && <svg className="absolute inset-0 size-7 -rotate-90" viewBox="0 0 28 28" aria-hidden><circle cx="14" cy="14" r={R} fill="none" stroke="var(--border)" strokeWidth="2.5" /><circle cx="14" cy="14" r={R} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - ratio)} /></svg>}
       <span className={cn("relative z-[1] text-[12px] tabular-nums", showRing ? "font-medium text-foreground" : future ? "text-faint/40" : due > 0 ? "text-muted" : "text-faint/40")}>{day}</span>
     </span>
   );
@@ -469,8 +475,8 @@ function HabitDetailSheet({ cats, plans, habit, onClose, onArchive, onRemove, on
         <div>
           <Lbl>Toifa</Lbl>
           <div className="mt-1.5 flex flex-wrap gap-2">
-            {cats.map((c) => <button key={c.id} type="button" onClick={() => { setCategoryId(c.id); setCatCreating(false); }} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors", categoryId === c.id && !catCreating ? "border-transparent bg-foreground text-background" : "border-border text-muted hover:text-foreground")}><CategoryIcon k={c.icon} className="size-3.5" />{c.label}</button>)}
-            <button type="button" onClick={() => { setCategoryId(null); setCatCreating(false); }} className={cn("inline-flex items-center rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors", categoryId === null && !catCreating ? "border-transparent bg-foreground text-background" : "border-border text-muted hover:text-foreground")}>Toifasiz</button>
+            {cats.map((c) => <button key={c.id} type="button" onClick={() => { setCategoryId(c.id); setCatCreating(false); }} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors", categoryId === c.id && !catCreating ? "border-transparent bg-accent text-accent-ink" : "border-border text-muted hover:text-foreground")}><CategoryIcon k={c.icon} className="size-3.5" />{c.label}</button>)}
+            <button type="button" onClick={() => { setCategoryId(null); setCatCreating(false); }} className={cn("inline-flex items-center rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors", categoryId === null && !catCreating ? "border-transparent bg-accent text-accent-ink" : "border-border text-muted hover:text-foreground")}>Toifasiz</button>
             <button type="button" onClick={() => setCatCreating((v) => !v)} className={cn("inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors", catCreating ? "border-foreground text-foreground" : "border-dashed border-border text-faint hover:text-foreground")}><Plus className="size-3.5" /> Yangi</button>
           </div>
           {catCreating && (
@@ -483,7 +489,7 @@ function HabitDetailSheet({ cats, plans, habit, onClose, onArchive, onRemove, on
         </div>
         <div>
           <div className="mb-2.5 flex items-center justify-between"><Lbl>Qaysi kunlari</Lbl><button type="button" onClick={() => setDays(daily ? [] : [...ALL_DAYS])} className={cn("text-[12px] font-medium transition-colors", daily ? "text-foreground" : "text-faint hover:text-muted")}>Har kuni</button></div>
-          <div className="flex gap-1.5">{WEEK_FROM_MON.map((idx) => { const on = days.includes(idx); return <button key={idx} type="button" onClick={() => setDays((p) => on ? p.filter((x) => x !== idx) : [...p, idx])} className={cn("flex-1 rounded-md border py-2 text-[12px] font-medium transition-colors", on ? "border-foreground bg-foreground text-background" : "border-border text-faint hover:border-border-strong")}>{UZ_DAYS_SHORT[idx]}</button>; })}</div>
+          <div className="flex gap-1.5">{WEEK_FROM_MON.map((idx) => { const on = days.includes(idx); return <button key={idx} type="button" onClick={() => setDays((p) => on ? p.filter((x) => x !== idx) : [...p, idx])} className={cn("flex-1 rounded-md border py-2 text-[12px] font-medium transition-colors", on ? "border-accent bg-accent text-accent-ink" : "border-border text-faint hover:border-border-strong")}>{UZ_DAYS_SHORT[idx]}</button>; })}</div>
         </div>
         <div><Lbl>Eslatma vaqti</Lbl><TimeField value={time} occupiedSlots={occupiedForDays(plans, days, habit.id)} onChange={(t) => setTime(t ?? "")} /></div>
         <div className="flex gap-4 border-t border-border pt-5 text-[13px]"><button type="button" onClick={() => onArchive(habit.id)} className="inline-flex items-center gap-1.5 text-muted hover:text-foreground"><Archive className="size-4" /> Arxivlash</button><button type="button" onClick={() => onRemove(habit.id)} className="inline-flex items-center gap-1.5 text-faint hover:text-danger"><Trash2 className="size-4" /> O&apos;chirish</button></div>
@@ -508,8 +514,8 @@ function AddHabitModal({ cats, plans, initialCategory, initialDays, onClose, onA
         <div>
           <Lbl>Toifa</Lbl>
           <div className="mt-2 flex flex-wrap gap-2">
-            {cats.map((c) => <button key={c.id} type="button" onClick={() => { setCategoryId(c.id); setCreating(false); }} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[15px] font-medium transition-colors", categoryId === c.id && !creating ? "border-transparent bg-foreground text-background" : "border-border text-muted hover:text-foreground")}><CategoryIcon k={c.icon} className="size-3.5" />{c.label}</button>)}
-            <button type="button" onClick={() => { setCategoryId(null); setCreating(false); }} className={cn("inline-flex items-center rounded-full border px-3.5 py-2 text-[15px] font-medium transition-colors", categoryId === null && !creating ? "border-transparent bg-foreground text-background" : "border-border text-muted hover:text-foreground")}>Toifasiz</button>
+            {cats.map((c) => <button key={c.id} type="button" onClick={() => { setCategoryId(c.id); setCreating(false); }} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[15px] font-medium transition-colors", categoryId === c.id && !creating ? "border-transparent bg-accent text-accent-ink" : "border-border text-muted hover:text-foreground")}><CategoryIcon k={c.icon} className="size-3.5" />{c.label}</button>)}
+            <button type="button" onClick={() => { setCategoryId(null); setCreating(false); }} className={cn("inline-flex items-center rounded-full border px-3.5 py-2 text-[15px] font-medium transition-colors", categoryId === null && !creating ? "border-transparent bg-accent text-accent-ink" : "border-border text-muted hover:text-foreground")}>Toifasiz</button>
             <button type="button" onClick={() => setCreating((v) => !v)} className={cn("inline-flex items-center gap-1 rounded-full border px-3.5 py-2 text-[15px] font-medium transition-colors", creating ? "border-foreground text-foreground" : "border-dashed border-border text-faint hover:text-foreground")}><Plus className="size-3.5" /> Yangi</button>
           </div>
           {creating && (
@@ -524,7 +530,7 @@ function AddHabitModal({ cats, plans, initialCategory, initialDays, onClose, onA
 
         {chosen && <>
           <div><Lbl>Nomi</Lbl><input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Masalan: Suv ichish" className="mt-2 w-full border-b border-border bg-transparent pb-2.5 text-[20px] outline-none placeholder:text-faint focus:border-foreground" /></div>
-          <div><div className="mb-3 flex items-center justify-between"><Lbl>Qaysi kunlari</Lbl><button type="button" onClick={() => setDays(daily ? [] : [...ALL_DAYS])} className={cn("text-[14px] font-medium transition-colors", daily ? "text-foreground" : "text-faint hover:text-muted")}>Har kuni</button></div><div className="flex gap-1.5">{WEEK_FROM_MON.map((idx) => { const on = days.includes(idx); return <button key={idx} type="button" onClick={() => setDays((p) => on ? p.filter((x) => x !== idx) : [...p, idx])} className={cn("flex-1 rounded-md border py-2.5 text-[15px] font-medium transition-colors", on ? "border-foreground bg-foreground text-background" : "border-border text-faint hover:border-border-strong")}>{UZ_DAYS_SHORT[idx]}</button>; })}</div></div>
+          <div><div className="mb-3 flex items-center justify-between"><Lbl>Qaysi kunlari</Lbl><button type="button" onClick={() => setDays(daily ? [] : [...ALL_DAYS])} className={cn("text-[14px] font-medium transition-colors", daily ? "text-foreground" : "text-faint hover:text-muted")}>Har kuni</button></div><div className="flex gap-1.5">{WEEK_FROM_MON.map((idx) => { const on = days.includes(idx); return <button key={idx} type="button" onClick={() => setDays((p) => on ? p.filter((x) => x !== idx) : [...p, idx])} className={cn("flex-1 rounded-md border py-2.5 text-[15px] font-medium transition-colors", on ? "border-accent bg-accent text-accent-ink" : "border-border text-faint hover:border-border-strong")}>{UZ_DAYS_SHORT[idx]}</button>; })}</div></div>
           <div><Lbl>Eslatma vaqti (ixtiyoriy)</Lbl><div className="mt-2"><TimeField value={time} occupiedSlots={occupiedForDays(plans, days)} onChange={(t) => setTime(t ?? "")} big /></div></div>
         </>}
       </div>
@@ -570,7 +576,7 @@ function IconPicker({ value, onChange, big }: { value: string; onChange: (k: Ico
   return (
     <div className={cn("grid", big ? "grid-cols-6 gap-2" : "grid-cols-8 gap-1.5")}>
       {ICON_CHOICES.map((k) => (
-        <button key={k} type="button" onClick={() => onChange(k)} className={cn("grid aspect-square place-items-center rounded-lg border transition-colors", value === k ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:text-foreground")}>
+        <button key={k} type="button" onClick={() => onChange(k)} className={cn("grid aspect-square place-items-center rounded-lg border transition-colors", value === k ? "border-accent bg-accent text-accent-ink" : "border-border text-muted hover:text-foreground")}>
           <CategoryIcon k={k} className={big ? "size-[21px]" : "size-4"} />
         </button>
       ))}

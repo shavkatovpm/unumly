@@ -30,7 +30,7 @@ export function ViewSwitcher({
             className={cn(
               "rounded-[5px] px-2 py-1 text-[12px] font-medium tracking-tight transition-colors sm:px-2.5 sm:text-[11.5px]",
               active
-                ? "bg-foreground text-background"
+                ? "bg-accent text-accent-ink"
                 : "text-muted hover:bg-hover hover:text-foreground"
             )}
           >

@@ -673,10 +673,11 @@ Gugurt`}</pre>
           <p>Har biri alohida toggle: kerakli darajalarni yoqib qo&apos;yasiz.</p>
 
           <h3>Mavzu (tema)</h3>
+          <p>Sozlamalar &rarr; <strong>Theme</strong> bo&apos;limida palitra va rejim tanlanadi.</p>
           <ul>
-            <li><strong>Yorug&apos;</strong>: och fon (default)</li>
-            <li><strong>Qorong&apos;i (noir)</strong>: qora fon</li>
-            <li>Tizim sozlamalari avtomatik kuzatiladi (<code>prefers-color-scheme</code>)</li>
+            <li><strong>5 ta palitra</strong>: Mono (default), Ocean, Graphite, Raspberry, Honey</li>
+            <li>Har bir palitra <strong>Yorug&apos;</strong> va <strong>Qorong&apos;i</strong> rejimda ishlaydi</li>
+            <li>Rejim tanlanmagan bo&apos;lsa, tizim sozlamasi kuzatiladi (<code>prefers-color-scheme</code>)</li>
           </ul>
 
           <h3>Shrift</h3>

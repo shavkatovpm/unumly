@@ -610,7 +610,7 @@ export function AgendaView() {
         onClick={() => setMobileSheet(true)}
         aria-label="Yangi reja qo'shish"
         className={cn(
-          "fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-foreground text-background shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 md:hidden",
+          "fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 md:hidden",
           mobileSheet && "pointer-events-none scale-75 opacity-0"
         )}
         style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
@@ -720,7 +720,7 @@ export function AgendaView() {
                     "rounded-md px-4 py-2 text-[13.5px] font-medium transition-opacity",
                     !title.trim()
                       ? "cursor-not-allowed bg-foreground/40 text-background"
-                      : "bg-foreground text-background hover:opacity-90"
+                      : "bg-accent text-accent-ink hover:opacity-90"
                   )}
                 >
                   Qo&apos;shish

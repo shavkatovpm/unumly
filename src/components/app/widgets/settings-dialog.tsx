@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LogOut, RotateCcw, Volume2, VolumeX, X } from "lucide-react";
+import { Check, LogOut, RotateCcw, Volume2, VolumeX, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -30,17 +30,28 @@ import {
   formatLeadOptionLabel,
   type LeadMin,
 } from "@/lib/notify-time";
+import { useTheme, THEME_FAMILIES } from "@/lib/color-store";
 import { Dialog } from "./dialog";
 import { AutoHeight } from "./auto-height";
 
-type TabId = "menyu" | "ovoz" | "eslatma" | "akkaunt";
+type TabId = "menyu" | "theme" | "ovoz" | "eslatma" | "akkaunt";
 
 const TABS: { id: TabId; label: string; mobileOnly?: boolean }[] = [
   { id: "menyu", label: "Menyu", mobileOnly: true },
+  { id: "theme", label: "Mavzu" },
   { id: "ovoz", label: "Ovoz" },
   { id: "eslatma", label: "Eslatmalar" },
   { id: "akkaunt", label: "Akkaunt" },
 ];
+
+/* Oila ko'rsatkichi uchun namuna rang (accent, light) — vizual swatch. */
+const THEME_SWATCH: Record<string, string> = {
+  mono: "oklch(0.16 0 0)",
+  ocean: "oklch(0.52 0.13 245)",
+  graphite: "oklch(0.4 0.03 255)",
+  raspberry: "oklch(0.52 0.19 358)",
+  honey: "oklch(0.66 0.13 88)",
+};
 
 export function SettingsDialog({
   open,
@@ -55,6 +66,7 @@ export function SettingsDialog({
   const [notifs, setNotifs] = useState<NotificationPrefs | null>(null);
   const [primaryIds, setPrimaryIds] = useState<NavItemId[]>(DEFAULT_PRIMARY);
   const [tab, setTab] = useState<TabId>("ovoz");
+  const { family, isDark, setFamily, setMode } = useTheme();
   const router = useRouter();
 
   function togglePrimary(id: NavItemId) {
@@ -159,7 +171,7 @@ export function SettingsDialog({
               "shrink-0 rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors",
               t.mobileOnly && "md:hidden",
               tab === t.id
-                ? "bg-foreground text-background"
+                ? "bg-accent text-accent-ink"
                 : "text-muted hover:bg-hover hover:text-foreground"
             )}
           >
@@ -227,6 +239,60 @@ export function SettingsDialog({
           >
             <RotateCcw className="size-3.5" /> Asl holatga qaytarish
           </button>
+        </section>
+
+        {/* ── Theme ── */}
+        <section className={cn(tab !== "theme" && "hidden")}>
+          <p className="mb-3 text-[11.5px] leading-relaxed text-faint">
+            Rang palitrasi va rejimni tanlang. Har bir palitra yorug&apos; va
+            qorong&apos;i ko&apos;rinishda ishlaydi.
+          </p>
+
+          {/* Rejim: Yorug' / Qorong'i */}
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Rejim</p>
+          <div className="mb-5 flex rounded-lg border border-border p-0.5">
+            {([["light", "Yorug'"], ["dark", "Qorong'i"]] as const).map(([m, lbl]) => {
+              const on = (m === "dark") === isDark;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={cn(
+                    "flex-1 rounded-md py-2 text-[13px] font-medium transition-colors",
+                    on ? "bg-accent text-accent-ink" : "text-muted hover:text-foreground"
+                  )}
+                >
+                  {lbl}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Palitra */}
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Palitra</p>
+          <div className="space-y-2">
+            {THEME_FAMILIES.map((t) => {
+              const selected = family === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setFamily(t.id)}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-md border bg-surface px-3.5 py-2.5 transition-colors",
+                    selected ? "border-foreground/40" : "border-border hover:bg-hover/40"
+                  )}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="size-4 rounded-full ring-1 ring-border" style={{ background: THEME_SWATCH[t.id] }} />
+                    <p className="text-[13.5px] font-medium">{t.name}</p>
+                  </div>
+                  {selected && <Check className="size-4 text-foreground" />}
+                </button>
+              );
+            })}
+          </div>
         </section>
 
         {/* ── Ovoz ── */}
@@ -326,7 +392,7 @@ export function SettingsDialog({
                     className={cn(
                       "rounded-md border px-2 py-2 text-[13px] font-medium transition-colors disabled:opacity-50",
                       active
-                        ? "border-foreground bg-foreground text-background"
+                        ? "border-accent bg-accent text-accent-ink"
                         : "border-border bg-background text-muted hover:border-border-strong hover:text-foreground"
                     )}
                   >

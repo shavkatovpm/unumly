@@ -62,7 +62,7 @@ export function TimePicker({
             currentDisabled
               ? "cursor-not-allowed border-border/40 bg-surface text-faint/50 line-through"
               : value === current
-              ? "border-foreground bg-foreground text-background"
+              ? "border-accent bg-accent text-accent-ink"
               : "border-border bg-surface text-foreground hover:bg-hover"
           )}
           title={currentDisabled ? "O'tib ketgan vaqt" : `Hozirgi vaqt: ${current}`}
@@ -115,7 +115,7 @@ export function TimePicker({
                 "flex w-full items-center justify-between px-3 py-1.5 text-left font-mono text-[12.5px] tabular-nums transition-colors",
                 isPast && "cursor-not-allowed text-faint/45 line-through",
                 isBusy && "cursor-not-allowed bg-subtle/60 text-faint",
-                !disabled && active && "bg-foreground text-background",
+                !disabled && active && "bg-accent text-accent-ink",
                 !disabled && !active && "text-foreground hover:bg-hover"
               )}
               title={

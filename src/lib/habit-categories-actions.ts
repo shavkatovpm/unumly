@@ -26,25 +26,29 @@ async function requireUser() {
 export async function listHabitCategories(): Promise<HabitCategory[]> {
   const user = await requireUser();
 
-  let rows = await prisma.habitCategory.findMany({
+  // Defaultlarni faqat BIR MARTA seed qilamiz (User.habitCategoriesSeeded).
+  // Shu sabab foydalanuvchi defaultlarni o'chirsa, ular qayta paydo bo'lmaydi.
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { habitCategoriesSeeded: true },
+  });
+  if (dbUser && !dbUser.habitCategoriesSeeded) {
+    await prisma.$transaction([
+      prisma.habitCategory.createMany({
+        data: DEFAULTS.map((d, i) => ({ ...d, userId: user.id, order: i })),
+        skipDuplicates: true,
+      }),
+      prisma.user.update({
+        where: { id: user.id },
+        data: { habitCategoriesSeeded: true },
+      }),
+    ]);
+  }
+
+  const rows = await prisma.habitCategory.findMany({
     where: { userId: user.id },
     orderBy: [{ order: "asc" }],
   });
-
-  // Seed defaults only for a truly fresh user (no categories AND no habits),
-  // so deleting the defaults later doesn't bring them back.
-  if (rows.length === 0) {
-    const habitCount = await prisma.habit.count({ where: { userId: user.id } });
-    if (habitCount === 0) {
-      await prisma.habitCategory.createMany({
-        data: DEFAULTS.map((d, i) => ({ ...d, userId: user.id, order: i })),
-      });
-      rows = await prisma.habitCategory.findMany({
-        where: { userId: user.id },
-        orderBy: [{ order: "asc" }],
-      });
-    }
-  }
   return rows.map(toCategory);
 }
 

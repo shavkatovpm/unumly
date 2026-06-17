@@ -85,3 +85,7 @@ export function useHabitCategories() {
   const sorted = useMemo(() => [...categories].sort((a, b) => a.order - b.order), [categories]);
   return { categories: sorted, create: createCategory, update: updateCategory, remove: removeCategory };
 }
+
+export function useHydratedHabitCategories(): boolean {
+  return useSyncExternalStore(subscribe, () => hydrated, () => false);
+}

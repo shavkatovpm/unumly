@@ -2,43 +2,45 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
-const KEY = "unumly:theme:v1";
+/* Theme = oila (rang palitrasi) × rejim (light/dark). Oilalar globals.css'da
+   [data-theme="..."][data-mode="..."] orqali belgilangan. */
 
-export type ThemeId = "mono" | "noir";
+export type ThemeFamily = "mono" | "ocean" | "graphite" | "raspberry" | "honey";
+export type ThemeMode = "light" | "dark";
 
-const DEFAULT: ThemeId = "mono";
+export const THEME_FAMILIES: { id: ThemeFamily; name: string }[] = [
+  { id: "mono", name: "Mono" },
+  { id: "ocean", name: "Ocean" },
+  { id: "graphite", name: "Graphite" },
+  { id: "raspberry", name: "Raspberry" },
+  { id: "honey", name: "Honey" },
+];
+const FAMILY_IDS = THEME_FAMILIES.map((t) => t.id);
 
-let current: ThemeId = DEFAULT;
+const FAMILY_KEY = "unumly:theme:family";
+const MODE_KEY = "unumly:theme:mode";
+const LEGACY_KEY = "unumly:theme:v1"; // eski: "mono" | "noir"
+
+const DEFAULT_FAMILY: ThemeFamily = "mono";
+
+let family: ThemeFamily = DEFAULT_FAMILY;
+let mode: ThemeMode = "light";
+let modeUserSet = false; // foydalanuvchi rejimni qo'lda tanladimi (system'ni kuzatish uchun)
 let hydrated = false;
 let systemListenerAttached = false;
 const listeners = new Set<() => void>();
 
-function emit() {
-  for (const l of listeners) l();
-}
+function emit() { for (const l of listeners) l(); }
 
-function applyToDom(id: ThemeId) {
+function applyToDom() {
   if (typeof document === "undefined") return;
-  if (id === DEFAULT) {
-    delete document.documentElement.dataset.theme;
-  } else {
-    document.documentElement.dataset.theme = id;
-  }
+  document.documentElement.dataset.theme = family;
+  document.documentElement.dataset.mode = mode;
 }
 
-function hasUserOverride(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    return raw === "mono" || raw === "noir";
-  } catch {
-    return false;
-  }
-}
-
-function systemTheme(): ThemeId {
-  if (typeof window === "undefined" || !window.matchMedia) return DEFAULT;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "noir" : "mono";
+function systemMode(): ThemeMode {
+  if (typeof window === "undefined" || !window.matchMedia) return "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 function attachSystemListener() {
@@ -46,79 +48,70 @@ function attachSystemListener() {
   systemListenerAttached = true;
   const mq = window.matchMedia("(prefers-color-scheme: dark)");
   const handler = (e: MediaQueryListEvent) => {
-    // Only follow the system if the user hasn't explicitly chosen
-    if (hasUserOverride()) return;
-    current = e.matches ? "noir" : "mono";
-    applyToDom(current);
+    if (modeUserSet) return; // foydalanuvchi tanlovi system'dan ustun
+    mode = e.matches ? "dark" : "light";
+    applyToDom();
     emit();
   };
-  if (typeof mq.addEventListener === "function") {
-    mq.addEventListener("change", handler);
-  } else if (typeof (mq as MediaQueryList & { addListener?: (cb: (e: MediaQueryListEvent) => void) => void }).addListener === "function") {
-    (mq as MediaQueryList & { addListener: (cb: (e: MediaQueryListEvent) => void) => void }).addListener(handler);
-  }
+  if (typeof mq.addEventListener === "function") mq.addEventListener("change", handler);
 }
 
 function hydrateOnce() {
   if (hydrated || typeof window === "undefined") return;
   hydrated = true;
   try {
-    const raw = window.localStorage.getItem(KEY) as ThemeId | null;
-    if (raw === "mono" || raw === "noir") {
-      current = raw;
+    const f = window.localStorage.getItem(FAMILY_KEY);
+    if (f && (FAMILY_IDS as string[]).includes(f)) family = f as ThemeFamily;
+
+    const m = window.localStorage.getItem(MODE_KEY);
+    if (m === "light" || m === "dark") {
+      mode = m;
+      modeUserSet = true;
     } else {
-      current = systemTheme();
+      // Eski sxemadan migratsiya: "noir" → dark, "mono" → light.
+      const legacy = window.localStorage.getItem(LEGACY_KEY);
+      if (legacy === "noir") { mode = "dark"; modeUserSet = true; }
+      else if (legacy === "mono") { mode = "light"; modeUserSet = true; }
+      else { mode = systemMode(); modeUserSet = false; }
     }
-    applyToDom(current);
+    applyToDom();
     emit();
   } catch {
-    // ignore
+    /* ignore */
   }
   attachSystemListener();
 }
 
-function subscribe(cb: () => void) {
-  listeners.add(cb);
-  return () => {
-    listeners.delete(cb);
-  };
-}
+function subscribe(cb: () => void) { listeners.add(cb); return () => { listeners.delete(cb); }; }
+function getFamilySnapshot(): ThemeFamily { return family; }
+function getModeSnapshot(): ThemeMode { return mode; }
+function getServerFamily(): ThemeFamily { return DEFAULT_FAMILY; }
+function getServerMode(): ThemeMode { return "light"; }
 
-function getSnapshot(): ThemeId {
-  return current;
-}
+export function useTheme() {
+  const f = useSyncExternalStore(subscribe, getFamilySnapshot, getServerFamily);
+  const m = useSyncExternalStore(subscribe, getModeSnapshot, getServerMode);
 
-function getServerSnapshot(): ThemeId {
-  return DEFAULT;
-}
+  useEffect(() => { hydrateOnce(); }, []);
 
-export function useTheme(): {
-  theme: ThemeId;
-  setTheme: (id: ThemeId) => void;
-  toggle: () => void;
-} {
-  const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-
-  useEffect(() => {
-    hydrateOnce();
-  }, []);
-
-  const setTheme = useCallback((next: ThemeId) => {
-    current = next;
-    try {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(KEY, next);
-      }
-    } catch {
-      // ignore
-    }
-    applyToDom(next);
+  const setFamily = useCallback((next: ThemeFamily) => {
+    family = next;
+    try { window.localStorage.setItem(FAMILY_KEY, next); } catch { /* */ }
+    applyToDom();
     emit();
   }, []);
 
-  const toggle = useCallback(() => {
-    setTheme(current === "mono" ? "noir" : "mono");
-  }, [setTheme]);
+  const setMode = useCallback((next: ThemeMode) => {
+    mode = next;
+    modeUserSet = true;
+    try { window.localStorage.setItem(MODE_KEY, next); } catch { /* */ }
+    applyToDom();
+    emit();
+  }, []);
 
-  return { theme, setTheme, toggle };
+  const toggleMode = useCallback(() => {
+    setMode(mode === "dark" ? "light" : "dark");
+  }, [setMode]);
+
+  return { family: f, mode: m, isDark: m === "dark", setFamily, setMode, toggleMode };
 }

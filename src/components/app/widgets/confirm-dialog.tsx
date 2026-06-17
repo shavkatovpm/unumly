@@ -54,7 +54,7 @@ export function ConfirmDialog({
           autoFocus
           className={cn(
             "rounded-md px-3 py-1.5 text-[12px] font-medium transition-opacity hover:opacity-90",
-            destructive ? "bg-danger text-white" : "bg-foreground text-background"
+            destructive ? "bg-danger text-white" : "bg-accent text-accent-ink"
           )}
         >
           {confirmLabel}

@@ -143,3 +143,7 @@ export function useHabits() {
   const archived = useMemo(() => all.filter((h) => h.archivedAt), [all]);
   return { habits, archived, create: createHabit, update: updateHabit, archive: archiveHabit, restore: restoreHabit, remove: removeHabit };
 }
+
+export function useHydratedHabits(): boolean {
+  return useSyncExternalStore(subscribe, () => hydrated, () => false);
+}

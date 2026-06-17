@@ -1,12 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is([data-theme="noir"] *));
+@custom-variant dark (&:is([data-mode="dark"] *));
 
 /* ────────────────────────────────────────────────────────────
    Unumly design tokens
    Default (light) — Mono
-   Dark — Noir (opt in via [data-theme="noir"] on <html>)
+   Dark — [data-mode="dark"] on <html>; rang oilalari [data-theme="..."] bilan
    ──────────────────────────────────────────────────────────── */
 
 /* :root = Mono (light, default) */
@@ -27,7 +27,7 @@
   --accent:          oklch(0.16 0 0);
   --accent-hover:    oklch(0.22 0 0);
   --accent-soft:     oklch(0.93 0 0);
-  --accent-ink:      oklch(0.12 0 0);
+  --accent-ink:      oklch(0.99 0 0);  /* accent ustidagi matn (kontrast) */
 
   --warm:            oklch(0.5 0 0);
   --warm-soft:       oklch(0.93 0 0);
@@ -58,8 +58,9 @@
   --ease-out:        cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Noir — Mono's natural dark sibling */
-[data-theme="noir"] {
+/* Dark base = Mono's natural dark sibling. Applies to ANY family in dark mode;
+   colored families override only the themed tokens below. */
+[data-mode="dark"] {
   color-scheme: dark;
   --background:     oklch(0.16 0 0);
   --surface:        oklch(0.2 0 0);
@@ -76,7 +77,7 @@
   --accent:         oklch(0.95 0 0);
   --accent-hover:   oklch(0.88 0 0);
   --accent-soft:    oklch(0.28 0 0);
-  --accent-ink:     oklch(0.97 0 0);
+  --accent-ink:     oklch(0.16 0 0);  /* accent ustidagi matn (kontrast) */
 
   --warm:           oklch(0.7 0 0);
   --warm-soft:      oklch(0.28 0 0);
@@ -102,6 +103,77 @@
   --shadow-sm:      0 1px 0 0 oklch(0.28 0 0);
   --shadow-md:      0 1px 2px 0 oklch(0 0 0 / 0.4), 0 0 0 1px oklch(0.28 0 0);
   --shadow-lg:      0 10px 30px -10px oklch(0 0 0 / 0.5), 0 0 0 1px oklch(0.28 0 0);
+}
+
+/* ────────────────────────────────────────────────────────────
+   Rangli theme oilalari (Ocean / Graphite / Raspberry / Honey).
+   Faqat "themed" tokenlarni qayta belgilaydi; danger/warning/priority/
+   shadow kabilar :root (light) yoki [data-mode="dark"] dan meros oladi.
+   Selektor solishtirma og'irligi 0,2,0 — :root va [data-mode=dark] ustidan.
+   ──────────────────────────────────────────────────────────── */
+
+/* Ocean */
+[data-theme="ocean"][data-mode="light"] {
+  color-scheme: light;
+  --background: oklch(0.985 0.006 235); --surface: oklch(0.998 0.004 235); --surface-raised: oklch(0.998 0.004 235);
+  --subtle: oklch(0.96 0.01 235); --hover: oklch(0.945 0.013 235); --border: oklch(0.9 0.015 235); --border-strong: oklch(0.82 0.02 235);
+  --foreground: oklch(0.22 0.025 250); --muted: oklch(0.46 0.03 245); --faint: oklch(0.65 0.025 240);
+  --accent: oklch(0.52 0.13 245); --accent-hover: oklch(0.47 0.13 245); --accent-soft: oklch(0.93 0.03 240); --accent-ink: oklch(0.99 0.005 235);
+}
+[data-theme="ocean"][data-mode="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.17 0.015 250); --surface: oklch(0.21 0.015 250); --surface-raised: oklch(0.24 0.015 250);
+  --subtle: oklch(0.23 0.015 250); --hover: oklch(0.26 0.015 250); --border: oklch(0.3 0.015 250); --border-strong: oklch(0.38 0.018 250);
+  --foreground: oklch(0.94 0.01 235); --muted: oklch(0.69 0.02 240); --faint: oklch(0.52 0.02 245);
+  --accent: oklch(0.7 0.14 245); --accent-hover: oklch(0.76 0.14 245); --accent-soft: oklch(0.28 0.05 250); --accent-ink: oklch(0.15 0.02 250);
+}
+
+/* Graphite */
+[data-theme="graphite"][data-mode="light"] {
+  color-scheme: light;
+  --background: oklch(0.98 0.003 255); --surface: oklch(0.995 0.002 255); --surface-raised: oklch(0.995 0.002 255);
+  --subtle: oklch(0.955 0.004 255); --hover: oklch(0.94 0.005 255); --border: oklch(0.9 0.006 255); --border-strong: oklch(0.82 0.008 255);
+  --foreground: oklch(0.2 0.01 255); --muted: oklch(0.45 0.012 255); --faint: oklch(0.65 0.008 255);
+  --accent: oklch(0.32 0.03 255); --accent-hover: oklch(0.27 0.03 255); --accent-soft: oklch(0.92 0.008 255); --accent-ink: oklch(0.98 0.003 255);
+}
+[data-theme="graphite"][data-mode="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.16 0.006 255); --surface: oklch(0.2 0.006 255); --surface-raised: oklch(0.23 0.006 255);
+  --subtle: oklch(0.22 0.006 255); --hover: oklch(0.25 0.006 255); --border: oklch(0.29 0.007 255); --border-strong: oklch(0.37 0.008 255);
+  --foreground: oklch(0.96 0.005 255); --muted: oklch(0.68 0.01 255); --faint: oklch(0.5 0.01 255);
+  --accent: oklch(0.8 0.04 255); --accent-hover: oklch(0.86 0.04 255); --accent-soft: oklch(0.27 0.02 255); --accent-ink: oklch(0.16 0.01 255);
+}
+
+/* Raspberry */
+[data-theme="raspberry"][data-mode="light"] {
+  color-scheme: light;
+  --background: oklch(0.985 0.007 358); --surface: oklch(0.998 0.005 358); --surface-raised: oklch(0.998 0.005 358);
+  --subtle: oklch(0.96 0.012 358); --hover: oklch(0.945 0.015 358); --border: oklch(0.9 0.016 358); --border-strong: oklch(0.82 0.02 355);
+  --foreground: oklch(0.24 0.03 358); --muted: oklch(0.47 0.035 358); --faint: oklch(0.66 0.025 358);
+  --accent: oklch(0.52 0.19 358); --accent-hover: oklch(0.47 0.19 358); --accent-soft: oklch(0.94 0.04 358); --accent-ink: oklch(0.99 0.008 358);
+}
+[data-theme="raspberry"][data-mode="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.18 0.014 358); --surface: oklch(0.22 0.014 358); --surface-raised: oklch(0.25 0.014 358);
+  --subtle: oklch(0.24 0.014 358); --hover: oklch(0.27 0.014 358); --border: oklch(0.31 0.015 358); --border-strong: oklch(0.39 0.018 355);
+  --foreground: oklch(0.94 0.012 358); --muted: oklch(0.7 0.022 358); --faint: oklch(0.53 0.02 358);
+  --accent: oklch(0.68 0.19 358); --accent-hover: oklch(0.74 0.19 358); --accent-soft: oklch(0.3 0.07 358); --accent-ink: oklch(0.16 0.02 358);
+}
+
+/* Honey */
+[data-theme="honey"][data-mode="light"] {
+  color-scheme: light;
+  --background: oklch(0.985 0.009 90); --surface: oklch(0.998 0.006 90); --surface-raised: oklch(0.998 0.006 90);
+  --subtle: oklch(0.96 0.014 90); --hover: oklch(0.945 0.016 88); --border: oklch(0.9 0.018 88); --border-strong: oklch(0.82 0.022 85);
+  --foreground: oklch(0.25 0.025 80); --muted: oklch(0.48 0.028 82); --faint: oklch(0.66 0.022 88);
+  --accent: oklch(0.66 0.13 88); --accent-hover: oklch(0.61 0.13 88); --accent-soft: oklch(0.95 0.045 88); --accent-ink: oklch(0.24 0.05 80);
+}
+[data-theme="honey"][data-mode="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.18 0.013 82); --surface: oklch(0.22 0.013 82); --surface-raised: oklch(0.25 0.013 82);
+  --subtle: oklch(0.24 0.013 82); --hover: oklch(0.27 0.013 82); --border: oklch(0.31 0.015 82); --border-strong: oklch(0.39 0.017 82);
+  --foreground: oklch(0.94 0.012 90); --muted: oklch(0.7 0.022 86); --faint: oklch(0.53 0.02 86);
+  --accent: oklch(0.8 0.13 88); --accent-hover: oklch(0.86 0.13 88); --accent-soft: oklch(0.3 0.06 86); --accent-ink: oklch(0.18 0.03 82);
 }
 
 @theme inline {
@@ -380,7 +452,7 @@
   }
 }
 
-/* Input caret — matches current theme foreground (qora light, oq noir) */
+/* Input caret — matches current theme foreground (qora light, oq qorong'i) */
 input,
 textarea,
 [contenteditable] {

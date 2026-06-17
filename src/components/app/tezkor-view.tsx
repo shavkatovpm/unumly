@@ -128,7 +128,7 @@ export function TezkorView() {
         onClick={() => setShowCreate(true)}
         aria-label="Yangi ro'yhat"
         className={cn(
-          "fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-foreground text-background shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 md:hidden",
+          "fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 md:hidden",
           (showCreate || !!openList) && "pointer-events-none scale-75 opacity-0"
         )}
         style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
@@ -340,7 +340,7 @@ function CreateListModal({
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-opacity",
                       body.trim()
-                        ? "bg-foreground text-background hover:opacity-90"
+                        ? "bg-accent text-accent-ink hover:opacity-90"
                         : "cursor-not-allowed bg-foreground/40 text-background"
                     )}
                   >

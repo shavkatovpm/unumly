@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDown,
   ArrowUp,
@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { useIdeas } from "@/lib/ideas-store";
-import { useCategories } from "@/lib/categories-store";
+import { useCategories, useHydratedCategories } from "@/lib/categories-store";
 import { useDragReorder } from "@/lib/use-drag-reorder";
 import { CATEGORY_COLOR_KEYS, CATEGORY_PALETTE } from "@/lib/category-palette";
 import type { Category, CategoryColor, Idea } from "@/lib/types";
@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { Dialog } from "./widgets/dialog";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { IdeaDetail } from "./widgets/idea-detail";
+import { ListLoader } from "./widgets/list-loader";
 
 const DONE_DELAY_MS = 700;
 const VIEW_KEY = "unumly:reja:view";
@@ -51,6 +52,7 @@ export function RejaView() {
     update: updateCategory,
     remove: removeCategory,
   } = useCategories();
+  const catsHydrated = useHydratedCategories();
 
   const { askRemove, confirmEl } = useConfirmRemove(ideas, remove, {
     itemLabel: "G'oyani",
@@ -126,7 +128,9 @@ export function RejaView() {
         )}
       </header>
 
-      {categories.length === 0 ? (
+      {!catsHydrated && categories.length === 0 ? (
+        <ListLoader label="Yuklanmoqda…" />
+      ) : categories.length === 0 ? (
         <EmptyState onCreate={() => setDialogState({ mode: "create" })} />
       ) : view === "tab" ? (
         <TabView
@@ -238,7 +242,7 @@ function ViewSwitcher({
         aria-label="Tab ko'rinishi"
         className={cn(
           "flex items-center gap-1 rounded px-2 py-0.5 text-[11px] transition-colors",
-          value === "tab" ? "bg-foreground text-background" : "text-muted hover:text-foreground"
+          value === "tab" ? "bg-accent text-accent-ink" : "text-muted hover:text-foreground"
         )}
       >
         <Layers className="size-3" /> Tab
@@ -248,7 +252,7 @@ function ViewSwitcher({
         aria-label="Kanban ko'rinishi"
         className={cn(
           "flex items-center gap-1 rounded px-2 py-0.5 text-[11px] transition-colors",
-          value === "kanban" ? "bg-foreground text-background" : "text-muted hover:text-foreground"
+          value === "kanban" ? "bg-accent text-accent-ink" : "text-muted hover:text-foreground"
         )}
       >
         <LayoutGrid className="size-3" /> Kanban
@@ -323,14 +327,43 @@ function sortIdeas(arr: Idea[], order: SortOrder): Idea[] {
   });
 }
 
+/* Swipe (chap/o'ng) bilan toifalar orasida o'tish animatsiyasi. */
+const SWIPE_VARIANTS = {
+  enter: (dir: number) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
+  center: { x: "0%", opacity: 1 },
+  exit: (dir: number) => ({ x: dir > 0 ? "-100%" : "100%", opacity: 0 }),
+};
+const SWIPE_THRESHOLD = 56;
+
 function TabView(props: ViewProps) {
   const [tab, setTab] = useState(props.categories[0].id);
+  const [dir, setDir] = useState(0);
   // Ensure tab is valid if categories change
   useEffect(() => {
     if (!props.categories.find((c) => c.id === tab)) {
       setTab(props.categories[0]?.id ?? "");
     }
   }, [props.categories, tab]);
+
+  const idx = props.categories.findIndex((c) => c.id === tab);
+
+  // Toifa tanlash — yo'nalishni (chap/o'ng) aniqlab animatsiya beradi.
+  function selectTab(id: string) {
+    const ni = props.categories.findIndex((c) => c.id === id);
+    if (ni === idx) return;
+    setDir(ni > idx ? 1 : -1);
+    setTab(id);
+    setAdding(false);
+    setV("");
+  }
+  function goRel(delta: number) {
+    const ni = idx + delta;
+    if (ni < 0 || ni >= props.categories.length) return;
+    setDir(delta);
+    setTab(props.categories[ni].id);
+    setAdding(false);
+    setV("");
+  }
 
   const active = props.categories.find((c) => c.id === tab) ?? props.categories[0];
   const items = props.ideas.filter((i) => i.categoryId === tab);
@@ -344,11 +377,63 @@ function TabView(props: ViewProps) {
 
   const [doneOpen, setDoneOpen] = useState(false);
 
+  // Sensorli (touch) qurilmada — drag bilan swipe; desktopda esa wheel (pastda).
+  // Desktopda mouse-drag panelni tortib yuborib chalkashtirardi, shuning uchun o'chiramiz.
+  const [touchSwipe, setTouchSwipe] = useState(false);
+  useEffect(() => {
+    setTouchSwipe(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+
+  // Desktop: gorizontal scroll (trackpad / shift+wheel) bilan toifa almashtirish.
+  // (drag="x" — sensorli ekranda swipe; wheel — desktop uchun.)
+  // Eng so'nggi holatni navRef orqali o'qiymiz, listener esa bir marta ulanadi.
+  const scrollWrapRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<{ idx: number; ids: string[] }>({ idx: 0, ids: [] });
+  const catIds = props.categories.map((c) => c.id).join(",");
+  useEffect(() => {
+    navRef.current = { idx, ids: catIds ? catIds.split(",") : [] };
+  }, [idx, catIds]);
+  useEffect(() => {
+    const el = scrollWrapRef.current;
+    if (!el) return;
+    let lock = false;
+    let accum = 0;
+    let resetTimer: number | null = null;
+    let lockTimer: number | null = null;
+    function onWheel(e: WheelEvent) {
+      // Faqat gorizontal niyat — vertikal scrollga tegmaymiz.
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault(); // brauzer "orqaga/oldinga" gesturasini to'xtatadi
+      if (lock) return;
+      accum += e.deltaX;
+      if (resetTimer) window.clearTimeout(resetTimer);
+      resetTimer = window.setTimeout(() => { accum = 0; }, 200);
+      if (Math.abs(accum) < 60) return;
+      const delta = accum > 0 ? 1 : -1;
+      accum = 0;
+      const { idx: cur, ids } = navRef.current;
+      const ni = cur + delta;
+      if (ni < 0 || ni >= ids.length) return;
+      setDir(delta);
+      setTab(ids[ni]);
+      setAdding(false);
+      setV("");
+      lock = true;
+      lockTimer = window.setTimeout(() => { lock = false; }, 450);
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      if (resetTimer) window.clearTimeout(resetTimer);
+      if (lockTimer) window.clearTimeout(lockTimer);
+    };
+  }, []);
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <MaterialTabBar
         tab={tab}
-        setTab={setTab}
+        setTab={selectTab}
         categories={props.categories}
         ideas={props.ideas}
         onCategoryNew={props.onCategoryNew}
@@ -357,7 +442,27 @@ function TabView(props: ViewProps) {
         onCategoryReorder={props.onCategoryReorder}
       />
 
-      <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto pb-24 md:pb-0">
+      <div ref={scrollWrapRef} className="relative flex-1 overflow-hidden">
+      <AnimatePresence initial={false} custom={dir}>
+      <motion.div
+        key={tab}
+        custom={dir}
+        variants={SWIPE_VARIANTS}
+        initial="enter"
+        animate="center"
+        exit="exit"
+        transition={{ x: { type: "spring", stiffness: 460, damping: 42 }, opacity: { duration: 0.18 } }}
+        drag={touchSwipe ? "x" : false}
+        dragDirectionLock
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.16}
+        onDragEnd={(_, info) => {
+          if (info.offset.x < -SWIPE_THRESHOLD || info.velocity.x < -500) goRel(1);
+          else if (info.offset.x > SWIPE_THRESHOLD || info.velocity.x > 500) goRel(-1);
+        }}
+        className="absolute inset-0 overflow-y-auto overscroll-x-contain pb-24 md:pb-0"
+      >
+      <div className="mx-auto w-full max-w-3xl">
         {/* + Yangi reja qo'shish — tepada, lekin tab bardan biroz ajralib turadi */}
         <div className="mt-3 border-y border-border/40">
           {adding ? (
@@ -460,6 +565,9 @@ function TabView(props: ViewProps) {
             </div>
           </section>
         )}
+      </div>
+      </motion.div>
+      </AnimatePresence>
       </div>
     </div>
   );
@@ -1209,7 +1317,7 @@ function CategoryDialog({
             className={cn(
               "rounded-md px-3 py-1.5 text-[12px] font-medium transition-opacity",
               label.trim()
-                ? "bg-foreground text-background hover:opacity-90"
+                ? "bg-accent text-accent-ink hover:opacity-90"
                 : "cursor-not-allowed bg-foreground/40 text-background"
             )}
           >

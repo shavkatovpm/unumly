@@ -421,7 +421,7 @@ export function TaskDetail({
                         conflict
                           ? "cursor-not-allowed border-border/40 text-faint/50 line-through"
                           : duration === d
-                          ? "border-foreground bg-foreground text-background"
+                          ? "border-accent bg-accent text-accent-ink"
                           : "border-border text-muted hover:bg-hover hover:text-foreground"
                       )}
                     >
@@ -493,7 +493,7 @@ export function TaskDetail({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md px-3 py-1.5 text-[12px] font-medium text-background bg-foreground transition-opacity hover:opacity-90"
+                className="rounded-md px-3 py-1.5 text-[12px] font-medium text-accent-ink bg-accent transition-opacity hover:opacity-90"
               >
                 Yopish
               </button>
@@ -520,7 +520,7 @@ export function TaskDetail({
                     "rounded-md px-3 py-1.5 text-[12px] font-medium transition-opacity",
                     blockSave
                       ? "cursor-not-allowed bg-foreground/40 text-background"
-                      : "bg-foreground text-background hover:opacity-90"
+                      : "bg-accent text-accent-ink hover:opacity-90"
                   )}
                 >
                   Saqlash

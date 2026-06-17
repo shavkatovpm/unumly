@@ -15,15 +15,12 @@ import {
   Inbox,
   ListChecks,
   Moon,
-  Plus,
   Repeat,
-  Search,
   Settings,
   Sparkles,
   Sun,
   Target,
   Trash2,
-  X,
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,29 +29,7 @@ import { SettingsDialog } from "./widgets/settings-dialog";
 
 type IconCmp = ComponentType<{ className?: string; strokeWidth?: number }>;
 
-type CustomItem = { id: string; label: string };
-
-const STORAGE_CUSTOM = "unumly:sidebar:custom";
 const STORAGE_ARXIV_OPEN = "unumly:sidebar:arxiv";
-
-function readJSON<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const v = localStorage.getItem(key);
-    return v ? (JSON.parse(v) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJSON(key: string, value: unknown) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* ignore */
-  }
-}
 
 export function Sidebar({
   todayCount,
@@ -68,37 +43,7 @@ export function Sidebar({
   onCloseRequested?: () => void;
 }) {
   const pathname = usePathname();
-  const { theme, toggle } = useTheme();
-  const isDark = theme === "noir";
-
-  const [custom, setCustom] = useState<CustomItem[]>([]);
-  useEffect(() => {
-    setCustom(readJSON<CustomItem[]>(STORAGE_CUSTOM, []));
-  }, []);
-
-  function addCustom(label: string) {
-    const item: CustomItem = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      label: label.trim(),
-    };
-    setCustom((prev) => {
-      const next = [...prev, item];
-      writeJSON(STORAGE_CUSTOM, next);
-      return next;
-    });
-  }
-
-  function removeCustom(id: string) {
-    setCustom((prev) => {
-      const next = prev.filter((c) => c.id !== id);
-      writeJSON(STORAGE_CUSTOM, next);
-      return next;
-    });
-  }
-
-  // Add-custom inline input
-  const [addingCustom, setAddingCustom] = useState(false);
-  const [newLabel, setNewLabel] = useState("");
+  const { isDark, toggleMode } = useTheme();
 
   // Settings dialog
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -197,20 +142,6 @@ export function Sidebar({
           </p>
         </div>
 
-      {/* Search */}
-      <div className="px-3 pb-3">
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-md border border-transparent bg-surface/60 px-2.5 py-1.5 text-left text-[12.5px] text-faint transition-colors hover:border-border hover:bg-surface"
-        >
-          <Search className="size-3.5" />
-          <span className="flex-1">Qidirish</span>
-          <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-[10px] text-faint">
-            ⌘K
-          </kbd>
-        </button>
-      </div>
-
       <div className="flex-1 overflow-y-auto">
         {/* ── Asosiy ──────────────────────────── */}
         <Section label="Asosiy">
@@ -292,102 +223,9 @@ export function Sidebar({
           />
         </CollapsibleSection>
 
-        {/* ── Maxsus ──────────────────────────── */}
-        <Section
-          label="Maxsus"
-          action={
-            <button
-              type="button"
-              onClick={() => {
-                setAddingCustom(true);
-                setNewLabel("");
-              }}
-              aria-label="Yangi qo'shish"
-              className="grid size-5 place-items-center rounded text-faint opacity-0 transition-colors hover:bg-hover hover:text-foreground group-hover/section:opacity-100"
-            >
-              <Plus className="size-3" />
-            </button>
-          }
-        >
-          {custom.length === 0 && !addingCustom && (
-            <button
-              type="button"
-              onClick={() => {
-                setAddingCustom(true);
-                setNewLabel("");
-              }}
-              className="flex w-full items-center gap-2 rounded-md border border-dashed border-border px-2 py-1.5 text-[12px] text-faint transition-colors hover:border-border-strong hover:text-muted"
-            >
-              <Plus className="size-3.5" />
-              Loyiha qo&apos;shish
-            </button>
-          )}
-
-          {custom.map((c) => (
-            <div
-              key={c.id}
-              className="group/item flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted transition-colors hover:bg-hover"
-            >
-              <Sparkles className="size-3.5 shrink-0 text-faint" />
-              <span className="flex-1 truncate">{c.label}</span>
-              <button
-                type="button"
-                onClick={() => removeCustom(c.id)}
-                aria-label="O'chirish"
-                className="grid size-5 shrink-0 place-items-center rounded text-faint opacity-0 transition-colors hover:bg-danger-soft hover:text-danger group-hover/item:opacity-100"
-              >
-                <Trash2 className="size-3" />
-              </button>
-            </div>
-          ))}
-
-          {addingCustom && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (newLabel.trim()) {
-                  addCustom(newLabel);
-                  setNewLabel("");
-                  setAddingCustom(false);
-                }
-              }}
-              className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1.5"
-            >
-              <Sparkles className="size-3.5 shrink-0 text-faint" />
-              <input
-                autoFocus
-                value={newLabel}
-                onChange={(e) => setNewLabel(e.target.value)}
-                onBlur={() => {
-                  if (newLabel.trim()) {
-                    addCustom(newLabel);
-                  }
-                  setNewLabel("");
-                  setAddingCustom(false);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    setNewLabel("");
-                    setAddingCustom(false);
-                  }
-                }}
-                placeholder="Loyiha nomi..."
-                className="flex-1 bg-transparent text-[12.5px] placeholder:text-faint focus:outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setNewLabel("");
-                  setAddingCustom(false);
-                }}
-                aria-label="Bekor"
-                className="grid size-5 place-items-center rounded text-faint hover:text-foreground"
-              >
-                <X className="size-3" />
-              </button>
-            </form>
-          )}
+        {/* ── Maxsus (to'liq workspace — hozircha tez orada) ── */}
+        <Section label="Maxsus">
+          <SidebarItem label="Loyiha" icon={Sparkles} badge="tez orada" disabled />
         </Section>
       </div>
 
@@ -398,12 +236,12 @@ export function Sidebar({
             U
           </div>
           <div className="flex-1 leading-tight">
-            <p className="text-[12px] font-medium text-foreground">Sizning ish stolingiz</p>
+            <p className="text-[12px] font-medium text-foreground">Ish stoli</p>
             <p className="text-[10px] text-faint">Lokal rejim</p>
           </div>
           <button
             type="button"
-            onClick={toggle}
+            onClick={toggleMode}
             aria-label={isDark ? "Yorug' rejim" : "Qorong'u rejim"}
             title={isDark ? "Yorug' rejim" : "Qorong'u rejim"}
             className="grid size-7 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-foreground"
@@ -536,6 +374,39 @@ function SidebarLink({
         </span>
       )}
     </Link>
+  );
+}
+
+/* Qulflangan element (hozircha tez orada bo'lgan bo'limlar uchun). */
+function SidebarItem({
+  label,
+  icon: Icon,
+  badge,
+  disabled,
+}: {
+  label: string;
+  icon: IconCmp;
+  badge?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      title={disabled ? "Tez orada" : undefined}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors",
+        disabled ? "cursor-not-allowed text-faint/70" : "text-muted hover:bg-hover hover:text-foreground"
+      )}
+    >
+      <Icon className="size-3.5 shrink-0 text-faint/70" strokeWidth={2} />
+      <span className="flex-1">{label}</span>
+      {badge && (
+        <span className="rounded bg-subtle px-1.5 font-mono text-[9.5px] uppercase tracking-wider text-faint">
+          {badge}
+        </span>
+      )}
+    </button>
   );
 }
 

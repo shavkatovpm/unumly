@@ -10,11 +10,11 @@
 import { useMemo, useRef, useState } from "react";
 import {
   Archive, ArchiveRestore, ArrowLeft, BookOpen, Brain, Briefcase, Calendar as CalendarIcon, Check, ChevronRight, Clock,
-  Code, DollarSign, Dumbbell, Flag, GraduationCap, GripVertical, Heart, Home, Languages, Leaf, MapPin,
-  Mountain, Music, Palette, Pencil, Plus, Rocket, Sparkles, Star, Target, Trash2, Trophy, X,
+  Code, Compass, DollarSign, Dumbbell, Flag, Flame, GraduationCap, GripVertical, Heart, Home, Languages, Leaf, Lightbulb, MapPin,
+  Mountain, Orbit, Palette, Pencil, Plane, Plus, Rocket, Sparkles, Star, Target, Trash2, Trophy, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useGoals, useGoalById, goalProgress } from "@/lib/goals-store";
+import { useGoals, useGoalById, useHydratedGoals, goalProgress } from "@/lib/goals-store";
 import { usePlans } from "@/lib/plans-store";
 import { usePointerReorder } from "@/lib/use-pointer-reorder";
 import { occupiedTimeSlots } from "@/lib/dates";
@@ -24,13 +24,15 @@ import { Dialog } from "./widgets/dialog";
 import { ConfirmDialog } from "./widgets/confirm-dialog";
 import { TimePickerPopover } from "./widgets/time-picker-popover";
 import { DatePickerPopover } from "./widgets/date-picker-popover";
+import { ListLoader } from "./widgets/list-loader";
 
 /* ─── Ikonalar ─── */
 const ICONS = {
   target: Target, rocket: Rocket, flag: Flag, trophy: Trophy, mountain: Mountain, star: Star,
   sparkles: Sparkles, brain: Brain, dumbbell: Dumbbell, book: BookOpen, briefcase: Briefcase,
   dollar: DollarSign, grad: GraduationCap, heart: Heart, code: Code, languages: Languages,
-  palette: Palette, music: Music, home: Home, leaf: Leaf,
+  palette: Palette, saturn: Orbit, home: Home, leaf: Leaf,
+  flame: Flame, bulb: Lightbulb, compass: Compass, plane: Plane,
 } as const;
 type IconKey = keyof typeof ICONS;
 const ICON_CHOICES = Object.keys(ICONS) as IconKey[];
@@ -77,7 +79,7 @@ function Ring({ pct, size = 48, stroke = 4, label, labelClassName }: { pct: numb
     <div className="relative inline-grid shrink-0 place-items-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={stroke} />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--foreground)" strokeWidth={stroke} strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" style={{ transition: "stroke-dashoffset 500ms cubic-bezier(0.16,1,0.3,1)" }} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--accent)" strokeWidth={stroke} strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" style={{ transition: "stroke-dashoffset 500ms cubic-bezier(0.16,1,0.3,1)" }} />
       </svg>
       {label && <span className={cn("absolute font-mono font-semibold tabular-nums", labelClassName ?? "text-[12px]")}>{pct}%</span>}
     </div>
@@ -90,6 +92,7 @@ type Tab = "active" | "done" | "archive";
 
 export function MaqsadView() {
   const g = useGoals();
+  const hydrated = useHydratedGoals();
   const [tab, setTab] = useState<Tab>("active");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -123,7 +126,9 @@ export function MaqsadView() {
       </header>
 
       <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-5 md:px-6 md:pb-12">
-        {list.length === 0 ? (
+        {!hydrated && list.length === 0 ? (
+          <ListLoader label="Maqsadlar yuklanmoqda…" />
+        ) : list.length === 0 ? (
           <EmptyState tab={tab} onAdd={() => setShowAdd(true)} />
         ) : (
           <div className="space-y-2.5">
@@ -227,7 +232,7 @@ function GoalDetail({ goal, onBack, onEdit, api }: { goal: Goal; onBack: () => v
 
           {/* Start */}
           <div className="relative mb-6">
-            <span className="absolute -left-10 top-0 grid size-[30px] place-items-center rounded-full border-2 border-foreground bg-foreground text-background"><MapPin className="size-4" /></span>
+            <span className="absolute -left-10 top-0 grid size-[30px] place-items-center rounded-full border-2 border-accent bg-accent text-accent-ink"><MapPin className="size-4" /></span>
             <p className="pt-1 text-[12px] font-medium uppercase tracking-[0.14em] text-faint">Boshlanish</p>
           </div>
 
@@ -254,11 +259,11 @@ function GoalDetail({ goal, onBack, onEdit, api }: { goal: Goal; onBack: () => v
 
           {/* Finish — maqsad */}
           <div className="relative">
-            <span className={cn("absolute -left-10 top-0 grid size-[30px] place-items-center rounded-full text-background", allDone ? "bg-foreground" : "bg-foreground/85")}><Flag className="size-4" /></span>
+            <span className={cn("absolute -left-10 top-0 grid size-[30px] place-items-center rounded-full text-accent-ink", allDone ? "bg-accent" : "bg-accent/85")}><Flag className="size-4" /></span>
             <div className="rounded-xl border-2 border-foreground bg-foreground/[0.04] p-4">
               <p className="text-[13.5px] font-semibold tracking-[-0.01em]">🏁 {goal.title}</p>
               <p className="mt-0.5 text-[11.5px] text-faint">{goal.deadline ? `${dl?.label} · ` : ""}{pct}% bosib o&apos;tildi</p>
-              <button type="button" onClick={() => api.updateGoal(goal.id, { status: goal.status === "DONE" ? "ACTIVE" : "DONE" })} className={cn("mt-3 w-full rounded-lg border py-2.5 text-[12.5px] font-medium transition-colors", goal.status === "DONE" ? "border-border text-muted hover:text-foreground" : allDone ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:border-border-strong hover:text-foreground")}>
+              <button type="button" onClick={() => api.updateGoal(goal.id, { status: goal.status === "DONE" ? "ACTIVE" : "DONE" })} className={cn("mt-3 w-full rounded-lg border py-2.5 text-[12.5px] font-medium transition-colors", goal.status === "DONE" ? "border-border text-muted hover:text-foreground" : allDone ? "border-accent bg-accent text-accent-ink" : "border-border text-muted hover:border-border-strong hover:text-foreground")}>
                 {goal.status === "DONE" ? "Faolga qaytarish" : allDone ? "🎉 Maqsadni yakunlash" : "Maqsadni yakunlash"}
               </button>
             </div>
@@ -292,7 +297,7 @@ function SubGoalBlock({ index, sub, api, drag, onSchedule, onAskDelSub, onAskDel
   return (
     <div data-reorder-id={sub.id} className={cn("relative mb-6 transition-[opacity,box-shadow] duration-150", drag.draggingId === sub.id && "opacity-40", drag.overId === sub.id && drag.draggingId !== sub.id && "shadow-[inset_0_3px_0_var(--foreground)]")}>
       {/* Bekat tuguni — yo'l chizig'i ustida; sudrash uchun ham ushlagich */}
-      <span onPointerDown={(e) => drag.start(e, sub.id)} className={cn("absolute -left-10 top-0 grid size-[30px] cursor-grab touch-none select-none place-items-center rounded-full border-2 border-foreground font-mono text-[12px] font-semibold transition-colors active:cursor-grabbing", complete ? "bg-foreground text-background" : "bg-background text-foreground")}>
+      <span onPointerDown={(e) => drag.start(e, sub.id)} className={cn("absolute -left-10 top-0 grid size-[30px] cursor-grab touch-none select-none place-items-center rounded-full border-2 border-foreground font-mono text-[12px] font-semibold transition-colors active:cursor-grabbing", complete ? "bg-accent text-accent-ink" : "bg-background text-foreground")}>
         {complete ? <Check className="size-4" strokeWidth={3.5} /> : index + 1}
       </span>
       <section className="overflow-hidden rounded-xl border border-border bg-surface">
@@ -366,7 +371,7 @@ function GoalModal({ goal, onClose, onSave }: { goal?: Goal; onClose: () => void
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-6">
         <div><Lbl>Nomi</Lbl><input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Masalan: Ingliz tilini B2 ga yetkazish" className="mt-1.5 w-full border-b border-border bg-transparent pb-2 text-[16px] outline-none placeholder:text-faint focus:border-foreground" /></div>
         <div><Lbl>Muddat (ixtiyoriy)</Lbl><div className="mt-1.5"><DateField valueIso={deadline} plans={[]} onChange={setDeadline} onClear={() => setDeadline("")} placeholder="Muddat belgilanmagan" /></div></div>
-        <div><Lbl>Ikona</Lbl><div className="mt-1.5 grid grid-cols-8 gap-1.5">{ICON_CHOICES.map((k) => (<button key={k} type="button" onClick={() => setIcon(k)} className={cn("grid aspect-square place-items-center rounded-lg border transition-colors", icon === k ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:text-foreground")}><GoalIcon k={k} className="size-4" /></button>))}</div></div>
+        <div><Lbl>Ikona</Lbl><div className="mt-1.5 grid grid-cols-8 gap-1.5">{ICON_CHOICES.map((k) => (<button key={k} type="button" onClick={() => setIcon(k)} className={cn("grid aspect-square place-items-center rounded-lg border transition-colors", icon === k ? "border-accent bg-accent text-accent-ink" : "border-border text-muted hover:text-foreground")}><GoalIcon k={k} className="size-4" /></button>))}</div></div>
       </div>
       <div className="shrink-0 border-t border-border px-5 py-4"><button type="button" onClick={submit} disabled={!title.trim()} className="w-full rounded-lg bg-foreground py-3 text-[14px] font-medium text-background transition-opacity disabled:opacity-30">{goal ? "Saqlash" : "Qo'shish"}</button></div>
     </Dialog>
@@ -391,7 +396,7 @@ function ScheduleStepModal({ step, plans, onClose, onSave, onRemove, onDelete, o
           <Lbl>Sana</Lbl>
           <div className="mt-2 flex gap-1.5">
             {quick.map(([lbl, val]) => (
-              <button key={val} type="button" onClick={() => setDate(val)} className={cn("flex-1 rounded-lg border py-2 text-[12.5px] font-medium transition-colors", date === val ? "border-foreground bg-foreground text-background" : "border-border text-muted hover:border-border-strong hover:text-foreground")}>{lbl}</button>
+              <button key={val} type="button" onClick={() => setDate(val)} className={cn("flex-1 rounded-lg border py-2 text-[12.5px] font-medium transition-colors", date === val ? "border-accent bg-accent text-accent-ink" : "border-border text-muted hover:border-border-strong hover:text-foreground")}>{lbl}</button>
             ))}
           </div>
           <div className="mt-2"><DateField valueIso={date} plans={plans} onChange={setDate} /></div>

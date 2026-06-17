@@ -867,7 +867,7 @@ export function DayGrid({
                           "rounded-md px-4 py-2 text-[13.5px] font-medium transition-opacity",
                           !editingTitle.trim()
                             ? "cursor-not-allowed bg-foreground/40 text-background"
-                            : "bg-foreground text-background hover:opacity-90"
+                            : "bg-accent text-accent-ink hover:opacity-90"
                         )}
                       >
                         Qo&apos;shish

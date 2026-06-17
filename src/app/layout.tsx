@@ -60,12 +60,18 @@ try {
   document.documentElement.style.setProperty('--font-sans', fv);
 } catch(e) {}
 try {
-  var t = localStorage.getItem('unumly:theme:v1');
-  if (t === 'noir') {
-    document.documentElement.dataset.theme = 'noir';
-  } else if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    document.documentElement.dataset.theme = 'noir';
+  var fams = ['mono','ocean','graphite','raspberry','honey'];
+  var fam = localStorage.getItem('unumly:theme:family');
+  if (fams.indexOf(fam) === -1) fam = 'mono';
+  var md = localStorage.getItem('unumly:theme:mode');
+  if (md !== 'light' && md !== 'dark') {
+    var legacy = localStorage.getItem('unumly:theme:v1');
+    if (legacy === 'noir') md = 'dark';
+    else if (legacy === 'mono') md = 'light';
+    else md = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
   }
+  document.documentElement.dataset.theme = fam;
+  document.documentElement.dataset.mode = md;
 } catch(e) {}
 `;
 
