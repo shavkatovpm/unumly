@@ -152,3 +152,14 @@ export type Budget = {
   categoryId: string;
   amount: number;         // oylik limit (so'm)
 };
+
+/** Moliyaviy maqsad (yig'im) — targetga yetish uchun savedAmount oshib boradi. */
+export type FinancialGoal = {
+  id: string;
+  title: string;
+  icon?: string;
+  targetAmount: number;   // maqsad summa (so'm)
+  savedAmount: number;    // yig'ilgan summa (so'm)
+  deadline?: string;      // YYYY-MM-DD
+  order: number;
+};

@@ -5,20 +5,27 @@ import type {
   Budget,
   CategoryColor,
   FinanceCategory,
+  FinancialGoal,
   Transaction,
   TransactionType,
 } from "@/lib/types";
 import * as txnActions from "@/lib/finance-actions";
 import * as catActions from "@/lib/finance-categories-actions";
 import * as budgetActions from "@/lib/finance-budgets-actions";
+import * as goalActions from "@/lib/finance-goals-actions";
 
 /* Moliya — in-memory cache backed by server actions (goals-store pattern).
    Transaction, FinanceCategory va Budget bir snapshot ostida saqlanadi;
    mutatsiyalar optimistik qo'llanadi, server javobi bilan almashtiriladi,
    xatoda tiklanadi. */
 
-type Snapshot = { txns: Transaction[]; cats: FinanceCategory[]; budgets: Budget[] };
-let snapshot: Snapshot = { txns: [], cats: [], budgets: [] };
+type Snapshot = {
+  txns: Transaction[];
+  cats: FinanceCategory[];
+  budgets: Budget[];
+  goals: FinancialGoal[];
+};
+let snapshot: Snapshot = { txns: [], cats: [], budgets: [], goals: [] };
 let hydrated = false;
 let hydrating = false;
 const listeners = new Set<() => void>();
@@ -28,6 +35,7 @@ function set(next: Partial<Snapshot>) {
     txns: next.txns ?? snapshot.txns,
     cats: next.cats ?? snapshot.cats,
     budgets: next.budgets ?? snapshot.budgets,
+    goals: next.goals ?? snapshot.goals,
   };
   emit();
 }
@@ -38,12 +46,13 @@ function nextId() {
 }
 
 async function loadAll(): Promise<Snapshot> {
-  const [txns, cats, budgets] = await Promise.all([
+  const [txns, cats, budgets, goals] = await Promise.all([
     txnActions.listTransactions({ limit: 500 }),
     catActions.listFinanceCategories(),
     budgetActions.listBudgets(),
+    goalActions.listFinancialGoals(),
   ]);
-  return { txns, cats, budgets };
+  return { txns, cats, budgets, goals };
 }
 
 function hydrateOnce() {
@@ -86,7 +95,7 @@ function stopPoll() { if (pollTimer !== null) { window.clearInterval(pollTimer);
 function onVisible() { if (document.visibilityState === "visible") fetchReconcile(); }
 function subscribe(cb: () => void) { listeners.add(cb); return () => { listeners.delete(cb); }; }
 function getSnapshot() { return snapshot; }
-const EMPTY: Snapshot = { txns: [], cats: [], budgets: [] };
+const EMPTY: Snapshot = { txns: [], cats: [], budgets: [], goals: [] };
 function getServerSnapshot() { return EMPTY; }
 function recover() { void refreshFinance(); }
 
@@ -236,6 +245,79 @@ export function removeBudget(categoryId: string): void {
   void withPending(budgetActions.removeBudget(categoryId).catch(() => { set({ budgets: prev }); }));
 }
 
+/* ─── Moliyaviy maqsad mutatsiyalari ─── */
+export function addFinancialGoal(input: {
+  title: string;
+  targetAmount: number;
+  icon?: string | null;
+  deadline?: string | null;
+}): string {
+  const id = nextId();
+  const optimistic: FinancialGoal = {
+    id,
+    title: input.title.trim(),
+    icon: input.icon ?? undefined,
+    targetAmount: Math.round(input.targetAmount),
+    savedAmount: 0,
+    deadline: input.deadline ?? undefined,
+    order: snapshot.goals.length,
+  };
+  set({ goals: [...snapshot.goals, optimistic] });
+  void withPending(
+    goalActions.createFinancialGoal({
+      id, title: optimistic.title, targetAmount: input.targetAmount,
+      icon: input.icon ?? null, deadline: input.deadline ?? null,
+    })
+      .then((row) => set({ goals: snapshot.goals.map((g) => (g.id === id ? row : g)) }))
+      .catch(() => set({ goals: snapshot.goals.filter((g) => g.id !== id) }))
+  );
+  return id;
+}
+
+export function updateFinancialGoal(
+  id: string,
+  patch: { title?: string; targetAmount?: number; icon?: string | null; deadline?: string | null }
+): void {
+  const prev = snapshot.goals.find((g) => g.id === id);
+  if (!prev) return;
+  set({
+    goals: snapshot.goals.map((g) =>
+      g.id === id
+        ? {
+            ...g,
+            ...(patch.title !== undefined && { title: patch.title }),
+            ...(patch.targetAmount !== undefined && { targetAmount: Math.round(patch.targetAmount) }),
+            ...(patch.icon !== undefined && { icon: patch.icon ?? undefined }),
+            ...(patch.deadline !== undefined && { deadline: patch.deadline ?? undefined }),
+          }
+        : g
+    ),
+  });
+  void withPending(
+    goalActions.updateFinancialGoal(id, patch)
+      .then((row) => set({ goals: snapshot.goals.map((g) => (g.id === id ? row : g)) }))
+      .catch(() => set({ goals: snapshot.goals.map((g) => (g.id === id ? prev : g)) }))
+  );
+}
+
+export function contributeFinancialGoal(id: string, delta: number): void {
+  const prev = snapshot.goals.find((g) => g.id === id);
+  if (!prev || delta === 0) return;
+  const nextSaved = Math.max(0, prev.savedAmount + Math.round(delta));
+  set({ goals: snapshot.goals.map((g) => (g.id === id ? { ...g, savedAmount: nextSaved } : g)) });
+  void withPending(
+    goalActions.contributeFinancialGoal(id, delta)
+      .then((row) => set({ goals: snapshot.goals.map((g) => (g.id === id ? row : g)) }))
+      .catch(() => set({ goals: snapshot.goals.map((g) => (g.id === id ? prev : g)) }))
+  );
+}
+
+export function removeFinancialGoal(id: string): void {
+  const prev = snapshot.goals;
+  set({ goals: snapshot.goals.filter((g) => g.id !== id) });
+  void withPending(goalActions.removeFinancialGoal(id).catch(() => { set({ goals: prev }); }));
+}
+
 /* ─── Derived (oylik xulosa) ─── */
 export type MonthSummary = {
   income: number;
@@ -280,9 +362,11 @@ export function useFinance() {
     transactions: snap.txns,
     categories: snap.cats,
     budgets: snap.budgets,
+    goals: snap.goals,
     addTransaction, updateTransaction, removeTransaction,
     addCategory, updateCategory, removeCategory,
     setBudget, removeBudget,
+    addFinancialGoal, updateFinancialGoal, contributeFinancialGoal, removeFinancialGoal,
   };
 }
 

@@ -5,15 +5,19 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
+  Minus,
+  Pencil,
   Plus,
+  Target,
   Trash2,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Budget, CategoryColor, FinanceCategory, Transaction, TransactionType } from "@/lib/types";
+import type { Budget, CategoryColor, FinanceCategory, FinancialGoal, Transaction, TransactionType } from "@/lib/types";
 import {
   summarize,
   useFinance,
@@ -35,7 +39,7 @@ import { ListLoader } from "./widgets/list-loader";
 const INCOME_COLOR = "oklch(0.62 0.13 158)"; // yashil
 const EXPENSE_COLOR = "oklch(0.62 0.17 22)"; // qizil
 
-type Tab = "umumiy" | "tranzaksiyalar" | "byudjet";
+type Tab = "umumiy" | "tranzaksiyalar" | "byudjet" | "yigim";
 
 function catColor(c: FinanceCategory | undefined): CategoryColor {
   return c?.color ?? "gray";
@@ -47,9 +51,10 @@ function catColor(c: FinanceCategory | undefined): CategoryColor {
 
 export function MoliyaView() {
   const {
-    transactions, categories, budgets,
+    transactions, categories, budgets, goals,
     addTransaction, updateTransaction, removeTransaction,
     addCategory, setBudget, removeBudget,
+    addFinancialGoal, updateFinancialGoal, contributeFinancialGoal, removeFinancialGoal,
   } = useFinance();
   const hydrated = useHydratedFinance();
 
@@ -133,6 +138,9 @@ export function MoliyaView() {
         <TabButton active={tab === "byudjet"} onClick={() => setTab("byudjet")}>
           Byudjet
         </TabButton>
+        <TabButton active={tab === "yigim"} onClick={() => setTab("yigim")}>
+          Yig&apos;im
+        </TabButton>
       </div>
 
       {!hydrated ? (
@@ -148,7 +156,7 @@ export function MoliyaView() {
               onEdit={openEdit}
               onRemove={askRemove}
             />
-          ) : (
+          ) : tab === "byudjet" ? (
             <BudgetTab
               categories={categories}
               budgets={budgets}
@@ -156,18 +164,28 @@ export function MoliyaView() {
               onSet={setBudget}
               onRemove={removeBudget}
             />
+          ) : (
+            <YigimTab
+              goals={goals}
+              onCreate={addFinancialGoal}
+              onUpdate={updateFinancialGoal}
+              onContribute={contributeFinancialGoal}
+              onRemove={removeFinancialGoal}
+            />
           )}
         </div>
       )}
 
-      {/* Qo'shish tugmasi (floating) */}
-      <button
-        onClick={() => { setEditing(null); setAddOpen(true); }}
-        className="fixed bottom-20 right-5 z-20 flex items-center gap-1.5 rounded-full bg-foreground px-4 py-3 text-[13px] font-medium text-background shadow-lg transition-transform active:scale-95 md:bottom-6"
-      >
-        <Plus className="size-4" />
-        Qo&apos;shish
-      </button>
+      {/* Qo'shish tugmasi (floating) — faqat yozuv tablarida */}
+      {(tab === "umumiy" || tab === "tranzaksiyalar") && (
+        <button
+          onClick={() => { setEditing(null); setAddOpen(true); }}
+          className="fixed bottom-20 right-5 z-20 flex items-center gap-1.5 rounded-full bg-foreground px-4 py-3 text-[13px] font-medium text-background shadow-lg transition-transform active:scale-95 md:bottom-6"
+        >
+          <Plus className="size-4" />
+          Qo&apos;shish
+        </button>
+      )}
 
       <TxnDialog
         open={addOpen}
@@ -650,6 +668,311 @@ function BudgetRow({
 }
 
 /* ════════════════════════════════════════════════════════════
+   Yig'im (moliyaviy maqsadlar)
+   ════════════════════════════════════════════════════════════ */
+
+function YigimTab({
+  goals,
+  onCreate,
+  onUpdate,
+  onContribute,
+  onRemove,
+}: {
+  goals: FinancialGoal[];
+  onCreate: (input: { title: string; targetAmount: number; icon?: string | null; deadline?: string | null }) => string;
+  onUpdate: (id: string, patch: { title?: string; targetAmount?: number; icon?: string | null; deadline?: string | null }) => void;
+  onContribute: (id: string, delta: number) => void;
+  onRemove: (id: string) => void;
+}) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
+
+  const confirmItems = useMemo(() => goals.map((g) => ({ id: g.id, title: g.title })), [goals]);
+  const { askRemove, confirmEl } = useConfirmRemove(confirmItems, onRemove, { itemLabel: "Maqsadni" });
+
+  const sorted = useMemo(() => [...goals].sort((a, b) => a.order - b.order), [goals]);
+
+  return (
+    <div className="space-y-3">
+      <button
+        onClick={() => { setEditingGoal(null); setDialogOpen(true); }}
+        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border py-3 text-[13px] font-medium text-faint transition-colors hover:bg-hover hover:text-foreground"
+      >
+        <Plus className="size-4" />
+        Yangi maqsad
+      </button>
+
+      {sorted.length === 0 ? (
+        <p className="py-8 text-center text-[13px] text-faint">Hali yig&apos;im maqsadi yo&apos;q</p>
+      ) : (
+        sorted.map((g) => (
+          <GoalCard
+            key={g.id}
+            goal={g}
+            onContribute={(delta) => onContribute(g.id, delta)}
+            onEdit={() => { setEditingGoal(g); setDialogOpen(true); }}
+            onRemove={() => askRemove(g.id)}
+          />
+        ))
+      )}
+
+      <GoalDialog
+        open={dialogOpen}
+        editing={editingGoal}
+        onClose={() => { setDialogOpen(false); setEditingGoal(null); }}
+        onCreate={(input) => { onCreate(input); setDialogOpen(false); }}
+        onUpdate={(id, patch) => { onUpdate(id, patch); setDialogOpen(false); setEditingGoal(null); }}
+      />
+      {confirmEl}
+    </div>
+  );
+}
+
+function GoalCard({
+  goal,
+  onContribute,
+  onEdit,
+  onRemove,
+}: {
+  goal: FinancialGoal;
+  onContribute: (delta: number) => void;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  const [contributing, setContributing] = useState(false);
+  const [amountStr, setAmountStr] = useState("");
+  const Icon = goal.icon ? financeIcon(goal.icon) : Target;
+  const pct = goal.targetAmount > 0 ? goal.savedAmount / goal.targetAmount : 0;
+  const done = goal.savedAmount >= goal.targetAmount && goal.targetAmount > 0;
+  const remaining = Math.max(0, goal.targetAmount - goal.savedAmount);
+
+  function apply(sign: 1 | -1) {
+    const amount = Number(amountStr || "0");
+    if (amount <= 0) return;
+    onContribute(sign * amount);
+    setAmountStr("");
+    setContributing(false);
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4">
+      <div className="flex items-center gap-3">
+        <span
+          className="grid size-10 shrink-0 place-items-center rounded-lg"
+          style={{ background: done ? colorWithAlpha("emerald", 0.16) : "var(--subtle)", color: done ? INCOME_COLOR : "var(--foreground)" }}
+        >
+          <Icon className="size-5" strokeWidth={2} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <p className="truncate text-[14.5px] font-medium">{goal.title}</p>
+            {done && (
+              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ background: colorWithAlpha("emerald", 0.16), color: INCOME_COLOR }}>
+                Bajarildi
+              </span>
+            )}
+          </div>
+          {goal.deadline && (
+            <p className="mt-0.5 flex items-center gap-1 text-[11.5px] text-faint">
+              <CalendarDays className="size-3" />
+              {formatDeadline(goal.deadline)}
+            </p>
+          )}
+        </div>
+        <button onClick={onEdit} aria-label="Tahrirlash" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
+          <Pencil className="size-3.5" />
+        </button>
+        <button onClick={onRemove} aria-label="O'chirish" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
+          <Trash2 className="size-3.5" />
+        </button>
+      </div>
+
+      <div className="mt-3">
+        <div className="h-2 overflow-hidden rounded-full bg-subtle">
+          <div
+            className="h-full rounded-full transition-[width] duration-300"
+            style={{ width: `${Math.min(100, pct * 100)}%`, background: done ? INCOME_COLOR : "var(--foreground)" }}
+          />
+        </div>
+        <div className="mt-1.5 flex items-baseline justify-between text-[12.5px]">
+          <span className="font-medium tabular-nums">
+            {formatSom(goal.savedAmount)} <span className="text-faint">/ {formatSom(goal.targetAmount)} so&apos;m</span>
+          </span>
+          <span className="tabular-nums text-faint">{Math.round(pct * 100)}%</span>
+        </div>
+        {!done && remaining > 0 && (
+          <p className="mt-0.5 text-[11.5px] text-faint">Yana {formatSom(remaining)} so&apos;m</p>
+        )}
+      </div>
+
+      {contributing ? (
+        <div className="mt-3 flex items-center gap-2">
+          <div className="flex flex-1 items-baseline gap-1.5 rounded-lg border border-border bg-subtle/30 px-2.5 py-2 focus-within:border-foreground/30">
+            <input
+              autoFocus
+              inputMode="numeric"
+              value={amountStr ? formatSom(Number(amountStr)) : ""}
+              onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+              onKeyDown={(e) => { if (e.key === "Enter") apply(1); }}
+              placeholder="Summa"
+              className="min-w-0 flex-1 bg-transparent text-[14px] font-medium tabular-nums outline-none placeholder:text-faint/50"
+            />
+            <span className="shrink-0 text-[12px] text-faint">so&apos;m</span>
+          </div>
+          <button
+            onClick={() => apply(-1)}
+            disabled={Number(amountStr || "0") <= 0}
+            aria-label="Yechish"
+            className="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-faint hover:bg-hover hover:text-foreground disabled:opacity-40"
+          >
+            <Minus className="size-4" />
+          </button>
+          <button
+            onClick={() => apply(1)}
+            disabled={Number(amountStr || "0") <= 0}
+            aria-label="Qo'shish"
+            className="grid size-9 shrink-0 place-items-center rounded-lg bg-foreground text-background disabled:opacity-40"
+          >
+            <Plus className="size-4" />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setContributing(true)}
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-subtle/60 py-2 text-[13px] font-medium text-muted transition-colors hover:bg-hover hover:text-foreground"
+        >
+          <Plus className="size-3.5" />
+          Hissa qo&apos;shish
+        </button>
+      )}
+    </div>
+  );
+}
+
+function GoalDialog({
+  open,
+  editing,
+  onClose,
+  onCreate,
+  onUpdate,
+}: {
+  open: boolean;
+  editing: FinancialGoal | null;
+  onClose: () => void;
+  onCreate: (input: { title: string; targetAmount: number; icon?: string | null; deadline?: string | null }) => void;
+  onUpdate: (id: string, patch: { title: string; targetAmount: number; icon: string | null; deadline: string | null }) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [targetStr, setTargetStr] = useState("");
+  const [deadline, setDeadline] = useState("");
+  const [icon, setIcon] = useState<string | null>(null);
+
+  const [lastOpen, setLastOpen] = useState(false);
+  if (open && !lastOpen) {
+    setLastOpen(true);
+    if (editing) {
+      setTitle(editing.title);
+      setTargetStr(String(editing.targetAmount));
+      setDeadline(editing.deadline ?? "");
+      setIcon(editing.icon ?? null);
+    } else {
+      setTitle("");
+      setTargetStr("");
+      setDeadline("");
+      setIcon(null);
+    }
+  }
+  if (!open && lastOpen) setLastOpen(false);
+
+  const target = Number(targetStr || "0");
+  const valid = title.trim().length > 0 && target > 0;
+
+  function save() {
+    if (!valid) return;
+    const payload = {
+      title: title.trim(),
+      targetAmount: target,
+      icon: icon ?? null,
+      deadline: deadline || null,
+    };
+    if (editing) onUpdate(editing.id, payload);
+    else onCreate(payload);
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} mobilePlacement="bottom" className="w-full max-w-md">
+      <div className="p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-[15px] font-semibold">{editing ? "Maqsadni tahrirlash" : "Yangi maqsad"}</p>
+          <button onClick={onClose} aria-label="Yopish" className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <input
+          autoFocus
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Maqsad nomi (masalan: Mashina)"
+          className="mb-3 w-full rounded-lg border border-border bg-subtle/30 px-3 py-2.5 text-[14px] outline-none placeholder:text-faint/50 focus:border-foreground/30"
+        />
+
+        <div className="mb-3 flex items-baseline gap-2 rounded-lg border border-border bg-subtle/30 px-3 py-2.5 focus-within:border-foreground/30">
+          <input
+            inputMode="numeric"
+            value={targetStr ? formatSom(target) : ""}
+            onChange={(e) => setTargetStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+            placeholder="Maqsad summa"
+            className="min-w-0 flex-1 bg-transparent text-[18px] font-semibold tabular-nums outline-none placeholder:text-faint/50"
+          />
+          <span className="shrink-0 text-[13px] text-faint">so&apos;m</span>
+        </div>
+
+        <div className="mb-3">
+          <p className="mb-1.5 text-[12px] text-faint">Muddat (ixtiyoriy)</p>
+          <input
+            type="date"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            className="w-full rounded-lg border border-border bg-subtle/30 px-2.5 py-2 text-[13px] outline-none focus:border-foreground/30"
+          />
+        </div>
+
+        <div className="mb-4">
+          <p className="mb-1.5 text-[12px] text-faint">Belgi (ixtiyoriy)</p>
+          <div className="flex flex-wrap gap-1">
+            {FINANCE_ICON_KEYS.map((k) => {
+              const Ic = financeIcon(k);
+              const active = icon === k;
+              return (
+                <button
+                  key={k}
+                  onClick={() => setIcon(active ? null : k)}
+                  className={cn(
+                    "grid size-8 place-items-center rounded-md border transition-colors",
+                    active ? "border-foreground/40 bg-subtle text-foreground" : "border-border text-faint hover:bg-hover"
+                  )}
+                >
+                  <Ic className="size-4" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <button
+          onClick={save}
+          disabled={!valid}
+          className="w-full rounded-lg bg-foreground py-2.5 text-[14px] font-medium text-background transition-opacity disabled:opacity-40"
+        >
+          {editing ? "Saqlash" : "Qo'shish"}
+        </button>
+      </div>
+    </Dialog>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
    Qo'shish / tahrirlash dialogi
    ════════════════════════════════════════════════════════════ */
 
@@ -979,4 +1302,10 @@ function formatDayLabel(date: string): string {
   if (date === today) return "Bugun";
   if (date === yest) return "Kecha";
   return `${d}-${UZ_MONTHS_SHORT[m - 1]}, ${UZ_DAYS[dt.getDay()]}`;
+}
+
+function formatDeadline(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  if (!y || !m || !d) return date;
+  return `${d}-${UZ_MONTHS_SHORT[m - 1]} ${y}`;
 }

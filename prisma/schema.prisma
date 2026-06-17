@@ -72,6 +72,7 @@ model User {
   financeCategories FinanceCategory[]
   transactions      Transaction[]
   budgets           Budget[]
+  financialGoals    FinancialGoal[]
 
   @@index([telegramId])
   @@index([phone])
@@ -481,5 +482,27 @@ model Budget {
   category FinanceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([userId, categoryId])
+  @@index([userId])
+}
+
+// Moliyaviy maqsad (yig'im) — biror summaga yig'ish. Yig'ilgan summa hissalar
+// orqali oshib boradi; bajarilgan holat hisoblanadi (savedAmount >= target).
+// OKR "Maqsad"dan alohida (ular vazifa/qadam asosli, bu — pul asosli).
+model FinancialGoal {
+  id           String   @id @default(cuid())
+  userId       String
+
+  title        String
+  icon         String?  // lucide key (ixtiyoriy)
+  targetAmount BigInt   // maqsad summa (so'm)
+  savedAmount  BigInt   @default(0) // yig'ilgan summa (so'm)
+  deadline     String?  @db.VarChar(10) // YYYY-MM-DD — ixtiyoriy muddat
+  order        Int      @default(0)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
