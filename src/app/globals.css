@@ -177,49 +177,49 @@
 }
 
 /* ────────────────────────────────────────────────────────────
-   Landing — har doim Grafit (light) mavzusi, foydalanuvchi tanlagan
-   tema/rejimdan qat'i nazar. To'liq palitra (themed + danger/priority/
-   shadow) shu yerda belgilanadi, shunda dark rejimda ham aralashmaydi.
+   Landing — har doim Grafit (dark / "Night grafit") mavzusi, foydalanuvchi
+   tanlagan tema/rejimdan qat'i nazar. To'liq palitra (themed + danger/
+   priority/shadow) shu yerda belgilanadi, shunda light rejimda ham aralashmaydi.
    ──────────────────────────────────────────────────────────── */
 .landing-graphite {
-  color-scheme: light;
-  --background:      oklch(0.98 0.003 255);
-  --surface:        oklch(0.995 0.002 255);
-  --surface-raised: oklch(0.995 0.002 255);
-  --subtle:         oklch(0.955 0.004 255);
-  --hover:          oklch(0.94 0.005 255);
-  --border:         oklch(0.9 0.006 255);
-  --border-strong:  oklch(0.82 0.008 255);
+  color-scheme: dark;
+  --background:      oklch(0.16 0.006 255);
+  --surface:        oklch(0.2 0.006 255);
+  --surface-raised:  oklch(0.23 0.006 255);
+  --subtle:         oklch(0.22 0.006 255);
+  --hover:          oklch(0.25 0.006 255);
+  --border:         oklch(0.29 0.007 255);
+  --border-strong:  oklch(0.37 0.008 255);
 
-  --foreground:     oklch(0.2 0.01 255);
-  --muted:          oklch(0.45 0.012 255);
-  --faint:          oklch(0.65 0.008 255);
+  --foreground:     oklch(0.96 0.005 255);
+  --muted:          oklch(0.68 0.01 255);
+  --faint:          oklch(0.5 0.01 255);
 
-  --accent:         oklch(0.32 0.03 255);
-  --accent-hover:   oklch(0.27 0.03 255);
-  --accent-soft:    oklch(0.92 0.008 255);
-  --accent-ink:     oklch(0.98 0.003 255);
+  --accent:         oklch(0.8 0.04 255);
+  --accent-hover:   oklch(0.86 0.04 255);
+  --accent-soft:    oklch(0.27 0.02 255);
+  --accent-ink:     oklch(0.16 0.01 255);
 
-  --warm:           oklch(0.5 0 0);
-  --warm-soft:      oklch(0.93 0 0);
+  --warm:           oklch(0.7 0 0);
+  --warm-soft:      oklch(0.28 0 0);
 
-  --danger:         oklch(0.6 0.18 25);
-  --danger-soft:    oklch(0.95 0.04 25);
-  --warning:        oklch(0.62 0.13 75);
-  --warning-soft:   oklch(0.95 0.06 85);
+  --danger:         oklch(0.7 0.18 25);
+  --danger-soft:    oklch(0.3 0.08 25);
+  --warning:        oklch(0.78 0.13 80);
+  --warning-soft:   oklch(0.32 0.06 80);
 
-  --priority-high:        oklch(0.55 0.13 25);
-  --priority-medium:      oklch(0.68 0.09 70);
-  --priority-low:         oklch(0.62 0.04 240);
-  --priority-high-soft:   oklch(0.97 0.013 25);
-  --priority-medium-soft: oklch(0.97 0.011 70);
-  --priority-low-soft:    oklch(0.975 0.005 240);
+  --priority-high:        oklch(0.66 0.13 25);
+  --priority-medium:      oklch(0.74 0.09 70);
+  --priority-low:         oklch(0.7 0.04 240);
+  --priority-high-soft:   oklch(0.22 0.025 25);
+  --priority-medium-soft: oklch(0.22 0.02 70);
+  --priority-low-soft:    oklch(0.22 0.012 240);
 
-  --current-time:   oklch(0.6 0.14 240);
+  --current-time:   oklch(0.72 0.15 240);
 
-  --shadow-sm:      0 1px 0 0 oklch(0.86 0 0);
-  --shadow-md:      0 1px 2px 0 oklch(0 0 0 / 0.04), 0 0 0 1px oklch(0.9 0 0);
-  --shadow-lg:      0 10px 30px -10px oklch(0 0 0 / 0.15), 0 0 0 1px oklch(0.9 0 0);
+  --shadow-sm:      0 1px 0 0 oklch(0.28 0 0);
+  --shadow-md:      0 1px 2px 0 oklch(0 0 0 / 0.4), 0 0 0 1px oklch(0.28 0 0);
+  --shadow-lg:      0 10px 30px -10px oklch(0 0 0 / 0.5), 0 0 0 1px oklch(0.28 0 0);
 
   color: var(--foreground);
   background-color: var(--background);
