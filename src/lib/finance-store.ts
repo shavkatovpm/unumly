@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type {
+  Budget,
   CategoryColor,
   FinanceCategory,
   Transaction,
@@ -9,19 +10,25 @@ import type {
 } from "@/lib/types";
 import * as txnActions from "@/lib/finance-actions";
 import * as catActions from "@/lib/finance-categories-actions";
+import * as budgetActions from "@/lib/finance-budgets-actions";
 
 /* Moliya — in-memory cache backed by server actions (goals-store pattern).
-   Transaction va FinanceCategory bir snapshot ostida saqlanadi; mutatsiyalar
-   optimistik qo'llanadi, server javobi bilan almashtiriladi, xatoda tiklanadi. */
+   Transaction, FinanceCategory va Budget bir snapshot ostida saqlanadi;
+   mutatsiyalar optimistik qo'llanadi, server javobi bilan almashtiriladi,
+   xatoda tiklanadi. */
 
-type Snapshot = { txns: Transaction[]; cats: FinanceCategory[] };
-let snapshot: Snapshot = { txns: [], cats: [] };
+type Snapshot = { txns: Transaction[]; cats: FinanceCategory[]; budgets: Budget[] };
+let snapshot: Snapshot = { txns: [], cats: [], budgets: [] };
 let hydrated = false;
 let hydrating = false;
 const listeners = new Set<() => void>();
 function emit() { for (const l of listeners) l(); }
 function set(next: Partial<Snapshot>) {
-  snapshot = { txns: next.txns ?? snapshot.txns, cats: next.cats ?? snapshot.cats };
+  snapshot = {
+    txns: next.txns ?? snapshot.txns,
+    cats: next.cats ?? snapshot.cats,
+    budgets: next.budgets ?? snapshot.budgets,
+  };
   emit();
 }
 function nextId() {
@@ -31,11 +38,12 @@ function nextId() {
 }
 
 async function loadAll(): Promise<Snapshot> {
-  const [txns, cats] = await Promise.all([
+  const [txns, cats, budgets] = await Promise.all([
     txnActions.listTransactions({ limit: 500 }),
     catActions.listFinanceCategories(),
+    budgetActions.listBudgets(),
   ]);
-  return { txns, cats };
+  return { txns, cats, budgets };
 }
 
 function hydrateOnce() {
@@ -78,7 +86,7 @@ function stopPoll() { if (pollTimer !== null) { window.clearInterval(pollTimer);
 function onVisible() { if (document.visibilityState === "visible") fetchReconcile(); }
 function subscribe(cb: () => void) { listeners.add(cb); return () => { listeners.delete(cb); }; }
 function getSnapshot() { return snapshot; }
-const EMPTY: Snapshot = { txns: [], cats: [] };
+const EMPTY: Snapshot = { txns: [], cats: [], budgets: [] };
 function getServerSnapshot() { return EMPTY; }
 function recover() { void refreshFinance(); }
 
@@ -194,11 +202,38 @@ export function removeCategory(id: string): void {
   const prevCats = snapshot.cats;
   // Kategoriya o'chsa, undagi tranzaksiyalar kategoriyasiz bo'ladi (server
   // onDelete: SetNull) — optimistik ravishda mahalliy holatda ham shunday.
+  // Byudjet ham kategoriya bilan o'chadi (cascade).
   set({
     cats: snapshot.cats.filter((c) => c.id !== id),
     txns: snapshot.txns.map((t) => (t.categoryId === id ? { ...t, categoryId: null } : t)),
+    budgets: snapshot.budgets.filter((b) => b.categoryId !== id),
   });
   void withPending(catActions.removeFinanceCategory(id).catch(() => { set({ cats: prevCats }); recover(); }));
+}
+
+/* ─── Byudjet mutatsiyalari ─── */
+export function setBudget(categoryId: string, amount: number): void {
+  const prev = snapshot.budgets;
+  const existing = prev.find((b) => b.categoryId === categoryId);
+  const optimistic: Budget = existing
+    ? { ...existing, amount: Math.round(amount) }
+    : { id: nextId(), categoryId, amount: Math.round(amount) };
+  set({
+    budgets: existing
+      ? prev.map((b) => (b.categoryId === categoryId ? optimistic : b))
+      : [...prev, optimistic],
+  });
+  void withPending(
+    budgetActions.setBudget(categoryId, amount)
+      .then((row) => set({ budgets: snapshot.budgets.map((b) => (b.categoryId === categoryId ? row : b)) }))
+      .catch(() => { set({ budgets: prev }); })
+  );
+}
+
+export function removeBudget(categoryId: string): void {
+  const prev = snapshot.budgets;
+  set({ budgets: prev.filter((b) => b.categoryId !== categoryId) });
+  void withPending(budgetActions.removeBudget(categoryId).catch(() => { set({ budgets: prev }); }));
 }
 
 /* ─── Derived (oylik xulosa) ─── */
@@ -244,8 +279,10 @@ export function useFinance() {
   return {
     transactions: snap.txns,
     categories: snap.cats,
+    budgets: snap.budgets,
     addTransaction, updateTransaction, removeTransaction,
     addCategory, updateCategory, removeCategory,
+    setBudget, removeBudget,
   };
 }
 

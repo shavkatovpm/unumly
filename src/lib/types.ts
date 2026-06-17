@@ -145,3 +145,10 @@ export type Transaction = {
   date: string;           // YYYY-MM-DD
   createdAt: string;      // ISO datetime
 };
+
+/** Chiqim kategoriyasiga oylik byudjet limiti. */
+export type Budget = {
+  id: string;
+  categoryId: string;
+  amount: number;         // oylik limit (so'm)
+};

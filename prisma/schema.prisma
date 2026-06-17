@@ -71,6 +71,7 @@ model User {
   goals           Goal[]
   financeCategories FinanceCategory[]
   transactions      Transaction[]
+  budgets           Budget[]
 
   @@index([telegramId])
   @@index([phone])
@@ -435,6 +436,7 @@ model FinanceCategory {
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  budgets      Budget[]
 
   @@index([userId, type])
 }
@@ -461,4 +463,23 @@ model Transaction {
 
   @@index([userId, deletedAt])
   @@index([userId, type, date])
+}
+
+// Oylik byudjet — chiqim kategoriyasiga limit. Har oy takrorlanadi; joriy oy
+// sarfi (Transaction yig'indisi) limitga nisbatan kuzatiladi. Bitta kategoriyaga
+// bitta limit. Kategoriya o'chsa limit ham o'chadi (cascade).
+model Budget {
+  id         String   @id @default(cuid())
+  userId     String
+  categoryId String
+  amount     BigInt   // oylik limit (so'm)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category FinanceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId])
+  @@index([userId])
 }

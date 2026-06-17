@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { CategoryColor, FinanceCategory, Transaction, TransactionType } from "@/lib/types";
+import type { Budget, CategoryColor, FinanceCategory, Transaction, TransactionType } from "@/lib/types";
 import {
   summarize,
   useFinance,
@@ -35,7 +35,7 @@ import { ListLoader } from "./widgets/list-loader";
 const INCOME_COLOR = "oklch(0.62 0.13 158)"; // yashil
 const EXPENSE_COLOR = "oklch(0.62 0.17 22)"; // qizil
 
-type Tab = "umumiy" | "tranzaksiyalar";
+type Tab = "umumiy" | "tranzaksiyalar" | "byudjet";
 
 function catColor(c: FinanceCategory | undefined): CategoryColor {
   return c?.color ?? "gray";
@@ -46,8 +46,11 @@ function catColor(c: FinanceCategory | undefined): CategoryColor {
    ════════════════════════════════════════════════════════════ */
 
 export function MoliyaView() {
-  const { transactions, categories, addTransaction, updateTransaction, removeTransaction, addCategory } =
-    useFinance();
+  const {
+    transactions, categories, budgets,
+    addTransaction, updateTransaction, removeTransaction,
+    addCategory, setBudget, removeBudget,
+  } = useFinance();
   const hydrated = useHydratedFinance();
 
   const [month, setMonth] = useState(() => monthKey());
@@ -66,6 +69,15 @@ export function MoliyaView() {
     [transactions, month]
   );
   const summary = useMemo(() => summarize(transactions, month), [transactions, month]);
+
+  // Joriy oy chiqimi — kategoriya bo'yicha (byudjet progress uchun)
+  const spentByCat = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const b of summary.byCategory) {
+      if (b.type === "EXPENSE" && b.categoryId) m.set(b.categoryId, b.total);
+    }
+    return m;
+  }, [summary]);
 
   const confirmItems = useMemo(
     () => monthTxns.map((t) => ({ id: t.id, title: txnTitle(t, catMap) })),
@@ -116,7 +128,10 @@ export function MoliyaView() {
           Umumiy
         </TabButton>
         <TabButton active={tab === "tranzaksiyalar"} onClick={() => setTab("tranzaksiyalar")}>
-          Tranzaksiyalar
+          Yozuvlar
+        </TabButton>
+        <TabButton active={tab === "byudjet"} onClick={() => setTab("byudjet")}>
+          Byudjet
         </TabButton>
       </div>
 
@@ -126,12 +141,20 @@ export function MoliyaView() {
         <div className="min-h-0 flex-1">
           {tab === "umumiy" ? (
             <OverviewTab summary={summary} catMap={catMap} />
-          ) : (
+          ) : tab === "tranzaksiyalar" ? (
             <TransactionsTab
               txns={monthTxns}
               catMap={catMap}
               onEdit={openEdit}
               onRemove={askRemove}
+            />
+          ) : (
+            <BudgetTab
+              categories={categories}
+              budgets={budgets}
+              spentByCat={spentByCat}
+              onSet={setBudget}
+              onRemove={removeBudget}
             />
           )}
         </div>
@@ -418,6 +441,210 @@ function TxnRow({
       >
         <Trash2 className="size-3.5" />
       </button>
+    </li>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════
+   Byudjet
+   ════════════════════════════════════════════════════════════ */
+
+const WARN_COLOR = "oklch(0.78 0.15 80)"; // sariq (limitga yaqin)
+
+function budgetColor(pct: number): string {
+  if (pct > 1) return EXPENSE_COLOR;
+  if (pct >= 0.8) return WARN_COLOR;
+  return INCOME_COLOR;
+}
+
+function BudgetTab({
+  categories,
+  budgets,
+  spentByCat,
+  onSet,
+  onRemove,
+}: {
+  categories: FinanceCategory[];
+  budgets: Budget[];
+  spentByCat: Map<string, number>;
+  onSet: (categoryId: string, amount: number) => void;
+  onRemove: (categoryId: string) => void;
+}) {
+  const expenseCats = useMemo(
+    () => categories.filter((c) => c.type === "EXPENSE").sort((a, b) => a.order - b.order),
+    [categories]
+  );
+  const budgetMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const b of budgets) m.set(b.categoryId, b.amount);
+    return m;
+  }, [budgets]);
+
+  const totals = useMemo(() => {
+    let limit = 0;
+    let spent = 0;
+    for (const c of expenseCats) {
+      const lim = budgetMap.get(c.id);
+      if (lim) {
+        limit += lim;
+        spent += spentByCat.get(c.id) ?? 0;
+      }
+    }
+    return { limit, spent };
+  }, [expenseCats, budgetMap, spentByCat]);
+
+  if (expenseCats.length === 0) {
+    return (
+      <p className="py-10 text-center text-[13px] text-faint">
+        Avval chiqim kategoriyasi qo&apos;shing
+      </p>
+    );
+  }
+
+  const totalPct = totals.limit > 0 ? totals.spent / totals.limit : 0;
+
+  return (
+    <div className="space-y-4">
+      {totals.limit > 0 && (
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <div className="flex items-baseline justify-between">
+            <p className="text-[12px] text-faint">Jami limit</p>
+            <p className="text-[12px] tabular-nums text-faint">
+              <span className="font-medium text-foreground" style={{ color: budgetColor(totalPct) }}>
+                {formatSom(totals.spent)}
+              </span>{" "}
+              / {formatSom(totals.limit)} so&apos;m
+            </p>
+          </div>
+          <ProgressBar pct={totalPct} className="mt-2" />
+        </div>
+      )}
+
+      <ul className="space-y-2">
+        {expenseCats.map((c) => (
+          <BudgetRow
+            key={c.id}
+            cat={c}
+            limit={budgetMap.get(c.id) ?? null}
+            spent={spentByCat.get(c.id) ?? 0}
+            onSet={(amount) => onSet(c.id, amount)}
+            onRemove={() => onRemove(c.id)}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ProgressBar({ pct, className }: { pct: number; className?: string }) {
+  const w = Math.min(100, Math.max(0, pct * 100));
+  return (
+    <div className={cn("h-2 overflow-hidden rounded-full bg-subtle", className)}>
+      <div
+        className="h-full rounded-full transition-[width] duration-300"
+        style={{ width: `${w}%`, background: budgetColor(pct) }}
+      />
+    </div>
+  );
+}
+
+function BudgetRow({
+  cat,
+  limit,
+  spent,
+  onSet,
+  onRemove,
+}: {
+  cat: FinanceCategory;
+  limit: number | null;
+  spent: number;
+  onSet: (amount: number) => void;
+  onRemove: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [amountStr, setAmountStr] = useState("");
+  const Icon = financeIcon(cat.icon);
+  const color = colorWithAlpha(cat.color, 1);
+  const pct = limit && limit > 0 ? spent / limit : 0;
+
+  function startEdit() {
+    setAmountStr(limit ? String(limit) : "");
+    setEditing(true);
+  }
+  function save() {
+    const amount = Number(amountStr || "0");
+    if (amount <= 0) return;
+    onSet(amount);
+    setEditing(false);
+  }
+
+  return (
+    <li className="rounded-xl border border-border bg-surface p-3">
+      <div className="flex items-center gap-3">
+        <span
+          className="grid size-9 shrink-0 place-items-center rounded-lg"
+          style={{ background: colorWithAlpha(cat.color, 0.14), color }}
+        >
+          <Icon className="size-[18px]" strokeWidth={2} />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{cat.label}</span>
+        {limit != null && !editing && (
+          <span className="shrink-0 text-[12.5px] tabular-nums text-faint">
+            <span className="font-medium" style={{ color: budgetColor(pct) }}>{formatSom(spent)}</span>
+            {" / "}{formatSom(limit)}
+          </span>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="mt-2.5 flex items-center gap-2">
+          <div className="flex flex-1 items-baseline gap-1.5 rounded-lg border border-border bg-subtle/30 px-2.5 py-2 focus-within:border-foreground/30">
+            <input
+              autoFocus
+              inputMode="numeric"
+              value={amountStr ? formatSom(Number(amountStr)) : ""}
+              onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+              onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+              placeholder="Oylik limit"
+              className="min-w-0 flex-1 bg-transparent text-[14px] font-medium tabular-nums outline-none placeholder:text-faint/50"
+            />
+            <span className="shrink-0 text-[12px] text-faint">so&apos;m</span>
+          </div>
+          {limit != null && (
+            <button
+              onClick={() => { onRemove(); setEditing(false); }}
+              aria-label="Limitni o'chirish"
+              className="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-faint hover:bg-hover hover:text-foreground"
+            >
+              <Trash2 className="size-4" />
+            </button>
+          )}
+          <button
+            onClick={save}
+            disabled={Number(amountStr || "0") <= 0}
+            className="grid size-9 shrink-0 place-items-center rounded-lg bg-foreground text-background disabled:opacity-40"
+          >
+            <Check className="size-4" />
+          </button>
+        </div>
+      ) : limit != null ? (
+        <button onClick={startEdit} className="mt-2.5 block w-full">
+          <ProgressBar pct={pct} />
+          {pct > 1 && (
+            <p className="mt-1 text-left text-[11.5px]" style={{ color: EXPENSE_COLOR }}>
+              Limitdan {formatSom(spent - limit)} so&apos;m oshib ketdi
+            </p>
+          )}
+        </button>
+      ) : (
+        <button
+          onClick={startEdit}
+          className="mt-2 flex items-center gap-1 text-[12.5px] text-faint transition-colors hover:text-foreground"
+        >
+          <Plus className="size-3.5" />
+          Limit qo&apos;shish
+        </button>
+      )}
     </li>
   );
 }
