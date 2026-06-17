@@ -21,6 +21,8 @@ export type Plan = {
   order: number;
   /** Set when this plan is a generated occurrence of a recurring Habit. */
   habitId?: string;
+  /** Set when this plan is the scheduled occurrence of a Goal step (OKR qadami). */
+  goalStepId?: string;
 };
 
 /* ─── Odat (Habits) ─── */
@@ -76,4 +78,44 @@ export type Idea = {
   time?: string;         // HH:MM
   duration?: number;     // minutes
   priority?: PlanPriority;
+};
+
+/* ─── Maqsad (Goals / OKR) ─── */
+
+export type GoalStatus = "ACTIVE" | "DONE" | "ARCHIVED";
+
+/** Qadam — eng kichik birlik. Istalgan kunga (vaqt bilan) belgilanishi mumkin;
+ *  belgilangach Plan occurrence sifatida task ko'rinishlarida paydo bo'ladi. */
+export type GoalStep = {
+  id: string;
+  subGoalId: string;
+  title: string;
+  done: boolean;
+  order: number;
+  // Belgilangan bo'lsa — bog'langan Plan occurrence ma'lumotlari (mirror).
+  scheduledFor?: string; // YYYY-MM-DD
+  time?: string;         // HH:MM
+  planId?: string;       // bog'langan Plan id
+};
+
+/** Kichik maqsad (key result) — qadamlardan tashkil topadi. */
+export type SubGoal = {
+  id: string;
+  goalId: string;
+  title: string;
+  order: number;
+  steps: GoalStep[];
+};
+
+/** Maqsad (OKR) — kichik maqsadlar daraxti. */
+export type Goal = {
+  id: string;
+  title: string;
+  icon?: string;          // lucide key
+  deadline?: string;      // YYYY-MM-DD
+  status: GoalStatus;
+  order: number;
+  archivedAt?: string;    // ISO datetime
+  createdAt: string;      // ISO datetime
+  subGoals: SubGoal[];
 };

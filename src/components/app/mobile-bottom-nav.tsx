@@ -72,7 +72,7 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const primaryHrefs = new Set(primary.map((p) => p.href));
   const isBoshqaruvActive =
     !sheetOpen &&
-    [...BOSHQARUV_ROUTES, "/reja", "/kalendar", "/odat"].some(
+    [...BOSHQARUV_ROUTES, "/reja", "/kalendar", "/odat", "/maqsad"].some(
       (href) => !primaryHrefs.has(href) && isActive(href)
     );
 
@@ -301,8 +301,14 @@ function BoshqaruvSheet({
               onNavigate={onClose}
             />
           )}
-          {!hidden.includes("maqsad") && (
-            <SheetItem label="Maqsad" icon={Target} badge="tez orada" />
+          {!hidden.includes("maqsad") && !primaryHrefs.has("/maqsad") && (
+            <SheetLink
+              href="/maqsad"
+              label="Maqsad"
+              icon={Target}
+              active={isActive("/maqsad")}
+              onNavigate={onClose}
+            />
           )}
         </div>
 

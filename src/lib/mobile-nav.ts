@@ -6,13 +6,14 @@ import {
   Inbox,
   ListChecks,
   Repeat,
+  Target,
   Zap,
   type LucideIcon,
 } from "lucide-react";
 
 /** Items that can sit in the mobile bottom nav's primary slots.
  *  "Boshqaruv" is always pinned on the right and is NOT configurable. */
-export type NavItemId = "bugun" | "agenda" | "tezkor" | "reja" | "kalendar" | "odat";
+export type NavItemId = "bugun" | "agenda" | "tezkor" | "reja" | "kalendar" | "odat" | "maqsad";
 
 export type NavItem = {
   id: NavItemId;
@@ -30,6 +31,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "reja",     href: "/reja",     label: "Reja",     icon: ClipboardList },
   { id: "kalendar", href: "/kalendar", label: "Kalendar", icon: CalendarIcon },
   { id: "odat",     href: "/odat",     label: "Odat",     icon: Repeat },
+  { id: "maqsad",   href: "/maqsad",   label: "Maqsad",   icon: Target },
 ];
 
 export const STORAGE_PRIMARY = "unumly:mobilenav:primary";

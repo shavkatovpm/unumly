@@ -60,6 +60,7 @@ model User {
   ideas        Idea[]
   habits          Habit[]
   habitCategories HabitCategory[]
+  goals           Goal[]
 
   @@index([telegramId])
   @@index([phone])
@@ -151,11 +152,17 @@ model Plan {
   // occurrence — the Habit's recurring schedule is untouched.
   habitId      String?
 
+  // When this plan is the scheduled occurrence of a Goal step (OKR qadami),
+  // this links back to it. One-off: a step has at most one occurrence, so the
+  // FK is unique. Toggling this plan's status syncs GoalStep.done.
+  goalStepId   String?       @unique
+
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   habit        Habit?        @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  goalStep     GoalStep?     @relation(fields: [goalStepId], references: [id], onDelete: Cascade)
   botMessages  BotMessage[]
 
   @@unique([habitId, scheduledFor])  // one occurrence per habit per day
@@ -206,6 +213,71 @@ model Habit {
   plans      Plan[]
 
   @@index([userId])
+}
+
+// ───────────────────────── Maqsad (Goals / OKR) ─────────────────────────
+// 3 pog'onali tuzilma: Goal (maqsad) → SubGoal (kichik maqsad) → GoalStep
+// (qadam). Qadamni istalgan kunga vaqt bilan belgilash mumkin — u Plan
+// occurrence sifatida materializatsiya bo'lib Bugun/Agenda/Kalendarda
+// ko'rinadi (Plan.goalStepId). Progress qadamlardan hisoblanadi.
+
+enum GoalStatus {
+  ACTIVE
+  DONE
+  ARCHIVED
+}
+
+model Goal {
+  id         String     @id @default(cuid())
+  userId     String
+
+  title      String
+  icon       String?    // lucide key (target/rocket/...)
+  deadline   String?    @db.VarChar(10)  // YYYY-MM-DD — ixtiyoriy muddat
+  status     GoalStatus @default(ACTIVE)
+  order      Int        @default(0)
+  archivedAt DateTime?
+
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subGoals   SubGoal[]
+
+  @@index([userId])
+}
+
+model SubGoal {
+  id        String   @id @default(cuid())
+  goalId    String
+
+  title     String
+  order     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  goal      Goal       @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  steps     GoalStep[]
+
+  @@index([goalId])
+}
+
+model GoalStep {
+  id        String   @id @default(cuid())
+  subGoalId String
+
+  title     String
+  done      Boolean  @default(false)
+  order     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subGoal   SubGoal  @relation(fields: [subGoalId], references: [id], onDelete: Cascade)
+  plan      Plan?    // scheduled one-off occurrence (Plan.goalStepId)
+
+  @@index([subGoalId])
 }
 
 // Telegram messages we sent for a given plan (reminder + inline buttons).

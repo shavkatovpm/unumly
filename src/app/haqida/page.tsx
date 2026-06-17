@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Target } from "lucide-react";
 import { DocsToc } from "@/components/landing/docs-toc";
 import { FaqList } from "@/components/landing/faq-list";
 
 export const metadata: Metadata = {
   title: "Haqida: Unumly to'liq qo'llanma va dokumentatsiya",
   description:
-    "Unumly ilovasining to'liq dokumentatsiyasi: kirish, Bugun, Agenda, Kalendar, Reja, Odat, Bajarilgan, O'chirilgan bo'limlari, sozlamalar, Telegram bot va ma'lumotlar saqlash haqida o'zbekcha qo'llanma.",
+    "Unumly ilovasining to'liq dokumentatsiyasi: kirish, Bugun, Agenda, Kalendar, Reja, Odat, Maqsad, Bajarilgan, O'chirilgan bo'limlari, sozlamalar, Telegram bot va ma'lumotlar saqlash haqida o'zbekcha qo'llanma.",
   alternates: { canonical: "/haqida" },
   openGraph: {
     title: "Haqida: Unumly to'liq qo'llanma",
@@ -103,11 +103,12 @@ const TOC = [
   { id: "kalendar", label: "7. Kalendar bo'limi" },
   { id: "reja", label: "8. Reja bo'limi" },
   { id: "odat", label: "9. Odat bo'limi" },
-  { id: "bajarilgan-ochirilgan", label: "10. Bajarilgan va O'chirilgan" },
-  { id: "sozlamalar", label: "11. Sozlamalar" },
-  { id: "telegram-bot", label: "12. Telegram bot" },
-  { id: "malumotlar", label: "13. Ma'lumotlar va xavfsizlik" },
-  { id: "faq", label: "14. Tez-tez so'raladigan savollar" },
+  { id: "maqsad", label: "10. Maqsad bo'limi" },
+  { id: "bajarilgan-ochirilgan", label: "11. Bajarilgan va O'chirilgan" },
+  { id: "sozlamalar", label: "12. Sozlamalar" },
+  { id: "telegram-bot", label: "13. Telegram bot" },
+  { id: "malumotlar", label: "14. Ma'lumotlar va xavfsizlik" },
+  { id: "faq", label: "15. Tez-tez so'raladigan savollar" },
 ];
 
 export default function HaqidaPage() {
@@ -570,8 +571,38 @@ Gugurt`}</pre>
           </ul>
         </Section>
 
-        {/* ─── 10. Bajarilgan / O'chirilgan ──────────────────── */}
-        <Section id="bajarilgan-ochirilgan" title="10. Bajarilgan va O'chirilgan">
+        {/* ─── 10. Maqsad ───────────────────────────────────── */}
+        <Section id="maqsad" title="10. Maqsad bo'limi">
+          <p>
+            <strong>Maqsad</strong> bo&apos;limi: uzoq muddatli maqsadlarni OKR
+            uslubida boshqarish. Uch pog&apos;ona: <strong>Maqsad → kichik
+            maqsadlar → qadamlar</strong>. Katta maqsadni mayda, bajarib
+            bo&apos;ladigan qadamlarga bo&apos;lib, har birini kunlik rejaga
+            belgilab borasiz.
+          </p>
+          <p>
+            Har bir qadamni <strong>istalgan kunga</strong> (ixtiyoriy vaqt
+            bilan, agar o&apos;sha vaqt band bo&apos;lmasa) belgilash mumkin.
+            Belgilangan qadam <strong>avtomatik vazifa</strong> bo&apos;lib,
+            Bugun, Agenda va Kalendarda <Target className="inline size-3.5" />{" "}
+            belgisi bilan ko&apos;rinadi. Vazifani bajarsangiz, qadam ham
+            bajarilgan deb belgilanadi (va aksincha).
+          </p>
+
+          <h3>Qanday ishlaydi</h3>
+          <ul>
+            <li>&quot;+ Maqsad&quot;: nom, ixtiyoriy muddat (deadline) va ikona</li>
+            <li>Maqsad ichida <strong>kichik maqsadlar</strong>, ularning ichida <strong>qadamlar</strong> qo&apos;shiladi</li>
+            <li>Qadam yonidagi <strong>kalendar</strong> belgisi orqali uni kunga (va vaqtga) belgilash; xohlasangiz belgilashni olib tashlash</li>
+            <li>Qadamni belgilab bajarilgan deb qo&apos;yish (checkbox), nomini tahrirlash, o&apos;chirish</li>
+            <li>Kichik maqsad va qadamlarni <strong>sudrab tartiblash</strong> (mobil + desktop), nomini tahrirlash</li>
+            <li>Yo&apos;l xaritasi ko&apos;rinishi: 📍boshlanish → raqamli bekatlar → 🏁finish; <strong>progress halqasi</strong> (foiz) va muddatga qancha qolgani</li>
+            <li><strong>Faol</strong> / <strong>Bajarilgan</strong> / <strong>Arxiv</strong> tablari; maqsadni yakunlash, arxivlash/qaytarish yoki o&apos;chirish (tasdiq bilan)</li>
+          </ul>
+        </Section>
+
+        {/* ─── 11. Bajarilgan / O'chirilgan ──────────────────── */}
+        <Section id="bajarilgan-ochirilgan" title="11. Bajarilgan va O'chirilgan">
           <h3>Bajarilgan bo&apos;limi</h3>
           <p className="text-faint">URL: <code>/bajarilgan</code></p>
           <p>
@@ -599,7 +630,7 @@ Gugurt`}</pre>
         </Section>
 
         {/* ─── 9. Sozlamalar ─────────────────────────────────── */}
-        <Section id="sozlamalar" title="11. Sozlamalar">
+        <Section id="sozlamalar" title="12. Sozlamalar">
           <p>
             Sozlamalar dialogini ochish: yuqori-o&apos;ng burchakdagi
             sozlamalar ikonkasini bosib. Dialog 4 qism bo&apos;limga ega:
@@ -666,7 +697,7 @@ Gugurt`}</pre>
         </Section>
 
         {/* ─── 10. Telegram bot ─────────────────────────────── */}
-        <Section id="telegram-bot" title="12. Telegram bot">
+        <Section id="telegram-bot" title="13. Telegram bot">
           <p>
             Unumly bot: <code>@unumlybot</code>: uch ish bajaradi: kirish
             uchun OTP yuborish, vaqt belgilangan rejalar uchun bildirishnoma
@@ -740,7 +771,7 @@ Gugurt`}</pre>
         </Section>
 
         {/* ─── 11. Ma'lumotlar va xavfsizlik ────────────────── */}
-        <Section id="malumotlar" title="13. Ma'lumotlar va xavfsizlik">
+        <Section id="malumotlar" title="14. Ma'lumotlar va xavfsizlik">
           <h3>Qaerda saqlanadi?</h3>
           <p>Ikki rejim bor:</p>
           <ul>
@@ -784,7 +815,7 @@ Gugurt`}</pre>
         </Section>
 
         {/* ─── 12. FAQ ───────────────────────────────────────── */}
-        <Section id="faq" title="14. Tez-tez so'raladigan savollar">
+        <Section id="faq" title="15. Tez-tez so'raladigan savollar">
           <FaqList items={FAQS} />
         </Section>
 

@@ -38,6 +38,7 @@ function toPlan(p: DbPlan): Plan {
     createdAt: p.createdAt.toISOString(),
     order: p.order,
     habitId: p.habitId ?? undefined,
+    goalStepId: p.goalStepId ?? undefined,
   };
 }
 
@@ -234,6 +235,12 @@ export async function togglePlanStatus(id: string): Promise<Plan> {
     void clearReminderButtons(id, "app").catch((err) =>
       console.error("clearReminderButtons failed", err)
     );
+  }
+
+  // Goal step occurrence — sinxronlash: qadam holatini ham yangilaymiz, shunda
+  // Maqsad bo'limidagi progress darhol mos keladi.
+  if (existing.goalStepId) {
+    void prisma.goalStep.update({ where: { id: existing.goalStepId }, data: { done: nowDone } }).catch(() => {});
   }
 
   return toPlan(row);
