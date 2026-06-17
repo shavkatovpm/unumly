@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { Habit } from "@/lib/types";
 import * as actions from "@/lib/habits-actions";
-import { refreshPlans } from "@/lib/plans-store";
+import { refreshPlans, markHabitDay as markHabitDayPlan } from "@/lib/plans-store";
 
 /* Habits — in-memory cache backed by server actions. Each mutation also
    regenerates the rolling 1-week occurrence window (as Plan rows) and
@@ -117,8 +117,11 @@ export function restoreHabit(id: string): void {
 }
 
 /** Odat Kalendarida occurrence yo'q kunni bajarilgan deb belgilash (backfill). */
-export async function markHabitDay(habitId: string, date: string): Promise<void> {
-  try { await actions.markHabitDay(habitId, date); await refreshPlans(); } catch { /* */ }
+/** Optimistik: plans-store darhol vaqtinchalik DONE plan qo'shadi va server
+ *  bilan moslaydi (UI darhol belgilanadi, kechikishsiz). */
+export function markHabitDay(habitId: string, date: string): void {
+  const habit = memoryState.find((h) => h.id === habitId);
+  markHabitDayPlan(habitId, date, habit?.title ?? "");
 }
 
 export function removeHabit(id: string): void {

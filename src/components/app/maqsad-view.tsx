@@ -18,6 +18,7 @@ import { useGoals, useGoalById, goalProgress } from "@/lib/goals-store";
 import { usePlans } from "@/lib/plans-store";
 import { usePointerReorder } from "@/lib/use-pointer-reorder";
 import { occupiedTimeSlots } from "@/lib/dates";
+import { ensureVisibleOnFocus } from "@/lib/ensure-visible";
 import type { Goal, SubGoal, GoalStep } from "@/lib/types";
 import { Dialog } from "./widgets/dialog";
 import { ConfirmDialog } from "./widgets/confirm-dialog";
@@ -68,7 +69,7 @@ function deadlineInfo(deadline?: string): { label: string; danger: boolean } | n
 }
 
 /* ─── Progress ring ─── */
-function Ring({ pct, size = 48, stroke = 4, label }: { pct: number; size?: number; stroke?: number; label?: boolean }) {
+function Ring({ pct, size = 48, stroke = 4, label, labelClassName }: { pct: number; size?: number; stroke?: number; label?: boolean; labelClassName?: string }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const off = c * (1 - Math.min(100, Math.max(0, pct)) / 100);
@@ -78,7 +79,7 @@ function Ring({ pct, size = 48, stroke = 4, label }: { pct: number; size?: numbe
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={stroke} />
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--foreground)" strokeWidth={stroke} strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" style={{ transition: "stroke-dashoffset 500ms cubic-bezier(0.16,1,0.3,1)" }} />
       </svg>
-      {label && <span className="absolute font-mono text-[12px] font-semibold tabular-nums">{pct}%</span>}
+      {label && <span className={cn("absolute font-mono font-semibold tabular-nums", labelClassName ?? "text-[12px]")}>{pct}%</span>}
     </div>
   );
 }
@@ -178,6 +179,7 @@ function GoalDetail({ goal, onBack, onEdit, api }: { goal: Goal; onBack: () => v
   const [addingSub, setAddingSub] = useState(false);
   const [subLabel, setSubLabel] = useState("");
   const [pending, setPending] = useState<{ kind: "goal" | "sub" | "step"; id: string; name: string } | null>(null);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [schedStep, setSchedStep] = useState<GoalStep | null>(null);
   const allDone = total > 0 && done === total;
   const archived = goal.status === "ARCHIVED";
@@ -202,7 +204,7 @@ function GoalDetail({ goal, onBack, onEdit, api }: { goal: Goal; onBack: () => v
             {archived ? (
               <button type="button" onClick={() => { api.restoreGoal(goal.id); onBack(); }} aria-label="Arxivdan qaytarish" className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><ArchiveRestore className="size-4" /></button>
             ) : (
-              <button type="button" onClick={() => { api.archiveGoal(goal.id); onBack(); }} aria-label="Arxivlash" className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><Archive className="size-4" /></button>
+              <button type="button" onClick={() => setConfirmArchive(true)} aria-label="Arxivlash" className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><Archive className="size-4" /></button>
             )}
             <button type="button" onClick={() => setPending({ kind: "goal", id: goal.id, name: goal.title })} aria-label="O'chirish" className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-danger"><Trash2 className="size-4" /></button>
           </div>
@@ -215,7 +217,7 @@ function GoalDetail({ goal, onBack, onEdit, api }: { goal: Goal; onBack: () => v
           <span className="grid size-12 place-items-center rounded-xl bg-subtle"><GoalIcon k={goal.icon} className="size-6 text-foreground" /></span>
           <h2 className="mt-3 text-[19px] font-semibold tracking-[-0.02em]">{goal.title}</h2>
           {dl && <p className={cn("mt-1 text-[12.5px]", dl.danger ? "text-danger" : "text-faint")}>{dl.label}</p>}
-          <div className="my-4"><Ring pct={pct} size={116} stroke={8} label /></div>
+          <div className="my-5"><Ring pct={pct} size={168} stroke={11} label labelClassName="text-[40px] tracking-[-0.02em]" /></div>
           <p className="text-[12.5px] text-muted">{total > 0 ? `${done} / ${total} qadam bajarildi` : "Hali qadam qo'shilmagan"}</p>
         </div>
 
@@ -239,7 +241,7 @@ function GoalDetail({ goal, onBack, onEdit, api }: { goal: Goal; onBack: () => v
             <span className="absolute -left-10 top-0 grid size-[30px] place-items-center rounded-full border-2 border-dashed border-border bg-background text-faint"><Plus className="size-4" /></span>
             {addingSub ? (
               <div className="rounded-xl border border-border bg-surface p-3">
-                <input autoFocus value={subLabel} onChange={(e) => setSubLabel(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addSub(); if (e.key === "Escape") { setAddingSub(false); setSubLabel(""); } }} placeholder="Kichik maqsad nomi" className="w-full bg-transparent text-[14px] outline-none placeholder:text-faint" />
+                <input autoFocus onFocus={ensureVisibleOnFocus} value={subLabel} onChange={(e) => setSubLabel(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addSub(); if (e.key === "Escape") { setAddingSub(false); setSubLabel(""); } }} placeholder="Kichik maqsad nomi" className="w-full bg-transparent text-[14px] outline-none placeholder:text-faint" />
                 <div className="mt-2 flex justify-end gap-2">
                   <button type="button" onClick={() => { setAddingSub(false); setSubLabel(""); }} className="rounded-md px-3 py-1.5 text-[12.5px] text-faint hover:text-foreground">Bekor</button>
                   <button type="button" onClick={addSub} disabled={!subLabel.trim()} className="rounded-md bg-foreground px-3 py-1.5 text-[12.5px] font-medium text-background transition-opacity disabled:opacity-30">Qo&apos;shish</button>
@@ -266,6 +268,7 @@ function GoalDetail({ goal, onBack, onEdit, api }: { goal: Goal; onBack: () => v
 
       {schedStep && <ScheduleStepModal step={schedStep} plans={plans} onClose={() => setSchedStep(null)} onRename={(t) => api.updateStep(schedStep.id, t)} onSave={(date, time) => { api.scheduleStep(schedStep.id, date, time); setSchedStep(null); }} onRemove={() => { api.unscheduleStep(schedStep.id); setSchedStep(null); }} onDelete={() => { setPending({ kind: "step", id: schedStep.id, name: schedStep.title }); setSchedStep(null); }} />}
       <ConfirmDialog open={!!pending} title="O'chirilsinmi?" description={pending ? `"${pending.name}" o'chiriladi.` : ""} confirmLabel="O'chirish" destructive onConfirm={confirmDel} onClose={() => setPending(null)} />
+      <ConfirmDialog open={confirmArchive} title="Maqsadni arxivlash?" description={`"${goal.title}" arxivga o'tkaziladi. Keyin arxivdan qaytarishingiz mumkin.`} confirmLabel="Arxivlash" onConfirm={() => { api.archiveGoal(goal.id); setConfirmArchive(false); onBack(); }} onClose={() => setConfirmArchive(false)} />
     </div>
   );
 }
@@ -296,7 +299,7 @@ function SubGoalBlock({ index, sub, api, drag, onSchedule, onAskDelSub, onAskDel
       <header className="flex items-center gap-1.5 border-b border-border bg-subtle/30 px-2.5 py-2.5">
         <span onPointerDown={(e) => drag.start(e, sub.id)} aria-label="Sudrab ko'chirish" className="grid size-6 shrink-0 cursor-grab touch-none place-items-center text-faint/60 transition-colors hover:text-muted active:cursor-grabbing"><GripVertical className="size-3.5" /></span>
         {editing ? (
-          <input autoFocus value={titleVal} onChange={(e) => setTitleVal(e.target.value)} onBlur={saveTitle} onKeyDown={(e) => { if (e.key === "Enter") saveTitle(); if (e.key === "Escape") setEditing(false); }} className="min-w-0 flex-1 border-b border-foreground bg-transparent pb-0.5 text-[13.5px] font-medium outline-none" />
+          <input autoFocus onFocus={ensureVisibleOnFocus} value={titleVal} onChange={(e) => setTitleVal(e.target.value)} onBlur={saveTitle} onKeyDown={(e) => { if (e.key === "Enter") saveTitle(); if (e.key === "Escape") setEditing(false); }} className="min-w-0 flex-1 border-b border-foreground bg-transparent pb-0.5 text-[13.5px] font-medium outline-none" />
         ) : (
           <button type="button" onClick={() => { setTitleVal(sub.title); setEditing(true); }} className="min-w-0 flex-1 truncate text-left text-[13.5px] font-medium hover:text-foreground">{sub.title}</button>
         )}
@@ -311,7 +314,7 @@ function SubGoalBlock({ index, sub, api, drag, onSchedule, onAskDelSub, onAskDel
       <div className="px-3.5 py-2.5">
         {addingStep ? (
           <div>
-            <input autoFocus value={stepLabel} onChange={(e) => setStepLabel(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addStep(); if (e.key === "Escape") { setAddingStep(false); setStepLabel(""); } }} placeholder="Qadam nomi" className="w-full border-b border-border bg-transparent pb-1.5 text-[13.5px] outline-none placeholder:text-faint focus:border-foreground" />
+            <input autoFocus onFocus={ensureVisibleOnFocus} value={stepLabel} onChange={(e) => setStepLabel(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addStep(); if (e.key === "Escape") { setAddingStep(false); setStepLabel(""); } }} placeholder="Qadam nomi" className="w-full border-b border-border bg-transparent pb-1.5 text-[13.5px] outline-none placeholder:text-faint focus:border-foreground" />
             <div className="mt-2 flex justify-end gap-2">
               <button type="button" onClick={() => { setAddingStep(false); setStepLabel(""); }} className="rounded-md px-2.5 py-1 text-[12px] text-faint hover:text-foreground">Yopish</button>
               <button type="button" onClick={addStep} disabled={!stepLabel.trim()} className="rounded-md bg-foreground px-2.5 py-1 text-[12px] font-medium text-background transition-opacity disabled:opacity-30">Qo&apos;shish</button>
@@ -343,7 +346,7 @@ function StepRow({ step, onToggle, onSchedule, onDelete, onHandlePointerDown, dr
       {/* O'chirish — faqat desktopda (hover). Mobilda sana oynasi ichida. */}
       <button type="button" onClick={(e) => stop(e, onDelete)} aria-label="O'chirish" className="hidden size-6 shrink-0 place-items-center rounded-md text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100 sm:grid"><X className="size-3.5" /></button>
       <button type="button" onClick={(e) => stop(e, onToggle)} aria-label={step.done ? "Bekor qilish" : "Bajarildi"} className="shrink-0">
-        <span className={cn("grid size-[19px] place-items-center rounded-md border transition-all", step.done ? "border-foreground bg-foreground" : "border-border-strong hover:border-foreground")}>
+        <span className={cn("grid size-[19px] place-items-center rounded-md border transition-[border-color]", step.done ? "border-foreground bg-foreground" : "border-border-strong hover:border-foreground")}>
           {step.done && <Check className="size-[13px] text-background" strokeWidth={4} />}
         </span>
       </button>

@@ -413,7 +413,7 @@ function DayAdd({ date, habits, onAddExisting, onNewHabit }: { date: Date; habit
 
 /* ─── Umumiy kichik komponentlar ─── */
 function CheckButton({ done, sched, onClick }: { done: boolean; sched: boolean; onClick: () => void }) {
-  return <button type="button" onClick={onClick} disabled={!sched} aria-label="Bajarildi" className={cn("grid size-7 shrink-0 place-items-center rounded-full border transition-all active:scale-90 disabled:opacity-25", done ? "border-foreground bg-foreground text-background" : "border-border-strong text-transparent hover:border-foreground")}><Check className="size-3.5" strokeWidth={2.5} /></button>;
+  return <button type="button" onClick={onClick} disabled={!sched} aria-label="Bajarildi" className={cn("grid size-7 shrink-0 place-items-center rounded-full border transition-[border-color,transform] active:scale-90 disabled:opacity-25", done ? "border-foreground bg-foreground text-background" : "border-border-strong text-transparent hover:border-foreground")}><Check className="size-3.5" strokeWidth={2.5} /></button>;
 }
 function BigRing({ pct, caption }: { pct: number; caption: string }) {
   const R = 51, C = 2 * Math.PI * R;

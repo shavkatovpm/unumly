@@ -4,6 +4,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { Plan, PlanPriority, PlanScope } from "@/lib/types";
 import { playOnCreate } from "@/lib/sounds";
 import * as actions from "@/lib/plans-actions";
+import { markHabitDay as markHabitDayAction } from "@/lib/habits-actions";
 
 /* ════════════════════════════════════════════════════════════
    Plans store — in-memory cache backed by server actions.
@@ -206,6 +207,36 @@ export function createPlan(input: CreatePlanInput): string {
   );
 
   return id;
+}
+
+/** Odatni biror kun uchun bajarilgan deb belgilash — optimistik.
+ *  O'tib ketgan kunlarda occurrence Plan mavjud bo'lmaydi, shuning uchun
+ *  darhol vaqtinchalik DONE plan qo'shamiz, keyin server bilan moslaymiz. */
+export function markHabitDay(habitId: string, date: string, title: string): void {
+  // Shu habit+sana uchun plan allaqachon bo'lsa — qaytamiz (server ham idempotent).
+  if (memoryState.some((p) => p.habitId === habitId && p.scheduledFor === date)) return;
+  const id = nextId();
+  const now = new Date().toISOString();
+  const optimistic: Plan = {
+    id,
+    title: title.trim(),
+    scope: "DAILY",
+    status: "DONE",
+    scheduledFor: date,
+    completedAt: now,
+    createdAt: now,
+    order: 0,
+    habitId,
+  };
+  memoryState = [...memoryState, optimistic];
+  emit();
+
+  void withPending(
+    markHabitDayAction(habitId, date)
+      .then(() => actions.listPlans())
+      .then((rows) => { memoryState = rows; emit(); })
+      .catch(() => { memoryState = memoryState.filter((p) => p.id !== id); emit(); })
+  );
 }
 
 export function upsertPlan(plan: Plan): void {
