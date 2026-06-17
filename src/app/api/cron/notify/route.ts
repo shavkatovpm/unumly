@@ -13,22 +13,25 @@ export const dynamic = "force-dynamic";
 const APP_URL = "https://www.unumly.uz/bugun";
 
 // Window: how far in the past we still consider "due" (in case the cron
-// was delayed or skipped). 2 minutes is a safe default for 1-minute cron.
-const WINDOW_MS = 2 * 60 * 1000;
+// was delayed or skipped). The cron runs every 10 minutes, so the window
+// must exceed one interval or due reminders would slip between ticks.
+// 21 minutes ≈ 2× the interval + jitter: it absorbs a single skipped tick
+// while still skipping reminders that are too stale to be useful.
+const WINDOW_MS = 21 * 60 * 1000;
 
 // How long a Tezkor list stays "open" (accumulating new bot items) after
 // the most recent message. Once exceeded, cron closes it and sends summary.
-// NOTE: actual close timing also depends on cron frequency (typically 1
-// min), so the practical window is [TEZKOR_IDLE_MS, TEZKOR_IDLE_MS + 60s].
+// NOTE: actual close timing also depends on cron frequency (every 10 min),
+// so the practical window is [TEZKOR_IDLE_MS, TEZKOR_IDLE_MS + 10 min].
 const TEZKOR_IDLE_MS = 20 * 1000;
 
 /**
  * GET /api/cron/notify
  *
- * Called by an external scheduler (cron-job.org) once per minute.
+ * Called by an external scheduler (cron-job.org) every 10 minutes.
  * Requires Authorization: Bearer ${CRON_SECRET}.
  *
- * Scans plans whose notifyAt fell within [now-2min, now], filters by
+ * Scans plans whose notifyAt fell within [now-21min, now], filters by
  * user preferences and priority, sends the reminder via the bot, and
  * marks `notifiedAt` to prevent re-send.
  */

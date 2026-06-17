@@ -81,7 +81,7 @@ const FAQS = [
   },
   {
     q: "Bot eslatmasi qachon yetib keladi?",
-    a: "Default holatda eslatma vazifa vaqtidan 5 daqiqa oldin yuboriladi — tayyorlanishga ulgurish uchun. Sozlamalardan account-darajadagi defaultni O'z vaqtida, 5, 15 yoki 30 daqiqa avval qilib o'zgartirishingiz mumkin. Har bir alohida reja uchun esa Batafsil dialogida \"Eslatma\" tugmasini bosib shu 4 ta variantdan tanlash mumkin.",
+    a: "Default holatda eslatma vazifa vaqtidan 10 daqiqa oldin yuboriladi — tayyorlanishga ulgurish uchun. Sozlamalardan account-darajadagi defaultni O'z vaqtida, 10, 20 yoki 30 daqiqa avval qilib o'zgartirishingiz mumkin. Har bir alohida reja uchun esa Batafsil dialogida \"Eslatma\" tugmasini bosib shu 4 ta variantdan tanlash mumkin.",
   },
   {
     q: "Unumly boshqa to-do ilovalardan nimasi bilan farq qiladi?",
@@ -648,9 +648,9 @@ Gugurt`}</pre>
           <p>
             <strong>Necha daqiqa oldin (account default)</strong>: bot xabari
             vazifa vaqtidan qancha vaqt oldin yuborilishini tanlash —{" "}
-            <strong>O&apos;z vaqtida</strong>, <strong>5</strong>,{" "}
-            <strong>15</strong> yoki <strong>30 daqiqa</strong> avval.
-            Default qiymat: 5 daqiqa avval. Bu barcha rejalarga taalluqli —
+            <strong>O&apos;z vaqtida</strong>, <strong>10</strong>,{" "}
+            <strong>20</strong> yoki <strong>30 daqiqa</strong> avval.
+            Default qiymat: 10 daqiqa avval. Bu barcha rejalarga taalluqli —
             agar reja Batafsilida boshqacha qiymat tanlanmagan bo&apos;lsa.
             O&apos;zgartirsangiz, hozircha yuborilmagan va alohida override
             qo&apos;yilmagan rejalarning eslatmalari yangi sozlamaga moslab
