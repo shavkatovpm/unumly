@@ -16,6 +16,16 @@ export type NotificationPrefs = {
   notifyLeadMin: LeadMin;
 };
 
+export type MyProfile = { name: string; photoUrl: string | null };
+
+/** Joriy foydalanuvchining ko'rsatish profili (ism + Telegram rasmi). */
+export async function getMyProfile(): Promise<MyProfile | null> {
+  const u = await getSessionUser();
+  if (!u) return null;
+  const name = [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.username || "Foydalanuvchi";
+  return { name, photoUrl: u.photoUrl ?? null };
+}
+
 export async function getNotificationPrefs(): Promise<NotificationPrefs | null> {
   const u = await getSessionUser();
   if (!u) return null;

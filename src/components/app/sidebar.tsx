@@ -25,7 +25,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/color-store";
+import { useProfile } from "@/lib/profile-store";
 import { SettingsDialog } from "./widgets/settings-dialog";
+import { Avatar } from "./widgets/avatar";
 
 type IconCmp = ComponentType<{ className?: string; strokeWidth?: number }>;
 
@@ -44,6 +46,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const { isDark, toggleMode } = useTheme();
+  const profile = useProfile();
 
   // Settings dialog
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -232,12 +235,10 @@ export function Sidebar({
       {/* Bottom: profile + theme toggle */}
       <div className="px-3 pb-3">
         <div className="flex items-center gap-2 rounded-md bg-surface/80 px-2 py-2 shadow-[0_1px_0_var(--border)]">
-          <div className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-medium text-background">
-            U
-          </div>
-          <div className="flex-1 leading-tight">
-            <p className="text-[12px] font-medium text-foreground">Ish stoli</p>
-            <p className="text-[10px] text-faint">Lokal rejim</p>
+          <Avatar name={profile?.name} photoUrl={profile?.photoUrl} className="size-7 text-[11px]" />
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="truncate text-[12px] font-medium text-foreground">{profile?.name ?? "Ish stoli"}</p>
+            <p className="text-[10px] text-faint">Telegram</p>
           </div>
           <button
             type="button"

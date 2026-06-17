@@ -32,6 +32,7 @@ import {
 } from "@/lib/notify-time";
 import { useTheme, THEME_FAMILIES } from "@/lib/color-store";
 import { Dialog } from "./dialog";
+import { ConfirmDialog } from "./confirm-dialog";
 import { AutoHeight } from "./auto-height";
 
 type TabId = "menyu" | "theme" | "ovoz" | "eslatma" | "akkaunt";
@@ -63,6 +64,7 @@ export function SettingsDialog({
   const [enabled, setEnabled] = useState(true);
   const [volume, setVolume] = useState(0.2);
   const [signingOut, setSigningOut] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [notifs, setNotifs] = useState<NotificationPrefs | null>(null);
   const [primaryIds, setPrimaryIds] = useState<NavItemId[]>(DEFAULT_PRIMARY);
   const [tab, setTab] = useState<TabId>("ovoz");
@@ -147,6 +149,7 @@ export function SettingsDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onClose={onClose} className="max-w-md" mobilePlacement="center">
       <header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
         <p className="text-[15px] font-semibold tracking-[-0.01em]">Sozlamalar</p>
@@ -443,7 +446,7 @@ export function SettingsDialog({
         <section className={cn(tab !== "akkaunt" && "hidden")}>
           <button
             type="button"
-            onClick={signOut}
+            onClick={() => setConfirmSignOut(true)}
             disabled={signingOut}
             className={cn(
               "flex w-full items-center gap-3 rounded-md border border-border bg-surface px-3.5 py-3 transition-colors hover:bg-danger-soft hover:text-danger disabled:opacity-50",
@@ -461,6 +464,20 @@ export function SettingsDialog({
       </div>
       </AutoHeight>
     </Dialog>
+
+    <ConfirmDialog
+      open={confirmSignOut}
+      title="Akkauntdan chiqasizmi?"
+      description="Sessiya yopiladi va /kirish sahifasiga qaytasiz."
+      confirmLabel="Chiqish"
+      destructive
+      onConfirm={() => {
+        setConfirmSignOut(false);
+        signOut();
+      }}
+      onClose={() => setConfirmSignOut(false)}
+    />
+    </>
   );
 }
 

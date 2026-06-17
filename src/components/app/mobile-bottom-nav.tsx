@@ -28,7 +28,9 @@ import {
   loadPrimaryIds,
   resolvePrimaryItems,
 } from "@/lib/mobile-nav";
+import { useProfile } from "@/lib/profile-store";
 import { SettingsDialog } from "./widgets/settings-dialog";
+import { Avatar } from "./widgets/avatar";
 
 const STORAGE_HIDDEN = "unumly:sidebar:hidden";
 
@@ -204,6 +206,7 @@ function BoshqaruvSheet({
   primaryHrefs: Set<string>;
 }) {
   const { isDark, toggleMode } = useTheme();
+  const profile = useProfile();
   const [hidden, setHidden] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const dragControls = useDragControls();
@@ -347,12 +350,10 @@ function BoshqaruvSheet({
         {/* Profile + theme + settings */}
         <div className="border-t border-border bg-subtle/30 p-3">
           <div className="flex items-center gap-3 rounded-lg bg-background p-3">
-            <div className="grid size-10 place-items-center rounded-md bg-foreground text-[14px] font-medium text-background">
-              U
-            </div>
+            <Avatar name={profile?.name} photoUrl={profile?.photoUrl} className="size-10 text-[14px]" />
             <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-medium">Ish stoli</p>
-              <p className="text-[11px] text-faint">Lokal rejim</p>
+              <p className="truncate text-[14px] font-medium">{profile?.name ?? "Ish stoli"}</p>
+              <p className="text-[11px] text-faint">Telegram</p>
             </div>
             <button
               onClick={toggleMode}
