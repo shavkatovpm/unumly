@@ -215,7 +215,11 @@ function BoshqaruvSheet({
   // Arxiv/Maxsus — accordion: bir vaqtda faqat bittasi ochiq.
   // Joriy route Arxiv ichida bo'lsa — Arxiv ochiq boshlanadi.
   const [openSection, setOpenSection] = useState<"arxiv" | "maxsus" | null>(
-    pathname.startsWith("/bajarilgan") || pathname.startsWith("/ochirilgan") ? "arxiv" : null
+    pathname.startsWith("/bajarilgan") || pathname.startsWith("/ochirilgan")
+      ? "arxiv"
+      : pathname.startsWith("/moliya") || pathname.startsWith("/qarz")
+      ? "maxsus"
+      : null
   );
   const toggleSection = (s: "arxiv" | "maxsus") => setOpenSection((cur) => (cur === s ? null : s));
 
@@ -322,24 +326,6 @@ function BoshqaruvSheet({
               onNavigate={onClose}
             />
           )}
-          {!hidden.includes("moliya") && !primaryHrefs.has("/moliya") && (
-            <SheetLink
-              href="/moliya"
-              label="Moliya"
-              icon={Wallet}
-              active={isActive("/moliya")}
-              onNavigate={onClose}
-            />
-          )}
-          {!hidden.includes("qarz") && !primaryHrefs.has("/qarz") && (
-            <SheetLink
-              href="/qarz"
-              label="Qarz"
-              icon={HandCoins}
-              active={isActive("/qarz")}
-              onNavigate={onClose}
-            />
-          )}
         </div>
 
         {/* Arxiv — dropdown */}
@@ -362,8 +348,14 @@ function BoshqaruvSheet({
           />
         </SheetCollapsible>
 
-        {/* Maxsus — dropdown (Loyiha) */}
+        {/* Maxsus — dropdown (Moliya / Qarz — sinov) */}
         <SheetCollapsible label="Maxsus" open={openSection === "maxsus"} onToggle={() => toggleSection("maxsus")}>
+          {!primaryHrefs.has("/moliya") && (
+            <SheetLink href="/moliya" label="Moliya" icon={Wallet} active={isActive("/moliya")} onNavigate={onClose} secondary />
+          )}
+          {!primaryHrefs.has("/qarz") && (
+            <SheetLink href="/qarz" label="Qarz" icon={HandCoins} active={isActive("/qarz")} onNavigate={onClose} secondary />
+          )}
           <SheetItem label="Loyiha" icon={Sparkles} badge="tez orada" secondary />
         </SheetCollapsible>
 
