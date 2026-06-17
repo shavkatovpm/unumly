@@ -128,7 +128,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       {/* Hamburger toggle — desktop only (mobile uses bottom tabs) */}
       <button
         type="button"

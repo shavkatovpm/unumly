@@ -1,210 +1,80 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useT, useLang } from "./i18n";
 
-const VERBS = ["Rejalang", "Boshqaring", "Bajaring"];
-const ROTATE_MS = 2200;
+export function Hero() {
+  const t = useT();
+  const { lang } = useLang();
+  const h = t.hero;
 
-export default function Hero() {
-  const [idx, setIdx] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const h1Ref = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    const id = window.setInterval(
-      () => setIdx((v) => (v + 1) % VERBS.length),
-      ROTATE_MS
-    );
-    return () => window.clearInterval(id);
-  }, []);
+    const wrap = wrapRef.current;
+    const h1 = h1Ref.current;
+    if (!wrap || !h1) return;
+
+    const fit = () => {
+      const lines = h1.querySelectorAll<HTMLElement>("[data-fit-line]");
+      if (!lines.length) return;
+      h1.style.fontSize = "100px";
+      let maxW = 0;
+      lines.forEach((l) => {
+        if (l.scrollWidth > maxW) maxW = l.scrollWidth;
+      });
+      if (maxW === 0) return;
+      h1.style.fontSize = `${(100 * wrap.clientWidth) / maxW}px`;
+    };
+
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(wrap);
+    document.fonts?.ready?.then(fit).catch(() => {});
+    return () => ro.disconnect();
+    // til o'zgarganda matn (en) o'zgaradi → qayta o'lchaymiz
+  }, [lang]);
 
   return (
-    <>
-      {/* Mobile (< md): dashed-bordered card */}
-      <section className="flex flex-1 flex-col items-center justify-center px-5 py-8 md:hidden">
-        <div className="rise-in w-full max-w-sm rounded-2xl border border-dashed border-border-strong bg-transparent px-4 py-10 text-center">
-          <h1 className="text-balance text-[16.5px] font-medium leading-snug tracking-[-0.01em]">
-            Kunlik ishlarni rejalashtirish ilovasi
-          </h1>
-
-          <div
-            className="rise-in mt-7 flex items-baseline justify-center gap-1.5"
-            style={{ animationDelay: "140ms" }}
-          >
-            <span className="text-[52px] font-medium leading-none tracking-[-0.05em] text-foreground">
-              unumly
-            </span>
-            <span
-              aria-hidden
-              className="relative inline-block size-1.5 -translate-y-1 rounded-full bg-accent"
-            >
-              <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />
-            </span>
-          </div>
-
-          <div className="rise-in mt-5" style={{ animationDelay: "220ms" }}>
-            <MobileVerb idx={idx} />
-          </div>
-
-          <div className="rise-in mt-8" style={{ animationDelay: "320ms" }}>
-            <CtaStack />
-          </div>
-        </div>
-
-        <p
-          className="rise-in mt-5 text-center font-mono text-[10.5px] uppercase tracking-[0.22em] text-faint"
-          style={{ animationDelay: "60ms" }}
-        >
-          Vaqtingizni unumli boshqaring
-        </p>
-      </section>
-
-      {/* Desktop (≥ md): original open layout, no card */}
-      <section className="hidden flex-1 items-center justify-center px-6 py-12 md:flex">
-        <div className="w-full max-w-3xl text-center">
-          <h1 className="rise-in text-balance text-[clamp(1.5rem,3vw,2.25rem)] font-medium leading-[1.1] tracking-[-0.02em]">
-            Kunlik ishlarni rejalashtirish ilovasi
-          </h1>
-          <p
-            className="rise-in mt-3 text-[15px] text-muted"
-            style={{ animationDelay: "60ms" }}
-          >
-            Vaqtingizni unumli boshqaring
-          </p>
-
-          <div
-            className="rise-in mt-10 flex items-baseline justify-center gap-2"
-            style={{ animationDelay: "140ms" }}
-          >
-            <span className="text-[clamp(5rem,14vw,11rem)] font-medium leading-none tracking-[-0.05em] text-foreground">
-              unumly
-            </span>
-            <span
-              aria-hidden
-              className="relative inline-block size-3 -translate-y-2 rounded-full bg-accent"
-            >
-              <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60" />
-            </span>
-          </div>
-
-          <div className="rise-in mt-8" style={{ animationDelay: "220ms" }}>
-            <DesktopVerb idx={idx} />
-          </div>
-
-          <div className="rise-in mt-12" style={{ animationDelay: "320ms" }}>
-            <CtaRow />
-          </div>
-        </div>
-      </section>
-    </>
-  );
-}
-
-/* ─── Rotating verbs ─────────────────────────────────────────── */
-function MobileVerb({ idx }: { idx: number }) {
-  return (
-    <div className="relative h-[52px]" aria-live="polite" aria-atomic>
-      {VERBS.map((verb, i) => {
-        const isCurrent = i === idx;
-        const isPrev = i === (idx - 1 + VERBS.length) % VERBS.length;
-        return (
-          <p
-            key={verb}
-            className={cn(
-              "absolute inset-0 flex items-center justify-center whitespace-nowrap text-[52px] font-medium leading-none tracking-[-0.05em] text-muted transition-all duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
-              isCurrent && "translate-y-0 opacity-100 blur-0",
-              !isCurrent && isPrev && "-translate-y-2 opacity-0 blur-[2px]",
-              !isCurrent && !isPrev && "translate-y-2 opacity-0 blur-[2px]"
-            )}
-            aria-hidden={!isCurrent}
-          >
-            {verb}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
-
-function DesktopVerb({ idx }: { idx: number }) {
-  return (
-    <div className="relative h-[3.5rem]" aria-live="polite" aria-atomic>
-      {VERBS.map((verb, i) => {
-        const isCurrent = i === idx;
-        const isPrev = i === (idx - 1 + VERBS.length) % VERBS.length;
-        return (
-          <p
-            key={verb}
-            className={cn(
-              "absolute inset-0 flex items-center justify-center whitespace-nowrap text-[clamp(2rem,5vw,3rem)] font-medium leading-none tracking-[-0.03em] text-muted transition-all duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
-              isCurrent && "translate-y-0 opacity-100 blur-0",
-              !isCurrent && isPrev && "-translate-y-3 opacity-0 blur-[2px]",
-              !isCurrent && !isPrev && "translate-y-3 opacity-0 blur-[2px]"
-            )}
-            aria-hidden={!isCurrent}
-          >
-            {verb}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ─── Mobile CTA: stacked ─── */
-function CtaStack() {
-  return (
-    <div className="flex flex-col items-center gap-3.5">
-      <Link
-        href="/bugun"
-        className="inline-flex items-center gap-2 rounded-md bg-foreground px-6 py-2.5 text-[14px] font-medium text-background transition-opacity hover:opacity-90"
+    <div
+      ref={wrapRef}
+      className="relative left-1/2 w-[80vw] max-w-[80vw] -translate-x-1/2 text-center"
+    >
+      <h1
+        ref={h1Ref}
+        style={{ fontSize: "8vw" }}
+        className="font-semibold leading-[1.05] tracking-[-0.045em]"
       >
-        Boshlash
-        <ArrowUpRight className="size-4" />
-      </Link>
-      <div className="flex items-center gap-5">
+        <span data-fit-line className="block whitespace-nowrap">
+          {h.line1}
+        </span>
+        <span data-fit-line className="block whitespace-nowrap">
+          <span className="text-accent">{h.line2a}</span>
+          {h.line2b ? ` ${h.line2b}` : ""}
+        </span>
+      </h1>
+      <p className="mx-auto mt-6 max-w-2xl text-balance text-[15px] leading-relaxed text-muted sm:text-[16px]">
+        <span className="sm:hidden">{h.subShort}</span>
+        <span className="hidden sm:inline">{h.sub}</span>
+      </p>
+
+      <div className="mt-8 flex flex-row items-center justify-center gap-3">
         <Link
-          href="/haqida"
-          className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-faint transition-colors hover:text-foreground"
+          href="/bugun"
+          className="inline-flex items-center justify-center gap-2 rounded-md bg-foreground px-6 py-3 text-[14px] font-medium text-background transition-opacity hover:opacity-90"
         >
-          Haqida
+          {h.ctaStart} <ArrowUpRight className="size-4" />
         </Link>
-        <span aria-hidden className="h-3 w-px bg-border" />
-        <Link
-          href="/blog"
-          className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-faint transition-colors hover:text-foreground"
+        <a
+          href="#imkoniyatlar"
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong px-6 py-3 text-[14px] font-medium text-foreground transition-colors hover:bg-subtle"
         >
-          Blog
-        </Link>
+          {h.ctaFeatures}
+        </a>
       </div>
-    </div>
-  );
-}
-
-/* ─── Desktop CTA: inline row ─── */
-function CtaRow() {
-  return (
-    <div className="flex items-center justify-center gap-5">
-      <Link
-        href="/haqida"
-        className="font-mono text-[11px] uppercase tracking-[0.18em] text-faint transition-colors hover:text-foreground"
-      >
-        Haqida
-      </Link>
-      <Link
-        href="/bugun"
-        className="inline-flex items-center gap-2 rounded-md bg-foreground px-6 py-2.5 text-[14px] font-medium text-background transition-opacity hover:opacity-90"
-      >
-        Boshlash
-        <ArrowUpRight className="size-4" />
-      </Link>
-      <Link
-        href="/blog"
-        className="font-mono text-[11px] uppercase tracking-[0.18em] text-faint transition-colors hover:text-foreground"
-      >
-        Blog
-      </Link>
     </div>
   );
 }

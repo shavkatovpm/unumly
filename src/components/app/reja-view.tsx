@@ -766,19 +766,40 @@ function MaterialTabBar({
    ════════════════════════════════════════════════════════════ */
 
 function KanbanView(props: ViewProps) {
-  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [menuFor, setMenuFor] = useState<{ id: string; top: number; right: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => { setPortalReady(true); }, []);
   const dragCat = useDragReorder(props.categories, (d, b) =>
     props.onCategoryReorder?.(d, b)
   );
   useEffect(() => {
     if (!menuFor) return;
+    const menuForId = menuFor.id;
     function onDown(e: MouseEvent) {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuFor(null);
+      const t = e.target as Node;
+      if (menuRef.current?.contains(t)) return;
+      const btn = menuBtnRefs.current[menuForId];
+      if (btn?.contains(t)) return;
+      setMenuFor(null);
     }
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [menuFor]);
+
+  function openMenu(id: string, btn: HTMLButtonElement) {
+    if (menuFor?.id === id) {
+      setMenuFor(null);
+      return;
+    }
+    const r = btn.getBoundingClientRect();
+    setMenuFor({
+      id,
+      top: r.bottom + 4,
+      right: window.innerWidth - r.right,
+    });
+  }
 
   return (
     <div className="flex-1 overflow-x-auto overflow-y-hidden pb-20 md:pb-0">
@@ -816,11 +837,9 @@ function KanbanView(props: ViewProps) {
             onRemove={props.onRemove}
             onUpdate={props.onUpdate}
             onOpen={props.onOpen}
-            menuOpen={menuFor === cat.id}
-            onMenuToggle={() => setMenuFor(menuFor === cat.id ? null : cat.id)}
-            menuRef={menuRef}
-            onEdit={() => props.onCategoryEdit(cat)}
-            onDelete={() => props.onCategoryDelete(cat.id)}
+            menuActive={menuFor?.id === cat.id}
+            onMenuToggle={(btn) => openMenu(cat.id, btn)}
+            menuBtnRef={(el) => { menuBtnRefs.current[cat.id] = el; }}
           />
           </motion.div>
         ))}
@@ -834,6 +853,37 @@ function KanbanView(props: ViewProps) {
           </button>
         </div>
       </div>
+
+      {/* Portal-rendered menu so it escapes the column's overflow clipping */}
+      {portalReady && menuFor &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fade-in fixed z-[100] w-36 overflow-hidden rounded-md border border-border bg-surface shadow-xl"
+            style={{ top: menuFor.top, right: menuFor.right }}
+          >
+            <button
+              onClick={() => {
+                const cat = props.categories.find((c) => c.id === menuFor.id);
+                if (cat) props.onCategoryEdit(cat);
+                setMenuFor(null);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-muted hover:bg-hover hover:text-foreground"
+            >
+              <Pencil className="size-3" /> Tahrir
+            </button>
+            <button
+              onClick={() => {
+                props.onCategoryDelete(menuFor.id);
+                setMenuFor(null);
+              }}
+              className="flex w-full items-center gap-2 border-t border-border px-3 py-1.5 text-left text-[12px] text-muted hover:bg-danger-soft hover:text-danger"
+            >
+              <Trash2 className="size-3" /> O&apos;chir
+            </button>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -849,11 +899,9 @@ function KanbanColumn({
   onRemove,
   onUpdate,
   onOpen,
-  menuOpen,
+  menuActive,
   onMenuToggle,
-  menuRef,
-  onEdit,
-  onDelete,
+  menuBtnRef,
 }: {
   cat: Category;
   ideas: Idea[];
@@ -865,11 +913,9 @@ function KanbanColumn({
   onRemove: (id: string) => void;
   onUpdate: (id: string, patch: Partial<Idea>) => void;
   onOpen: (id: string) => void;
-  menuOpen: boolean;
-  onMenuToggle: () => void;
-  menuRef: React.RefObject<HTMLDivElement | null>;
-  onEdit: () => void;
-  onDelete: () => void;
+  menuActive: boolean;
+  onMenuToggle: (btn: HTMLButtonElement) => void;
+  menuBtnRef: (el: HTMLButtonElement | null) => void;
 }) {
   const color = CATEGORY_PALETTE[cat.color].oklch;
   const active = sortIdeas(ideas.filter((i) => !i.done), sortOrder);
@@ -893,28 +939,19 @@ function KanbanColumn({
               {active.length}
             </span>
             <button
-              onClick={onMenuToggle}
+              ref={menuBtnRef}
+              type="button"
+              onClick={(e) => onMenuToggle(e.currentTarget)}
               aria-label="Toifa amallari"
-              className="grid size-5 place-items-center rounded text-faint hover:bg-hover hover:text-foreground"
+              className={cn(
+                "grid size-5 place-items-center rounded text-faint transition-colors hover:bg-hover hover:text-foreground",
+                menuActive && "bg-hover text-foreground"
+              )}
             >
               <MoreHorizontal className="size-3" />
             </button>
           </div>
         </div>
-
-        {menuOpen && (
-          <div
-            ref={menuRef}
-            className="fade-in absolute right-2 top-full z-20 mt-1 w-32 overflow-hidden rounded-md border border-border bg-surface shadow-lg"
-          >
-            <button onClick={onEdit} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-muted hover:bg-hover hover:text-foreground">
-              <Pencil className="size-3" /> Tahrir
-            </button>
-            <button onClick={onDelete} className="flex w-full items-center gap-2 border-t border-border px-3 py-1.5 text-left text-[12px] text-muted hover:bg-danger-soft hover:text-danger">
-              <Trash2 className="size-3" /> O&apos;chir
-            </button>
-          </div>
-        )}
       </header>
 
       {/* Add row */}
