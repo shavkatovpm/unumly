@@ -40,7 +40,7 @@ import { TestBadge } from "./widgets/test-badge";
 const INCOME_COLOR = "oklch(0.62 0.13 158)"; // yashil
 const EXPENSE_COLOR = "oklch(0.62 0.17 22)"; // qizil
 
-type Tab = "umumiy" | "tranzaksiyalar" | "byudjet" | "yigim";
+type Tab = "umumiy" | "tranzaksiyalar" | "kategoriya" | "yigim";
 
 function catColor(c: FinanceCategory | undefined): CategoryColor {
   return c?.color ?? "gray";
@@ -54,7 +54,7 @@ export function MoliyaView() {
   const {
     transactions, categories, budgets, goals,
     addTransaction, updateTransaction, removeTransaction,
-    addCategory, setBudget, removeBudget,
+    addCategory, updateCategory, removeCategory, setBudget, removeBudget,
     addFinancialGoal, updateFinancialGoal, contributeFinancialGoal, removeFinancialGoal,
   } = useFinance();
   const hydrated = useHydratedFinance();
@@ -105,11 +105,9 @@ export function MoliyaView() {
   return (
     <div className="mx-auto flex h-full max-w-2xl flex-col px-4 pb-24 pt-3 md:pb-6">
       {/* Header — oy navigatsiyasi */}
+      <TestBadge />
       <header className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h1 className="text-[18px] font-semibold tracking-[-0.01em]">Moliya</h1>
-          <TestBadge />
-        </div>
+        <h1 className="text-[18px] font-semibold tracking-[-0.01em]">Moliya</h1>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setMonth((m) => shiftMonth(m, -1))}
@@ -139,8 +137,8 @@ export function MoliyaView() {
         <TabButton active={tab === "tranzaksiyalar"} onClick={() => setTab("tranzaksiyalar")}>
           Kirim-chiqim
         </TabButton>
-        <TabButton active={tab === "byudjet"} onClick={() => setTab("byudjet")}>
-          Limitlar
+        <TabButton active={tab === "kategoriya"} onClick={() => setTab("kategoriya")}>
+          Kategoriya
         </TabButton>
         <TabButton active={tab === "yigim"} onClick={() => setTab("yigim")}>
           Yig&apos;im
@@ -160,13 +158,16 @@ export function MoliyaView() {
               onEdit={openEdit}
               onRemove={askRemove}
             />
-          ) : tab === "byudjet" ? (
-            <BudgetTab
+          ) : tab === "kategoriya" ? (
+            <CategoriesTab
               categories={categories}
               budgets={budgets}
               spentByCat={spentByCat}
-              onSet={setBudget}
-              onRemove={removeBudget}
+              onAddCategory={addCategory}
+              onUpdateCategory={updateCategory}
+              onRemoveCategory={removeCategory}
+              onSetBudget={setBudget}
+              onRemoveBudget={removeBudget}
             />
           ) : (
             <YigimTab
@@ -468,7 +469,7 @@ function TxnRow({
 }
 
 /* ════════════════════════════════════════════════════════════
-   Byudjet
+   Kategoriya (boshqaruv + chiqim limiti)
    ════════════════════════════════════════════════════════════ */
 
 const WARN_COLOR = "oklch(0.78 0.15 80)"; // sariq (limitga yaqin)
@@ -479,22 +480,31 @@ function budgetColor(pct: number): string {
   return INCOME_COLOR;
 }
 
-function BudgetTab({
+function CategoriesTab({
   categories,
   budgets,
   spentByCat,
-  onSet,
-  onRemove,
+  onAddCategory,
+  onUpdateCategory,
+  onRemoveCategory,
+  onSetBudget,
+  onRemoveBudget,
 }: {
   categories: FinanceCategory[];
   budgets: Budget[];
   spentByCat: Map<string, number>;
-  onSet: (categoryId: string, amount: number) => void;
-  onRemove: (categoryId: string) => void;
+  onAddCategory: (input: { type: TransactionType; label: string; icon: string; color: CategoryColor }) => string;
+  onUpdateCategory: (id: string, patch: { label?: string; icon?: string; color?: CategoryColor }) => void;
+  onRemoveCategory: (id: string) => void;
+  onSetBudget: (categoryId: string, amount: number) => void;
+  onRemoveBudget: (categoryId: string) => void;
 }) {
-  const expenseCats = useMemo(
-    () => categories.filter((c) => c.type === "EXPENSE").sort((a, b) => a.order - b.order),
-    [categories]
+  const [type, setType] = useState<TransactionType>("EXPENSE");
+  const [creating, setCreating] = useState(false);
+
+  const typeCats = useMemo(
+    () => categories.filter((c) => c.type === type).sort((a, b) => a.order - b.order),
+    [categories, type]
   );
   const budgetMap = useMemo(() => {
     const m = new Map<string, number>();
@@ -502,58 +512,81 @@ function BudgetTab({
     return m;
   }, [budgets]);
 
-  const totals = useMemo(() => {
-    let limit = 0;
-    let spent = 0;
-    for (const c of expenseCats) {
-      const lim = budgetMap.get(c.id);
-      if (lim) {
-        limit += lim;
-        spent += spentByCat.get(c.id) ?? 0;
-      }
-    }
-    return { limit, spent };
-  }, [expenseCats, budgetMap, spentByCat]);
+  const confirmItems = useMemo(() => categories.map((c) => ({ id: c.id, title: c.label })), [categories]);
+  const { askRemove, confirmEl } = useConfirmRemove(confirmItems, onRemoveCategory, {
+    itemLabel: "Kategoriyani",
+    description: "\"{title}\" kategoriyasi o'chiriladi. Unga bog'langan yozuvlar saqlanadi (kategoriyasiz bo'ladi).",
+  });
 
-  if (expenseCats.length === 0) {
-    return (
-      <p className="py-10 text-center text-[13px] text-faint">
-        Avval chiqim kategoriyasi qo&apos;shing
-      </p>
-    );
+  function changeType(next: TransactionType) {
+    setType(next);
+    setCreating(false);
   }
 
-  const totalPct = totals.limit > 0 ? totals.spent / totals.limit : 0;
-
   return (
-    <div className="space-y-4">
-      {totals.limit > 0 && (
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <div className="flex items-baseline justify-between">
-            <p className="text-[12px] text-faint">Jami limit</p>
-            <p className="text-[12px] tabular-nums text-faint">
-              <span className="font-medium text-foreground" style={{ color: budgetColor(totalPct) }}>
-                {formatSom(totals.spent)}
-              </span>{" "}
-              / {formatSom(totals.limit)} so&apos;m
-            </p>
-          </div>
-          <ProgressBar pct={totalPct} className="mt-2" />
-        </div>
+    <div className="space-y-3">
+      {/* Kirim / Chiqim toggle */}
+      <div className="flex gap-1 rounded-lg bg-subtle/60 p-0.5 text-[13px]">
+        <button
+          onClick={() => changeType("EXPENSE")}
+          className={cn("flex-1 rounded-[7px] py-2 font-medium transition-colors", type === "EXPENSE" ? "bg-surface shadow-[0_1px_0_var(--border)]" : "text-muted")}
+          style={type === "EXPENSE" ? { color: EXPENSE_COLOR } : undefined}
+        >
+          Chiqim
+        </button>
+        <button
+          onClick={() => changeType("INCOME")}
+          className={cn("flex-1 rounded-[7px] py-2 font-medium transition-colors", type === "INCOME" ? "bg-surface shadow-[0_1px_0_var(--border)]" : "text-muted")}
+          style={type === "INCOME" ? { color: INCOME_COLOR } : undefined}
+        >
+          Kirim
+        </button>
+      </div>
+
+      {/* + Yangi kategoriya */}
+      <button
+        onClick={() => setCreating((v) => !v)}
+        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border py-2.5 text-[13px] font-medium text-faint transition-colors hover:bg-hover hover:text-foreground"
+      >
+        <Plus className="size-4" />
+        Yangi kategoriya
+      </button>
+      <AnimatePresence initial={false}>
+        {creating && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+            <CategoryForm
+              type={type}
+              onCancel={() => setCreating(false)}
+              onSubmit={(input) => { onAddCategory({ type, ...input }); setCreating(false); }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {type === "EXPENSE" && (
+        <p className="px-1 text-[11.5px] text-faint">Har chiqim kategoriyasiga oylik limit qo&apos;ysangiz bo&apos;ladi.</p>
       )}
 
-      <ul className="space-y-2">
-        {expenseCats.map((c) => (
-          <BudgetRow
-            key={c.id}
-            cat={c}
-            limit={budgetMap.get(c.id) ?? null}
-            spent={spentByCat.get(c.id) ?? 0}
-            onSet={(amount) => onSet(c.id, amount)}
-            onRemove={() => onRemove(c.id)}
-          />
-        ))}
-      </ul>
+      {typeCats.length === 0 ? (
+        <p className="py-6 text-center text-[13px] text-faint">Kategoriya yo&apos;q</p>
+      ) : (
+        <ul className="space-y-2">
+          {typeCats.map((c) => (
+            <CategoryManageRow
+              key={c.id}
+              cat={c}
+              hasLimit={type === "EXPENSE"}
+              limit={budgetMap.get(c.id) ?? null}
+              spent={spentByCat.get(c.id) ?? 0}
+              onUpdate={(patch) => onUpdateCategory(c.id, patch)}
+              onRemove={() => askRemove(c.id)}
+              onSetBudget={(amount) => onSetBudget(c.id, amount)}
+              onRemoveBudget={() => onRemoveBudget(c.id)}
+            />
+          ))}
+        </ul>
+      )}
+      {confirmEl}
     </div>
   );
 }
@@ -570,102 +603,109 @@ function ProgressBar({ pct, className }: { pct: number; className?: string }) {
   );
 }
 
-function BudgetRow({
+function CategoryManageRow({
   cat,
+  hasLimit,
   limit,
   spent,
-  onSet,
+  onUpdate,
   onRemove,
+  onSetBudget,
+  onRemoveBudget,
 }: {
   cat: FinanceCategory;
+  hasLimit: boolean;
   limit: number | null;
   spent: number;
-  onSet: (amount: number) => void;
+  onUpdate: (patch: { label?: string; icon?: string; color?: CategoryColor }) => void;
   onRemove: () => void;
+  onSetBudget: (amount: number) => void;
+  onRemoveBudget: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [limitEditing, setLimitEditing] = useState(false);
   const [amountStr, setAmountStr] = useState("");
   const Icon = financeIcon(cat.icon);
   const color = colorWithAlpha(cat.color, 1);
   const pct = limit && limit > 0 ? spent / limit : 0;
 
-  function startEdit() {
+  function startLimitEdit() {
     setAmountStr(limit ? String(limit) : "");
-    setEditing(true);
+    setLimitEditing(true);
   }
-  function save() {
+  function saveLimit() {
     const amount = Number(amountStr || "0");
     if (amount <= 0) return;
-    onSet(amount);
-    setEditing(false);
+    onSetBudget(amount);
+    setLimitEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <li className="rounded-xl border border-border bg-surface p-1">
+        <CategoryForm
+          type={cat.type}
+          initial={{ label: cat.label, icon: cat.icon, color: cat.color }}
+          submitLabel="Saqlash"
+          onCancel={() => setEditing(false)}
+          onSubmit={(input) => { onUpdate(input); setEditing(false); }}
+        />
+      </li>
+    );
   }
 
   return (
     <li className="rounded-xl border border-border bg-surface p-3">
       <div className="flex items-center gap-3">
-        <span
-          className="grid size-9 shrink-0 place-items-center rounded-lg"
-          style={{ background: colorWithAlpha(cat.color, 0.14), color }}
-        >
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg" style={{ background: colorWithAlpha(cat.color, 0.14), color }}>
           <Icon className="size-[18px]" strokeWidth={2} />
         </span>
         <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{cat.label}</span>
-        {limit != null && !editing && (
-          <span className="shrink-0 text-[12.5px] tabular-nums text-faint">
+        {hasLimit && limit != null && !limitEditing && (
+          <span className="shrink-0 text-[12px] tabular-nums text-faint">
             <span className="font-medium" style={{ color: budgetColor(pct) }}>{formatSom(spent)}</span>
             {" / "}{formatSom(limit)}
           </span>
         )}
+        <button onClick={() => setEditing(true)} aria-label="Tahrirlash" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><Pencil className="size-3.5" /></button>
+        <button onClick={onRemove} aria-label="O'chirish" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><Trash2 className="size-3.5" /></button>
       </div>
 
-      {editing ? (
-        <div className="mt-2.5 flex items-center gap-2">
-          <div className="flex flex-1 items-baseline gap-1.5 rounded-lg border border-border bg-subtle/30 px-2.5 py-2 focus-within:border-foreground/30">
-            <input
-              autoFocus
-              inputMode="numeric"
-              value={amountStr ? formatSom(Number(amountStr)) : ""}
-              onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
-              onKeyDown={(e) => { if (e.key === "Enter") save(); }}
-              placeholder="Oylik limit"
-              className="min-w-0 flex-1 bg-transparent text-[14px] font-medium tabular-nums outline-none placeholder:text-faint/50"
-            />
-            <span className="shrink-0 text-[12px] text-faint">so&apos;m</span>
+      {hasLimit && (
+        limitEditing ? (
+          <div className="mt-2.5 flex items-center gap-2">
+            <div className="flex flex-1 items-baseline gap-1.5 rounded-lg border border-border bg-subtle/30 px-2.5 py-2 focus-within:border-foreground/30">
+              <input
+                autoFocus
+                inputMode="numeric"
+                value={amountStr ? formatSom(Number(amountStr)) : ""}
+                onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                onKeyDown={(e) => { if (e.key === "Enter") saveLimit(); }}
+                placeholder="Oylik limit"
+                className="min-w-0 flex-1 bg-transparent text-[14px] font-medium tabular-nums outline-none placeholder:text-faint/50"
+              />
+              <span className="shrink-0 text-[12px] text-faint">so&apos;m</span>
+            </div>
+            {limit != null && (
+              <button onClick={() => { onRemoveBudget(); setLimitEditing(false); }} aria-label="Limitni o'chirish" className="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-faint hover:bg-hover hover:text-foreground"><Trash2 className="size-4" /></button>
+            )}
+            <button onClick={saveLimit} disabled={Number(amountStr || "0") <= 0} className="grid size-9 shrink-0 place-items-center rounded-lg bg-foreground text-background disabled:opacity-40"><Check className="size-4" /></button>
           </div>
-          {limit != null && (
-            <button
-              onClick={() => { onRemove(); setEditing(false); }}
-              aria-label="Limitni o'chirish"
-              className="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-faint hover:bg-hover hover:text-foreground"
-            >
-              <Trash2 className="size-4" />
-            </button>
-          )}
-          <button
-            onClick={save}
-            disabled={Number(amountStr || "0") <= 0}
-            className="grid size-9 shrink-0 place-items-center rounded-lg bg-foreground text-background disabled:opacity-40"
-          >
-            <Check className="size-4" />
+        ) : limit != null ? (
+          <button onClick={startLimitEdit} className="mt-2.5 block w-full">
+            <ProgressBar pct={pct} />
+            {pct > 1 && (
+              <p className="mt-1 text-left text-[11.5px]" style={{ color: EXPENSE_COLOR }}>
+                Limitdan {formatSom(spent - limit)} so&apos;m oshib ketdi
+              </p>
+            )}
           </button>
-        </div>
-      ) : limit != null ? (
-        <button onClick={startEdit} className="mt-2.5 block w-full">
-          <ProgressBar pct={pct} />
-          {pct > 1 && (
-            <p className="mt-1 text-left text-[11.5px]" style={{ color: EXPENSE_COLOR }}>
-              Limitdan {formatSom(spent - limit)} so&apos;m oshib ketdi
-            </p>
-          )}
-        </button>
-      ) : (
-        <button
-          onClick={startEdit}
-          className="mt-2 flex items-center gap-1 text-[12.5px] text-faint transition-colors hover:text-foreground"
-        >
-          <Plus className="size-3.5" />
-          Limit qo&apos;shish
-        </button>
+        ) : (
+          <button onClick={startLimitEdit} className="mt-2 flex items-center gap-1 text-[12.5px] text-faint transition-colors hover:text-foreground">
+            <Plus className="size-3.5" />
+            Limit qo&apos;shish
+          </button>
+        )
       )}
     </li>
   );
@@ -1147,11 +1187,11 @@ function TxnDialog({
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
-                <CategoryCreator
+                <CategoryForm
                   type={type}
                   onCancel={() => setCreatingCat(false)}
-                  onCreate={(input) => {
-                    const id = onAddCategory(input);
+                  onSubmit={(input) => {
+                    const id = onAddCategory({ type, ...input });
                     setCategoryId(id);
                     setCreatingCat(false);
                   }}
@@ -1197,23 +1237,27 @@ function TxnDialog({
 
 /* ─── Yangi kategoriya yaratuvchi ─── */
 
-function CategoryCreator({
+function CategoryForm({
   type,
+  initial,
+  submitLabel,
   onCancel,
-  onCreate,
+  onSubmit,
 }: {
   type: TransactionType;
+  initial?: { label: string; icon: string; color: CategoryColor };
+  submitLabel?: string;
   onCancel: () => void;
-  onCreate: (input: { type: TransactionType; label: string; icon: string; color: CategoryColor }) => void;
+  onSubmit: (input: { label: string; icon: string; color: CategoryColor }) => void;
 }) {
-  const [label, setLabel] = useState("");
-  const [icon, setIcon] = useState(FINANCE_ICON_KEYS[0]);
-  const [color, setColor] = useState<CategoryColor>("indigo");
+  const [label, setLabel] = useState(initial?.label ?? "");
+  const [icon, setIcon] = useState(initial?.icon ?? FINANCE_ICON_KEYS[0]);
+  const [color, setColor] = useState<CategoryColor>(initial?.color ?? "indigo");
 
   function submit() {
     const l = label.trim();
     if (!l) return;
-    onCreate({ type, label: l, icon, color });
+    onSubmit({ label: l, icon, color });
   }
 
   return (
@@ -1280,7 +1324,7 @@ function CategoryCreator({
           disabled={!label.trim()}
           className="flex-1 rounded-md bg-foreground py-2 text-[13px] font-medium text-background transition-opacity disabled:opacity-40"
         >
-          Qo&apos;shish
+          {submitLabel ?? "Qo'shish"}
         </button>
       </div>
     </div>

@@ -73,9 +73,9 @@ export function QarzView() {
 
   return (
     <div className="mx-auto flex h-full max-w-2xl flex-col px-4 pb-24 pt-3 md:pb-6">
-      <header className="mb-3 flex items-center gap-2">
+      <TestBadge />
+      <header className="mb-3 flex items-center justify-between">
         <h1 className="text-[18px] font-semibold tracking-[-0.01em]">Qarzdorlik</h1>
-        <TestBadge />
       </header>
 
       {/* Summary */}
