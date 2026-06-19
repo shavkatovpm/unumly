@@ -82,10 +82,6 @@ export function TezkorView() {
               Yo&apos;lda esda saqlash kerak narsalar ko&apos;pmi? Har qatorga
               bittadan yozing — bir ro&apos;yhatga jam bo&apos;ladi.
             </p>
-            <p className="mx-auto mt-1 max-w-sm text-[12px] text-faint">
-              Yoki shunchaki botga yozib yuboring — xabar avtomatik
-              ro&apos;yhatga qo&apos;shiladi.
-            </p>
             <button
               type="button"
               onClick={() => setShowCreate(true)}
