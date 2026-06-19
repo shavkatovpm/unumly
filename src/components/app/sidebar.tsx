@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardList,
-  HandCoins,
   Inbox,
   ListChecks,
   Moon,
@@ -117,10 +116,7 @@ export function Sidebar({
   }, []);
 
   const onMaxsusRoute =
-    pathname === "/moliya" ||
-    pathname.startsWith("/moliya/") ||
-    pathname === "/qarz" ||
-    pathname.startsWith("/qarz/");
+    pathname === "/moliya" || pathname.startsWith("/moliya/");
 
   useEffect(() => {
     if (onMaxsusRoute) {
@@ -289,13 +285,6 @@ export function Sidebar({
             label="Moliya"
             icon={Wallet}
             active={isActive("/moliya")}
-            onNavigate={closeOnMobile}
-          />
-          <SidebarLink
-            href="/qarz"
-            label="Qarz"
-            icon={HandCoins}
-            active={isActive("/qarz")}
             onNavigate={closeOnMobile}
           />
           <SidebarItem label="Loyiha" icon={Sparkles} badge="tez orada" disabled />

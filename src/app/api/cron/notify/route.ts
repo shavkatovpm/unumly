@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const APP_URL = "https://www.unumly.uz/bugun";
-const DEBT_URL = "https://www.unumly.uz/qarz";
+const DEBT_URL = "https://www.unumly.uz/moliya";
 
 // Window: how far in the past we still consider "due" (in case the cron
 // was delayed or skipped). The cron runs every 10 minutes, so the window

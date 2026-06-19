@@ -3,7 +3,6 @@
 import {
   Calendar as CalendarIcon,
   ClipboardList,
-  HandCoins,
   Inbox,
   ListChecks,
   Repeat,
@@ -15,7 +14,7 @@ import {
 
 /** Items that can sit in the mobile bottom nav's primary slots.
  *  "Boshqaruv" is always pinned on the right and is NOT configurable. */
-export type NavItemId = "bugun" | "agenda" | "tezkor" | "reja" | "kalendar" | "odat" | "maqsad" | "moliya" | "qarz";
+export type NavItemId = "bugun" | "agenda" | "tezkor" | "reja" | "kalendar" | "odat" | "maqsad" | "moliya";
 
 export type NavItem = {
   id: NavItemId;
@@ -35,7 +34,6 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "odat",     href: "/odat",     label: "Odat",     icon: Repeat },
   { id: "maqsad",   href: "/maqsad",   label: "Maqsad",   icon: Target },
   { id: "moliya",   href: "/moliya",   label: "Moliya",   icon: Wallet },
-  { id: "qarz",     href: "/qarz",     label: "Qarz",     icon: HandCoins },
 ];
 
 export const STORAGE_PRIMARY = "unumly:mobilenav:primary";

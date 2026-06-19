@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ClipboardList,
-  HandCoins,
   Menu,
   Moon,
   Repeat,
@@ -79,7 +78,7 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const primaryHrefs = new Set(primary.map((p) => p.href));
   const isBoshqaruvActive =
     !sheetOpen &&
-    [...BOSHQARUV_ROUTES, "/reja", "/kalendar", "/odat", "/maqsad", "/moliya", "/qarz"].some(
+    [...BOSHQARUV_ROUTES, "/reja", "/kalendar", "/odat", "/maqsad", "/moliya"].some(
       (href) => !primaryHrefs.has(href) && isActive(href)
     );
 
@@ -347,13 +346,10 @@ function BoshqaruvSheet({
           />
         </SheetCollapsible>
 
-        {/* Maxsus — dropdown (Moliya / Qarz — sinov) */}
+        {/* Maxsus — dropdown (Moliya — sinov) */}
         <SheetCollapsible label="Maxsus" open={openSection === "maxsus"} onToggle={() => toggleSection("maxsus")}>
           {!primaryHrefs.has("/moliya") && (
             <SheetLink href="/moliya" label="Moliya" icon={Wallet} active={isActive("/moliya")} onNavigate={onClose} secondary />
-          )}
-          {!primaryHrefs.has("/qarz") && (
-            <SheetLink href="/qarz" label="Qarz" icon={HandCoins} active={isActive("/qarz")} onNavigate={onClose} secondary />
           )}
           <SheetItem label="Loyiha" icon={Sparkles} badge="tez orada" secondary />
         </SheetCollapsible>

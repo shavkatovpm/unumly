@@ -20,7 +20,6 @@ import { dateKey, formatSom } from "@/lib/money";
 import { Dialog } from "./widgets/dialog";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
-import { TestBadge } from "./widgets/test-badge";
 
 const LENT_COLOR = "oklch(0.62 0.13 158)"; // yashil — menga qarzdor (keladi)
 const BORROWED_COLOR = "oklch(0.62 0.17 22)"; // qizil — men qarzdorman
@@ -36,7 +35,9 @@ function isOverdue(d: Debt): boolean {
 
 /* ════════════════════════════════════════════════════════════ */
 
-export function QarzView() {
+/** Moliya ichidagi "Qarz" tabi sifatida ishlatiladi (tashqi konteyner,
+ *  sarlavha va sinov banneri Moliya tomonidan beriladi). */
+export function QarzPanel() {
   const { debts, addDebt, updateDebt, recordPayment, setSettled, removeDebt } = useDebts();
   const hydrated = useHydratedDebts();
 
@@ -72,12 +73,7 @@ export function QarzView() {
   function openEdit(d: Debt) { setEditing(d); setDialogOpen(true); }
 
   return (
-    <div className="mx-auto flex h-full max-w-2xl flex-col px-4 pb-24 pt-3 md:pb-6">
-      <TestBadge />
-      <header className="mb-3 flex items-center justify-between">
-        <h1 className="text-[18px] font-semibold tracking-[-0.01em]">Qarzdorlik</h1>
-      </header>
-
+    <>
       {/* Summary */}
       <div className="mb-4 grid grid-cols-2 gap-2">
         <div className="rounded-xl border border-border bg-surface p-3">
@@ -162,7 +158,7 @@ export function QarzView() {
         onUpdate={(id, patch) => { updateDebt(id, patch); setDialogOpen(false); setEditing(null); }}
       />
       {confirmEl}
-    </div>
+    </>
   );
 }
 

@@ -36,11 +36,12 @@ import { Dialog } from "./widgets/dialog";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
 import { TestBadge } from "./widgets/test-badge";
+import { QarzPanel } from "./qarz-view";
 
 const INCOME_COLOR = "oklch(0.62 0.13 158)"; // yashil
 const EXPENSE_COLOR = "oklch(0.62 0.17 22)"; // qizil
 
-type Tab = "umumiy" | "tranzaksiyalar" | "kategoriya" | "yigim";
+type Tab = "umumiy" | "tranzaksiyalar" | "kategoriya" | "yigim" | "qarz";
 
 function catColor(c: FinanceCategory | undefined): CategoryColor {
   return c?.color ?? "gray";
@@ -130,18 +131,21 @@ export function MoliyaView() {
       </header>
 
       {/* Tabs */}
-      <div className="mb-4 flex items-center gap-0.5 rounded-lg bg-subtle/60 p-0.5 text-[12px]">
+      <div className="mb-4 flex items-center gap-0.5 overflow-x-auto rounded-lg bg-subtle/60 p-0.5 text-[12px] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <TabButton active={tab === "umumiy"} onClick={() => setTab("umumiy")}>
           Umumiy
         </TabButton>
         <TabButton active={tab === "tranzaksiyalar"} onClick={() => setTab("tranzaksiyalar")}>
-          Kirim-chiqim
+          Tarix
         </TabButton>
         <TabButton active={tab === "kategoriya"} onClick={() => setTab("kategoriya")}>
           Kategoriya
         </TabButton>
         <TabButton active={tab === "yigim"} onClick={() => setTab("yigim")}>
           Yig&apos;im
+        </TabButton>
+        <TabButton active={tab === "qarz"} onClick={() => setTab("qarz")}>
+          Qarz
         </TabButton>
       </div>
 
@@ -169,7 +173,7 @@ export function MoliyaView() {
               onSetBudget={setBudget}
               onRemoveBudget={removeBudget}
             />
-          ) : (
+          ) : tab === "yigim" ? (
             <YigimTab
               goals={goals}
               onCreate={addFinancialGoal}
@@ -177,6 +181,8 @@ export function MoliyaView() {
               onContribute={contributeFinancialGoal}
               onRemove={removeFinancialGoal}
             />
+          ) : (
+            <QarzPanel />
           )}
         </div>
       )}
@@ -220,7 +226,7 @@ function TabButton({
     <button
       onClick={onClick}
       className={cn(
-        "flex-1 whitespace-nowrap rounded-[7px] px-2 py-1.5 font-medium transition-colors",
+        "min-w-fit flex-1 whitespace-nowrap rounded-[7px] px-2.5 py-1.5 font-medium transition-colors",
         active ? "bg-surface text-foreground shadow-[0_1px_0_var(--border)]" : "text-muted hover:text-foreground"
       )}
     >
