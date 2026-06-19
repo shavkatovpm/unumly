@@ -7,7 +7,8 @@
  * progress (foiz + muddatga qancha qolgani) vizual ko'rinishi.
  */
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Archive, ArchiveRestore, ArrowLeft, BookOpen, Brain, Briefcase, Calendar as CalendarIcon, Check, ChevronRight, Clock,
   Code, Compass, DollarSign, Dumbbell, Flag, Flame, GraduationCap, GripVertical, Heart, Home, Languages, Leaf, Lightbulb, MapPin,
@@ -90,13 +91,83 @@ function Ring({ pct, size = 48, stroke = 4, label, labelClassName }: { pct: numb
 
 type Tab = "active" | "done" | "archive";
 
+const TAB_ORDER: Tab[] = ["active", "done", "archive"];
+
+// Swipe / gorizontal scroll bilan tab almashtirish animatsiyasi
+const SWIPE_VARIANTS = {
+  enter: (dir: number) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
+  center: { x: "0%", opacity: 1 },
+  exit: (dir: number) => ({ x: dir > 0 ? "-100%" : "100%", opacity: 0 }),
+};
+const SWIPE_THRESHOLD = 56;
+
 export function MaqsadView() {
   const g = useGoals();
   const hydrated = useHydratedGoals();
   const [tab, setTab] = useState<Tab>("active");
+  const [dir, setDir] = useState(0); // swipe animatsiya yo'nalishi
   const [detailId, setDetailId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+
+  function selectTab(t: Tab) {
+    const cur = TAB_ORDER.indexOf(tab);
+    const next = TAB_ORDER.indexOf(t);
+    setDir(next > cur ? 1 : next < cur ? -1 : 0);
+    setTab(t);
+  }
+  function goTab(delta: number) {
+    const ni = TAB_ORDER.indexOf(tab) + delta;
+    if (ni < 0 || ni >= TAB_ORDER.length) return;
+    setDir(delta);
+    setTab(TAB_ORDER[ni]);
+  }
+
+  // Sensorli — drag swipe; desktop — gorizontal wheel.
+  const [touchSwipe, setTouchSwipe] = useState(false);
+  useEffect(() => {
+    setTouchSwipe(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+
+  const scrollWrapRef = useRef<HTMLDivElement>(null);
+  const tabRef = useRef(tab);
+  useEffect(() => { tabRef.current = tab; }, [tab]);
+  useEffect(() => {
+    const el = scrollWrapRef.current;
+    if (!el) return;
+    // Bitta gesture = bitta switch; momentum dumi yangi switch qo'zg'atmaydi.
+    let armed = true;
+    let accum = 0;
+    let sawTail = false;
+    let idleTimer: number | null = null;
+    function onWheel(e: WheelEvent) {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      const abs = Math.abs(e.deltaX);
+      if (!armed) {
+        if (abs < 10) sawTail = true;
+        else if (sawTail && abs > 16) { armed = true; accum = 0; }
+      }
+      if (idleTimer) window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => { armed = true; accum = 0; sawTail = false; }, 120);
+      if (!armed) return;
+      accum += e.deltaX;
+      if (Math.abs(accum) < 45) return;
+      const delta = accum > 0 ? 1 : -1;
+      accum = 0;
+      const ni = TAB_ORDER.indexOf(tabRef.current) + delta;
+      if (ni < 0 || ni >= TAB_ORDER.length) { armed = false; sawTail = false; return; }
+      setDir(delta);
+      setTab(TAB_ORDER[ni]);
+      armed = false;
+      sawTail = false;
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      if (idleTimer) window.clearTimeout(idleTimer);
+    };
+  }, [hydrated]);
 
   const detail = useGoalById(detailId);
   const editGoal = useMemo(() => [...g.active, ...g.done, ...g.archived].find((x) => x.id === editId) ?? null, [g.active, g.done, g.archived, editId]);
@@ -113,31 +184,54 @@ export function MaqsadView() {
   const list = tab === "active" ? g.active : tab === "done" ? g.done : g.archived;
 
   return (
-    <div className="flex flex-col overflow-y-auto" style={{ height: "var(--tg-vh, 100vh)" }}>
-      <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-background/85 backdrop-blur">
+    <div className="flex flex-col overflow-hidden" style={{ height: "var(--tg-vh, 100vh)" }}>
+      <header className="z-10 shrink-0 border-b border-border bg-background/85 backdrop-blur">
         <div className="flex h-12 items-center px-4 md:px-6">
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Maqsad</h1>
         </div>
         <div className="flex gap-1 px-4 pb-2 md:px-6">
           {([["active", "Faol"], ["done", "Bajarilgan"], ["archive", "Arxiv"]] as [Tab, string][]).map(([k, lbl]) => (
-            <button key={k} type="button" onClick={() => setTab(k)} className={cn("rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors", tab === k ? "bg-subtle text-foreground" : "text-faint hover:text-foreground")}>{lbl}</button>
+            <button key={k} type="button" onClick={() => selectTab(k)} className={cn("rounded-md px-3 py-1.5 text-[12.5px] font-medium transition-colors", tab === k ? "bg-subtle text-foreground" : "text-faint hover:text-foreground")}>{lbl}</button>
           ))}
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-5 md:px-6 md:pb-12">
-        {!hydrated && list.length === 0 ? (
-          <ListLoader label="Maqsadlar yuklanmoqda…" />
-        ) : list.length === 0 ? (
-          <EmptyState tab={tab} onAdd={() => setShowAdd(true)} />
-        ) : (
-          <div className="space-y-2.5">
-            {list.map((goal) => <GoalCard key={goal.id} goal={goal} onOpen={() => setDetailId(goal.id)} />)}
-            {tab === "active" && (
-              <button type="button" onClick={() => setShowAdd(true)} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border py-3.5 text-[13px] font-medium text-faint transition-colors hover:border-border-strong hover:text-foreground"><Plus className="size-4" /> Maqsad qo&apos;shish</button>
-            )}
-          </div>
-        )}
+      <div ref={scrollWrapRef} className="relative min-h-0 flex-1 overflow-hidden">
+        <AnimatePresence initial={false} custom={dir}>
+          <motion.div
+            key={tab}
+            custom={dir}
+            variants={SWIPE_VARIANTS}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ x: { type: "spring", stiffness: 460, damping: 42 }, opacity: { duration: 0.18 } }}
+            drag={touchSwipe ? "x" : false}
+            dragDirectionLock
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.16}
+            onDragEnd={(_, info) => {
+              if (info.offset.x < -SWIPE_THRESHOLD || info.velocity.x < -500) goTab(1);
+              else if (info.offset.x > SWIPE_THRESHOLD || info.velocity.x > 500) goTab(-1);
+            }}
+            className="absolute inset-0 overflow-y-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]"
+          >
+            <div className="mx-auto w-full max-w-2xl px-4 pb-28 pt-5 md:px-6 md:pb-12">
+              {!hydrated && list.length === 0 ? (
+                <ListLoader label="Maqsadlar yuklanmoqda…" />
+              ) : list.length === 0 ? (
+                <EmptyState tab={tab} onAdd={() => setShowAdd(true)} />
+              ) : (
+                <div className="space-y-2.5">
+                  {list.map((goal) => <GoalCard key={goal.id} goal={goal} onOpen={() => setDetailId(goal.id)} />)}
+                  {tab === "active" && (
+                    <button type="button" onClick={() => setShowAdd(true)} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border py-3.5 text-[13px] font-medium text-faint transition-colors hover:border-border-strong hover:text-foreground"><Plus className="size-4" /> Maqsad qo&apos;shish</button>
+                  )}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {showAdd && <GoalModal onClose={() => setShowAdd(false)} onSave={(patch) => { g.createGoal(patch); setShowAdd(false); }} />}
