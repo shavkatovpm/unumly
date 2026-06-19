@@ -68,6 +68,11 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   }, []);
   const primary = resolvePrimaryItems(primaryIds);
 
+  // Route o'zgarsa Boshqaruv sheet'ini yopamiz (dropdownlar ham reset bo'ladi).
+  useEffect(() => {
+    setSheetOpen(false);
+  }, [pathname]);
+
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
   // Boshqaruv highlights for any route not surfaced in the primary slots.
@@ -212,15 +217,9 @@ function BoshqaruvSheet({
   const [hidden, setHidden] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const dragControls = useDragControls();
-  // Arxiv/Maxsus — accordion: bir vaqtda faqat bittasi ochiq.
-  // Joriy route Arxiv ichida bo'lsa — Arxiv ochiq boshlanadi.
-  const [openSection, setOpenSection] = useState<"arxiv" | "maxsus" | null>(
-    pathname.startsWith("/bajarilgan") || pathname.startsWith("/ochirilgan")
-      ? "arxiv"
-      : pathname.startsWith("/moliya") || pathname.startsWith("/qarz")
-      ? "maxsus"
-      : null
-  );
+  // Arxiv/Maxsus — accordion: bir vaqtda faqat bittasi ochiq. Sheet har
+  // ochilganda yopiq holatda boshlanadi — navigatsiyadan keyin ochiq qolmaydi.
+  const [openSection, setOpenSection] = useState<"arxiv" | "maxsus" | null>(null);
   const toggleSection = (s: "arxiv" | "maxsus") => setOpenSection((cur) => (cur === s ? null : s));
 
   // Lock background scroll while sheet is open — also locks any
