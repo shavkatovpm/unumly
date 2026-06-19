@@ -97,19 +97,7 @@ export function TezkorView() {
           </div>
         ) : (
           <>
-            {/* Desktop: New-list button row (mobile uses FAB) */}
-            <div className="rise-in mb-6 hidden md:block">
-              <button
-                type="button"
-                onClick={() => setShowCreate(true)}
-                className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface px-4 py-3 text-left text-[13.5px] text-muted shadow-[0_1px_0_var(--border)] transition-colors hover:border-border-strong hover:text-foreground"
-              >
-                <Plus className="size-4 text-faint" />
-                Yangi ro&apos;yhat qo&apos;shish
-              </button>
-            </div>
-
-            <div className="rise-in space-y-2.5" style={{ animationDelay: "60ms" }}>
+            <div className="rise-in space-y-2.5">
               {sorted.map((list) => (
                 <ListCard
                   key={list.id}
@@ -122,13 +110,13 @@ export function TezkorView() {
         )}
       </div>
 
-      {/* Mobile FAB */}
+      {/* FAB — yangi ro'yhat (barcha o'lchamlarda) */}
       <button
         type="button"
         onClick={() => setShowCreate(true)}
         aria-label="Yangi ro'yhat"
         className={cn(
-          "fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 md:hidden",
+          "fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-105 active:scale-95",
           (showCreate || !!openList) && "pointer-events-none scale-75 opacity-0"
         )}
         style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
