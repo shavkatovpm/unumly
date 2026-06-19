@@ -1381,10 +1381,10 @@ function TxnDialog({
           </div>
         </div>
 
-        {/* Kategoriya chiplari */}
+        {/* Kategoriya chiplari — mobilda bir qatorda gorizontal scroll */}
         <div className="mb-3">
           <p className="mb-1.5 text-[12px] text-faint">Kategoriya</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-x-visible sm:px-0 sm:pb-0 [&::-webkit-scrollbar]:hidden">
             {typeCats.map((c) => {
               const Icon = financeIcon(c.icon);
               const active = categoryId === c.id;
@@ -1394,7 +1394,7 @@ function TxnDialog({
                   key={c.id}
                   onClick={() => setCategoryId(active ? null : c.id)}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12.5px] transition-colors",
+                    "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12.5px] transition-colors",
                     active ? "border-transparent font-medium" : "border-border text-muted hover:bg-hover"
                   )}
                   style={active ? { background: colorWithAlpha(c.color, 0.16), color } : undefined}
@@ -1407,7 +1407,7 @@ function TxnDialog({
             <button
               onClick={() => setCreatingCat((v) => !v)}
               className={cn(
-                "flex items-center gap-1 rounded-full border border-dashed px-2.5 py-1.5 text-[12.5px] transition-colors",
+                "flex shrink-0 items-center gap-1 rounded-full border border-dashed px-2.5 py-1.5 text-[12.5px] transition-colors",
                 creatingCat ? "border-foreground/40 text-foreground" : "border-border text-faint hover:bg-hover hover:text-foreground"
               )}
             >
