@@ -173,6 +173,15 @@ export function MoliyaView() {
     return m;
   }, [summary]);
 
+  // Kategoriyasiz (kategoriya tanlanmagan) yozuvlar jami — tur bo'yicha
+  const uncategorizedByType = useMemo(() => {
+    const m: Record<TransactionType, number> = { INCOME: 0, EXPENSE: 0 };
+    for (const b of summary.byCategory) {
+      if (!b.categoryId) m[b.type] += b.total;
+    }
+    return m;
+  }, [summary]);
+
   const confirmItems = useMemo(
     () => monthTxns.map((t) => ({ id: t.id, title: txnTitle(t, catMap) })),
     [monthTxns, catMap]
@@ -280,6 +289,7 @@ export function MoliyaView() {
                   categories={categories}
                   budgets={budgets}
                   totalByCat={totalByCat}
+                  uncategorized={uncategorizedByType[catType]}
                   onAddCategory={addCategory}
                   onUpdateCategory={updateCategory}
                   onRemoveCategory={removeCategory}
@@ -669,6 +679,7 @@ function CategoriesTab({
   categories,
   budgets,
   totalByCat,
+  uncategorized,
   onAddCategory,
   onUpdateCategory,
   onRemoveCategory,
@@ -680,6 +691,7 @@ function CategoriesTab({
   categories: FinanceCategory[];
   budgets: Budget[];
   totalByCat: Map<string, number>;
+  uncategorized: number;
   onAddCategory: (input: { type: TransactionType; label: string; icon: string; color: CategoryColor }) => string;
   onUpdateCategory: (id: string, patch: { label?: string; icon?: string; color?: CategoryColor }) => void;
   onRemoveCategory: (id: string) => void;
@@ -708,8 +720,8 @@ function CategoriesTab({
   }, [budgets]);
 
   const grandTotal = useMemo(
-    () => typeCats.reduce((s, c) => s + (totalByCat.get(c.id) ?? 0), 0),
-    [typeCats, totalByCat]
+    () => typeCats.reduce((s, c) => s + (totalByCat.get(c.id) ?? 0), 0) + uncategorized,
+    [typeCats, totalByCat, uncategorized]
   );
 
   const confirmItems = useMemo(() => categories.map((c) => ({ id: c.id, title: c.label })), [categories]);
@@ -785,7 +797,7 @@ function CategoriesTab({
         </span>
       </div>
 
-      {typeCats.length === 0 ? (
+      {typeCats.length === 0 && uncategorized === 0 ? (
         <p className="py-6 text-center text-[13px] text-faint">Kategoriya yo&apos;q</p>
       ) : (
         <ul className="space-y-2">
@@ -802,6 +814,25 @@ function CategoriesTab({
               onRemoveBudget={() => onRemoveBudget(c.id)}
             />
           ))}
+          {/* Kategoriyasiz yozuvlar — kategoriya tanlanmagan kirim/chiqimlar */}
+          {uncategorized > 0 && (
+            <li className="rounded-xl border border-dashed border-border bg-surface p-3">
+              <div className="flex items-center gap-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-subtle text-faint">
+                  <Minus className="size-[18px]" strokeWidth={2} />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-muted">
+                  Kategoriyasiz
+                </span>
+                <span
+                  className="shrink-0 text-[12.5px] font-semibold tabular-nums"
+                  style={{ color: type === "EXPENSE" ? EXPENSE_COLOR : INCOME_COLOR }}
+                >
+                  {formatSom(uncategorized)}
+                </span>
+              </div>
+            </li>
+          )}
         </ul>
       )}
       {confirmEl}
