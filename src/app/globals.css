@@ -520,8 +520,12 @@ textarea,
   /* Mobile: kontent scroll konteynerlari klaviatura ochilganda iOS tomonidan
      siljitilmasligi uchun, input fokuslanganda overflow:hidden qilamiz.
      Bu modal ochilganda fokuslangan input ortidagi sahifa "siljishini"
-     to'xtatadi (juda kichik bo'lsa ham seziladigan jitter). */
-  body:has(input:focus, textarea:focus) [data-scroll-lock-on-focus] {
+     to'xtatadi (juda kichik bo'lsa ham seziladigan jitter).
+     `data-allow-focus-scroll` — inline tahrirlash inputlari klaviatura ortidan
+     ko'rinishga scroll qila olishi uchun istisno (modal ochilganda baribir
+     useScrollLock JS bilan qulflanadi). */
+  body:has(input:focus, textarea:focus)
+    [data-scroll-lock-on-focus]:not([data-allow-focus-scroll]) {
     overflow: hidden !important;
   }
 }

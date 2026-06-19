@@ -37,7 +37,6 @@ import { Dialog } from "./widgets/dialog";
 import { DatePickerButton } from "./widgets/date-picker-button";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
-import { TestBadge } from "./widgets/test-badge";
 import { QarzPanel } from "./qarz-view";
 
 const INCOME_COLOR = "oklch(0.62 0.13 158)"; // yashil
@@ -194,7 +193,6 @@ export function MoliyaView() {
   return (
     <div className="mx-auto flex h-full max-w-2xl flex-col px-4 pb-24 pt-3 md:pb-6">
       {/* Header — oy navigatsiyasi */}
-      <TestBadge />
       <header className="mb-3 flex items-center justify-between">
         <h1 className="text-[18px] font-semibold tracking-[-0.01em]">Moliya</h1>
         <div className="flex items-center gap-1">
@@ -259,6 +257,7 @@ export function MoliyaView() {
                 else if (info.offset.x > SWIPE_THRESHOLD || info.velocity.x > 500) goTab(-1);
               }}
               data-scroll-lock-on-focus
+              data-allow-focus-scroll
               className="absolute inset-0 overflow-y-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]"
             >
               {tab === "umumiy" ? (
@@ -902,6 +901,7 @@ function CategoryManageRow({
                 inputMode="numeric"
                 value={amountStr ? formatSom(Number(amountStr)) : ""}
                 onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                onFocus={ensureVisibleOnFocus}
                 onKeyDown={(e) => { if (e.key === "Enter") saveLimit(); }}
                 placeholder="Oylik limit"
                 className="min-w-0 flex-1 bg-transparent text-[14px] font-medium tabular-nums outline-none placeholder:text-faint/50"
@@ -1079,6 +1079,7 @@ function GoalCard({
               inputMode="numeric"
               value={amountStr ? formatSom(Number(amountStr)) : ""}
               onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+              onFocus={ensureVisibleOnFocus}
               onKeyDown={(e) => { if (e.key === "Enter") apply(1); }}
               placeholder="Summa"
               className="min-w-0 flex-1 bg-transparent text-[14px] font-medium tabular-nums outline-none placeholder:text-faint/50"

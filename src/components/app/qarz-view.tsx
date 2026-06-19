@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import type { Debt, DebtType } from "@/lib/types";
 import { useDebts, useHydratedDebts } from "@/lib/debts-store";
 import { dateKey, formatSom } from "@/lib/money";
+import { ensureVisibleOnFocus } from "@/lib/ensure-visible";
 import { Dialog } from "./widgets/dialog";
 import { DatePickerButton } from "./widgets/date-picker-button";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
@@ -36,8 +37,8 @@ function isOverdue(d: Debt): boolean {
 
 /* ════════════════════════════════════════════════════════════ */
 
-/** Moliya ichidagi "Qarz" tabi sifatida ishlatiladi (tashqi konteyner,
- *  sarlavha va sinov banneri Moliya tomonidan beriladi). */
+/** Moliya ichidagi "Qarz" tabi sifatida ishlatiladi (tashqi konteyner va
+ *  sarlavha Moliya tomonidan beriladi). */
 export function QarzPanel() {
   const { debts, addDebt, updateDebt, recordPayment, setSettled, removeDebt } = useDebts();
   const hydrated = useHydratedDebts();
@@ -279,6 +280,7 @@ function DebtCard({
                   inputMode="numeric"
                   value={amountStr ? formatSom(Number(amountStr)) : ""}
                   onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                  onFocus={ensureVisibleOnFocus}
                   onKeyDown={(e) => { if (e.key === "Enter") pay(); }}
                   placeholder={`Qaytarilgan summa (qoldi: ${formatSom(left)})`}
                   className="min-w-0 flex-1 bg-transparent text-[14px] font-medium tabular-nums outline-none placeholder:text-faint/50"
