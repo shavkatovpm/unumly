@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useBlurInputOnScrollOut } from "@/lib/use-blur-on-scroll-out";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 export function Dialog({
   open,
@@ -25,8 +26,10 @@ export function Dialog({
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const isCenter = mobilePlacement === "center";
-  // Markaz rejimida overlay'ni ko'rinadigan maydonga (visual viewport) moslaymiz
-  // — klaviatura ochilganda modal markazda, to'liq ko'rinib turadi.
+  // "center" va "top" rejimlarida overlay'ni ko'rinadigan maydonga (visual
+  // viewport) moslaymiz — klaviatura ochilganda modal to'liq ko'rinib, balandlik
+  // sakramaydi.
+  const tracksViewport = mobilePlacement === "center" || mobilePlacement === "top";
   const [vp, setVp] = useState<{ top: number; height: number } | null>(null);
 
   useEffect(() => {
@@ -35,26 +38,31 @@ export function Dialog({
       if (e.key === "Escape") onClose();
     }
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
     };
   }, [open, onClose]);
 
+  // iOS-da ishonchli scroll-lock: html+body+swipe konteynerlarni qulflaydi
+  // (faqat body overflow yetarli emas — ortdagi konteyner rubber-band scroll
+  // bo'lib ketadi).
+  useScrollLock(open);
+
   // Fokuslangan input scroll bilan modaldan chiqib ketsa — kursor (caret)
   // modal tashqarisida "sizib" chizilmasligi uchun fokusni olib tashlaymiz.
-  useBlurInputOnScrollOut(cardRef, open);
+  // Faqat "center" da agressiv: "top" da scroll paytida blur qilsak balandlik
+  // sakrab modal "qotib qoladi".
+  useBlurInputOnScrollOut(cardRef, open && isCenter);
 
   useEffect(() => {
-    if (!open || !isCenter || typeof window === "undefined") return;
+    if (!open || !tracksViewport || typeof window === "undefined") return;
     const vv = window.visualViewport;
     if (!vv) return;
     const update = () => setVp({ top: vv.offsetTop, height: vv.height });
     vv.addEventListener("resize", update);
     vv.addEventListener("scroll", update);
     return () => { vv.removeEventListener("resize", update); vv.removeEventListener("scroll", update); };
-  }, [open, isCenter]);
+  }, [open, tracksViewport]);
 
   if (!open) return null;
 
@@ -63,16 +71,24 @@ export function Dialog({
       className={cn(
         "fixed z-50 flex justify-center",
         // Klaviatura ochilib-yopilganda `top`/`height` silliq o'zgaradi
-        // (to'satdan sakramaydi).
-        isCenter ? "inset-x-0 items-center p-4 transition-[top,height] duration-300 ease-out" : "inset-0",
+        // (to'satdan sakramaydi). "center" va "top" — visual viewport'ga
+        // moslashadi.
+        tracksViewport
+          ? "inset-x-0 transition-[top,height] duration-300 ease-out"
+          : "inset-0",
+        isCenter && "items-center p-4",
         mobilePlacement === "bottom" && "items-end p-0 sm:items-center sm:p-4",
         mobilePlacement === "top" && "items-start justify-center px-4 sm:items-center sm:p-4"
       )}
       style={
-        isCenter
-          ? { top: vp?.top ?? 0, height: vp ? `${vp.height}px` : "var(--tg-vh, 100dvh)" }
-          : mobilePlacement === "top"
-          ? { paddingTop: "calc(env(safe-area-inset-top, 0px) + 4rem)" }
+        tracksViewport
+          ? {
+              top: vp?.top ?? 0,
+              height: vp ? `${vp.height}px` : "var(--tg-vh, 100dvh)",
+              ...(mobilePlacement === "top"
+                ? { paddingTop: "calc(env(safe-area-inset-top, 0px) + 4rem)" }
+                : null),
+            }
           : undefined
       }
       role="dialog"
@@ -90,7 +106,7 @@ export function Dialog({
           "rise-in relative z-10 flex w-full max-w-md flex-col border border-border bg-surface shadow-2xl",
           mobilePlacement === "center" && "max-h-[calc(100%-2rem)] overflow-hidden rounded-xl",
           mobilePlacement === "bottom" && "max-h-[90vh] overflow-hidden rounded-t-2xl sm:rounded-xl",
-          mobilePlacement === "top" && "max-h-[calc(var(--tg-vh,100vh)-6rem)] overflow-hidden rounded-2xl sm:max-h-[85vh] sm:rounded-xl",
+          mobilePlacement === "top" && "max-h-[calc(100%-6rem)] overflow-hidden rounded-2xl sm:max-h-[85vh] sm:rounded-xl",
           className
         )}
       >

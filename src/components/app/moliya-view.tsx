@@ -25,6 +25,7 @@ import {
 } from "@/lib/finance-store";
 import { CATEGORY_COLOR_KEYS, CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
 import { FINANCE_ICON_KEYS, financeIcon } from "@/lib/finance-icons";
+import { ensureVisibleOnFocus } from "@/lib/ensure-visible";
 import {
   dateKey,
   formatMonthLabel,
@@ -257,6 +258,7 @@ export function MoliyaView() {
                 if (info.offset.x < -SWIPE_THRESHOLD || info.velocity.x < -500) goTab(1);
                 else if (info.offset.x > SWIPE_THRESHOLD || info.velocity.x > 500) goTab(-1);
               }}
+              data-scroll-lock-on-focus
               className="absolute inset-0 overflow-y-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]"
             >
               {tab === "umumiy" ? (
@@ -1165,14 +1167,15 @@ function GoalDialog({
 
   return (
     <Dialog open={open} onClose={onClose} mobilePlacement="top" className="w-full max-w-md">
-      <div className="p-4">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
           <p className="text-[15px] font-semibold">{editing ? "Maqsadni tahrirlash" : "Yangi maqsad"}</p>
           <button onClick={onClose} aria-label="Yopish" className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
             <X className="size-4" />
           </button>
-        </div>
+        </header>
 
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch]">
         <input
           autoFocus
           value={title}
@@ -1223,7 +1226,9 @@ function GoalDialog({
             })}
           </div>
         </div>
+        </div>
 
+        <footer className="shrink-0 border-t border-border px-4 py-3">
         <button
           onClick={save}
           disabled={!valid}
@@ -1231,6 +1236,7 @@ function GoalDialog({
         >
           {editing ? "Saqlash" : "Qo'shish"}
         </button>
+        </footer>
       </div>
     </Dialog>
   );
@@ -1526,9 +1532,10 @@ function CategoryForm({
         autoFocus
         value={label}
         onChange={(e) => setLabel(e.target.value)}
+        onFocus={ensureVisibleOnFocus}
         onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
         placeholder={type === "INCOME" ? "Kirim kategoriyasi" : "Chiqim kategoriyasi"}
-        className="mb-2.5 w-full rounded-md border border-border bg-surface px-2.5 py-2 text-[13px] outline-none placeholder:text-faint/60 focus:border-foreground/30"
+        className="mb-2.5 w-full scroll-mt-24 rounded-md border border-border bg-surface px-2.5 py-2 text-[13px] outline-none placeholder:text-faint/60 focus:border-foreground/30"
       />
 
       {/* Ikona tanlash */}

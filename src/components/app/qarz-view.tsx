@@ -25,7 +25,7 @@ import { ListLoader } from "./widgets/list-loader";
 const LENT_COLOR = "oklch(0.62 0.13 158)"; // yashil — menga qarzdor (keladi)
 const BORROWED_COLOR = "oklch(0.62 0.17 22)"; // qizil — men qarzdorman
 
-type Filter = "all" | "lent" | "borrowed";
+type Filter = "lent" | "borrowed";
 
 function outstanding(d: Debt): number {
   return Math.max(0, d.amount - d.paidAmount);
@@ -42,7 +42,7 @@ export function QarzPanel() {
   const { debts, addDebt, updateDebt, recordPayment, setSettled, removeDebt } = useDebts();
   const hydrated = useHydratedDebts();
 
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("lent");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Debt | null>(null);
 
@@ -59,11 +59,15 @@ export function QarzPanel() {
 
   const active = useMemo(() => debts.filter((d) => !d.settledAt), [debts]);
   const settled = useMemo(() => debts.filter((d) => d.settledAt), [debts]);
-  const filteredActive = useMemo(() => {
-    if (filter === "lent") return active.filter((d) => d.type === "LENT");
-    if (filter === "borrowed") return active.filter((d) => d.type === "BORROWED");
-    return active;
-  }, [active, filter]);
+  const wantType = filter === "lent" ? "LENT" : "BORROWED";
+  const filteredActive = useMemo(
+    () => active.filter((d) => d.type === wantType),
+    [active, wantType]
+  );
+  const filteredSettled = useMemo(
+    () => settled.filter((d) => d.type === wantType),
+    [settled, wantType]
+  );
 
   const confirmItems = useMemo(
     () => debts.map((d) => ({ id: d.id, title: `${d.counterparty} — ${formatSom(d.amount)} so'm` })),
@@ -99,7 +103,6 @@ export function QarzPanel() {
 
       {/* Filter */}
       <div className="mb-4 flex items-center gap-0.5 rounded-lg bg-subtle/60 p-0.5 text-[12px]">
-        <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>Hammasi</FilterButton>
         <FilterButton active={filter === "lent"} onClick={() => setFilter("lent")}>Menga qarzdor</FilterButton>
         <FilterButton active={filter === "borrowed"} onClick={() => setFilter("borrowed")}>Men qarzdorman</FilterButton>
       </div>
@@ -108,8 +111,10 @@ export function QarzPanel() {
         <ListLoader />
       ) : (
         <div className="min-h-0 flex-1 space-y-2">
-          {filteredActive.length === 0 && settled.length === 0 ? (
-            <p className="py-10 text-center text-[13px] text-faint">Hali qarz yozuvi yo&apos;q</p>
+          {filteredActive.length === 0 && filteredSettled.length === 0 ? (
+            <p className="py-10 text-center text-[13px] text-faint">
+              {filter === "lent" ? "Sizga qarzdorlar yo'q" : "Siz qarzdor emassiz"}
+            </p>
           ) : (
             <>
               {filteredActive.map((d) => (
@@ -122,12 +127,12 @@ export function QarzPanel() {
                   onRemove={() => askRemove(d.id)}
                 />
               ))}
-              {filter === "all" && settled.length > 0 && (
+              {filteredSettled.length > 0 && (
                 <div className="pt-2">
                   <p className="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-faint">
                     Hal qilingan
                   </p>
-                  {settled.map((d) => (
+                  {filteredSettled.map((d) => (
                     <SettledCard
                       key={d.id}
                       debt={d}
@@ -361,12 +366,13 @@ function DebtDialog({
 
   return (
     <Dialog open={open} onClose={onClose} mobilePlacement="top" className="w-full max-w-md">
-      <div className="p-4">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
           <p className="text-[15px] font-semibold">{editing ? "Qarzni tahrirlash" : "Yangi qarz"}</p>
           <button onClick={onClose} aria-label="Yopish" className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><X className="size-4" /></button>
-        </div>
+        </header>
 
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch]">
         {!editing && (
           <div className="mb-3 grid grid-cols-2 gap-2 text-[13.5px]">
             <button
@@ -432,10 +438,13 @@ function DebtDialog({
         {dueDate && (
           <p className="mb-3 -mt-1 text-[11.5px] text-faint">Muddat kuni ertalab bot eslatma yuboradi.</p>
         )}
+        </div>
 
+        <footer className="shrink-0 border-t border-border px-4 py-3">
         <button onClick={save} disabled={!valid} className="w-full rounded-lg bg-foreground py-2.5 text-[14px] font-medium text-background transition-opacity disabled:opacity-40">
           {editing ? "Saqlash" : "Qo'shish"}
         </button>
+        </footer>
       </div>
     </Dialog>
   );
