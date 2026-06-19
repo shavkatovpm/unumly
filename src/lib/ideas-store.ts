@@ -35,6 +35,63 @@ function nextId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+/* ─── Reja "Bajarilgan" dropdowndan yashirish (lokal) ───────────
+   "Tozalash" bosilganda bajarilgan g'oyalarni reja dropdownidan
+   yashiramiz. Bu faqat reja ko'rinishiga taalluqli — g'oya bazada
+   (completedAt bilan) qoladi va Arxiv → Bajarilganlarda ko'rinaveradi.
+   ──────────────────────────────────────────────────────────── */
+const DISMISSED_KEY = "unumly:idea-done-dismissed";
+let dismissedSet: Set<string> = new Set();
+let dismissedLoaded = false;
+
+function loadDismissed() {
+  if (dismissedLoaded || typeof window === "undefined") return;
+  dismissedLoaded = true;
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_KEY);
+    if (raw) dismissedSet = new Set(JSON.parse(raw) as string[]);
+  } catch {
+    /* ignore */
+  }
+}
+
+function persistDismissed() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(DISMISSED_KEY, JSON.stringify([...dismissedSet]));
+  } catch {
+    /* ignore */
+  }
+}
+
+function undismiss(id: string) {
+  loadDismissed();
+  if (dismissedSet.delete(id)) persistDismissed();
+}
+
+/** G'oya reja dropdownidan yashirilganmi? */
+export function isIdeaDismissed(id: string): boolean {
+  loadDismissed();
+  return dismissedSet.has(id);
+}
+
+/** Bajarilgan g'oyalarni reja "Bajarilgan" dropdownidan yashirish
+ *  (7 kun kutmasdan). Bazadan o'chmaydi — Arxivda qolaveradi. */
+export function dismissDoneIdeas(ids: string[]): void {
+  loadDismissed();
+  let changed = false;
+  for (const id of ids) {
+    if (!dismissedSet.has(id)) {
+      dismissedSet.add(id);
+      changed = true;
+    }
+  }
+  if (changed) {
+    persistDismissed();
+    emit();
+  }
+}
+
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
@@ -90,6 +147,7 @@ function rowsEqual(a: Idea[], b: Idea[]): boolean {
       x.notes !== y.notes ||
       x.categoryId !== y.categoryId ||
       x.done !== y.done ||
+      x.completedAt !== y.completedAt ||
       x.order !== y.order ||
       x.scheduledFor !== y.scheduledFor ||
       x.time !== y.time ||
@@ -220,6 +278,10 @@ export function updateIdea(id: string, patch: Partial<Idea>): void {
   const prev = memoryState.find((i) => i.id === id);
   if (!prev) return;
   const updated: Idea = { ...prev, ...patch };
+  if (patch.done !== undefined) {
+    updated.completedAt = patch.done ? new Date().toISOString() : undefined;
+    undismiss(id);
+  }
   memoryState = memoryState.map((i) => (i.id === id ? updated : i));
   emit();
   syncPlanFor(updated);
@@ -251,7 +313,13 @@ export function updateIdea(id: string, patch: Partial<Idea>): void {
 export function toggleIdeaDone(id: string): void {
   const prev = memoryState.find((i) => i.id === id);
   if (!prev) return;
-  const updated: Idea = { ...prev, done: !prev.done };
+  const nowDone = !prev.done;
+  const updated: Idea = {
+    ...prev,
+    done: nowDone,
+    completedAt: nowDone ? new Date().toISOString() : undefined,
+  };
+  undismiss(id);
   memoryState = memoryState.map((i) => (i.id === id ? updated : i));
   emit();
 
@@ -280,6 +348,7 @@ export function toggleIdeaDone(id: string): void {
 export function removeIdea(id: string): void {
   const prev = memoryState.find((i) => i.id === id);
   if (!prev) return;
+  undismiss(id);
   memoryState = memoryState.filter((i) => i.id !== id);
   emit();
   if (getPlanById(id)) removePlan(id);
@@ -335,6 +404,7 @@ export function useIdeas() {
 
   return {
     ideas,
+    hydrated,
     create: createIdea,
     update: updateIdea,
     toggleDone: toggleIdeaDone,

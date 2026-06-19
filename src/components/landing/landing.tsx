@@ -63,6 +63,7 @@ export function Landing() {
     { label: t.nav.features, href: "#imkoniyatlar", route: false },
     { label: t.nav.price, href: "#narx", route: false },
     { label: t.nav.blog, href: "/blog", route: true },
+    { label: t.nav.about, href: "/haqida", route: true },
   ];
 
   // Menyu ochiq bo'lsa: scroll qilinganda yopiladi
@@ -126,6 +127,12 @@ export function Landing() {
               className="text-[13px] text-muted transition-colors hover:text-foreground"
             >
               {t.nav.blog}
+            </Link>
+            <Link
+              href="/haqida"
+              className="text-[13px] text-muted transition-colors hover:text-foreground"
+            >
+              {t.nav.about}
             </Link>
           </div>
 

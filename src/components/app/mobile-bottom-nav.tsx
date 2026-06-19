@@ -5,19 +5,14 @@ import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Calendar as CalendarIcon,
   CheckCircle2,
   ChevronDown,
-  ClipboardList,
   Menu,
   Moon,
-  Repeat,
   Settings,
   Sparkles,
   Sun,
-  Target,
   Trash2,
-  Wallet,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,8 +21,10 @@ import { useScrollLock } from "@/lib/use-scroll-lock";
 import {
   DEFAULT_PRIMARY,
   NAV_CHANGE_EVENT,
+  NAV_ITEMS,
   loadPrimaryIds,
   resolvePrimaryItems,
+  type NavItemId,
 } from "@/lib/mobile-nav";
 import { useProfile } from "@/lib/profile-store";
 import { SettingsDialog } from "./widgets/settings-dialog";
@@ -47,6 +44,12 @@ function readJSON<T>(key: string, fallback: T): T {
 
 // Routes that always live inside the Boshqaruv sheet (never primary slots).
 const BOSHQARUV_ROUTES = ["/bajarilgan", "/ochirilgan"];
+
+// Boshqaruv sheet'da ko'rsatish tartibi — asosiy nav'da BO'LMAGAN
+// (o'chirilgan) barcha bo'limlar shu tartibda chiqadi (hech biri yo'qolmaydi).
+const SHEET_ORDER: NavItemId[] = [
+  "agenda", "reja", "odat", "maqsad", "kalendar", "bugun", "tezkor", "moliya",
+];
 
 export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const pathname = usePathname();
@@ -78,7 +81,7 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const primaryHrefs = new Set(primary.map((p) => p.href));
   const isBoshqaruvActive =
     !sheetOpen &&
-    [...BOSHQARUV_ROUTES, "/reja", "/kalendar", "/odat", "/maqsad", "/moliya"].some(
+    [...BOSHQARUV_ROUTES, "/agenda", "/reja", "/kalendar", "/odat", "/maqsad"].some(
       (href) => !primaryHrefs.has(href) && isActive(href)
     );
 
@@ -283,47 +286,26 @@ function BoshqaruvSheet({
           </button>
         </header>
 
-        {/* Scroll qilinadigan tana — kontent uzun bo'lsa pastki elementlar ham ko'rinadi */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {/* Tana — barcha bo'limlar scrollsiz sig'adi (cardlar joyga qarab kichrayadi) */}
+        <div className="flex min-h-0 flex-1 flex-col">
 
-        {/* Boshqaruv links — items already in the primary nav are hidden here */}
-        <div className="space-y-2 px-3 py-2.5">
-          {!primaryHrefs.has("/reja") && (
-            <SheetLink
-              href="/reja"
-              label="Reja"
-              icon={ClipboardList}
-              active={isActive("/reja")}
-              onNavigate={onClose}
-            />
-          )}
-          {!primaryHrefs.has("/kalendar") && (
-            <SheetLink
-              href="/kalendar"
-              label="Kalendar"
-              icon={CalendarIcon}
-              active={isActive("/kalendar")}
-              onNavigate={onClose}
-            />
-          )}
-          {!hidden.includes("odat") && !primaryHrefs.has("/odat") && (
-            <SheetLink
-              href="/odat"
-              label="Odat"
-              icon={Repeat}
-              active={isActive("/odat")}
-              onNavigate={onClose}
-            />
-          )}
-          {!hidden.includes("maqsad") && !primaryHrefs.has("/maqsad") && (
-            <SheetLink
-              href="/maqsad"
-              label="Maqsad"
-              icon={Target}
-              active={isActive("/maqsad")}
-              onNavigate={onClose}
-            />
-          )}
+        {/* Boshqaruv links — asosiy nav'da bo'lmagan (o'chirilgan) barcha bo'limlar */}
+        <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 py-2.5">
+          {SHEET_ORDER.map((id) => {
+            const item = NAV_ITEMS.find((i) => i.id === id);
+            if (!item || primaryHrefs.has(item.href) || hidden.includes(item.id)) return null;
+            return (
+              <SheetLink
+                key={item.id}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
+                active={isActive(item.href)}
+                onNavigate={onClose}
+                fit
+              />
+            );
+          })}
         </div>
 
         {/* Arxiv — dropdown */}
@@ -346,16 +328,14 @@ function BoshqaruvSheet({
           />
         </SheetCollapsible>
 
-        {/* Maxsus — dropdown (Moliya — sinov) */}
+        {/* Maxsus — dropdown (Loyiha) */}
         <SheetCollapsible label="Maxsus" open={openSection === "maxsus"} onToggle={() => toggleSection("maxsus")}>
-          {!primaryHrefs.has("/moliya") && (
-            <SheetLink href="/moliya" label="Moliya" icon={Wallet} active={isActive("/moliya")} onNavigate={onClose} secondary />
-          )}
           <SheetItem label="Loyiha" icon={Sparkles} badge="tez orada" secondary />
         </SheetCollapsible>
+        </div>
 
-        {/* Profile + theme + settings */}
-        <div className="border-t border-border bg-subtle/30 p-3">
+        {/* Profile + theme + settings — doim ko'rinadi (scrollsiz) */}
+        <div className="shrink-0 border-t border-border bg-subtle/30 p-3">
           <div className="flex items-center gap-3 rounded-lg bg-background p-3">
             <Avatar name={profile?.name} photoUrl={profile?.photoUrl} className="size-10 text-[14px]" />
             <div className="min-w-0 flex-1">
@@ -379,7 +359,6 @@ function BoshqaruvSheet({
             </button>
           </div>
         </div>
-        </div>
       </motion.div>
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
@@ -393,6 +372,7 @@ function SheetLink({
   active,
   onNavigate,
   secondary = false,
+  fit = false,
 }: {
   href: string;
   label: string;
@@ -401,6 +381,8 @@ function SheetLink({
   onNavigate?: () => void;
   /** Ikkinchi darajali (Arxiv) — ixchamroq, kartasiz, xira. */
   secondary?: boolean;
+  /** Joyga moslashuvchi — ekranga sig'ish uchun kichrayadi (max = joriy o'lcham). */
+  fit?: boolean;
 }) {
   if (secondary) {
     // Tepadagi asosiy kartaga o'xshash, ammo kichikroq.
@@ -425,7 +407,8 @@ function SheetLink({
       href={href}
       onClick={onNavigate}
       className={cn(
-        "flex items-center gap-3.5 rounded-xl border px-[18px] py-[18px] text-[19px] transition-colors",
+        "flex items-center gap-3.5 rounded-xl border px-[18px] text-[19px] transition-colors",
+        fit ? "min-h-[40px] max-h-[60px] flex-1" : "py-[18px]",
         active
           ? "border-foreground/30 bg-subtle text-foreground"
           : "border-border bg-surface text-muted hover:bg-hover hover:text-foreground"

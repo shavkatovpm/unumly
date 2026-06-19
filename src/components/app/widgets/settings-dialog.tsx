@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, LogOut, RotateCcw, Volume2, VolumeX, X } from "lucide-react";
+import { Check, GripVertical, LogOut, RotateCcw, Volume2, VolumeX, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -13,6 +13,7 @@ import {
   savePrimaryIds,
   type NavItemId,
 } from "@/lib/mobile-nav";
+import { LayoutGroup, motion, Reorder, useDragControls } from "framer-motion";
 import {
   loadSelection,
   playOnComplete,
@@ -84,6 +85,12 @@ export function SettingsDialog({
       savePrimaryIds(next);
       return next;
     });
+  }
+
+  // Yoqilgan (asosiy) bo'limlarni drag bilan tartiblash (Framer Reorder)
+  function handleReorderPrimary(next: NavItemId[]) {
+    setPrimaryIds(next);
+    savePrimaryIds(next);
   }
 
   const isDefaultPrimary = primaryIds.length === DEFAULT_PRIMARY.length && primaryIds.every((x, i) => x === DEFAULT_PRIMARY[i]);
@@ -190,50 +197,69 @@ export function SettingsDialog({
           <p className="mb-3 text-[11.5px] leading-relaxed text-faint">
             Mobil pastki menyuda qaysi bo&apos;limlar ko&apos;rinishini tanlang.
             «Boshqaruv» doim o&apos;ng tarafda qoladi. {MIN_PRIMARY}–{MAX_PRIMARY}{" "}
-            ta bo&apos;lim tanlash mumkin.
+            ta bo&apos;lim tanlash mumkin. Yoqilganlar tepada — ⠿ belgisidan
+            ushlab tartibini o&apos;zgartiring.
           </p>
-          <div className="space-y-2">
-            {NAV_ITEMS.map((item) => {
-              const selected = primaryIds.includes(item.id);
-              const atMax = !selected && primaryIds.length >= MAX_PRIMARY;
-              const atMin = selected && primaryIds.length <= MIN_PRIMARY;
-              const disabled = atMax || atMin;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => togglePrimary(item.id)}
-                  disabled={disabled}
-                  className={cn(
-                    "flex w-full items-center justify-between rounded-md border bg-surface px-3.5 py-2.5 transition-colors",
-                    selected
-                      ? "border-foreground/30"
-                      : "border-border hover:bg-hover/40",
-                    disabled && "opacity-50"
-                  )}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <item.icon className="size-4 text-faint" strokeWidth={2} />
-                    <p className="text-[13.5px] font-medium">{item.label}</p>
-                  </div>
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "relative h-5 w-9 rounded-full transition-colors",
-                      selected ? "bg-foreground" : "bg-subtle"
-                    )}
-                  >
-                    <span
+          <LayoutGroup>
+            {/* Yoqilganlar — drag bilan tartiblanadi */}
+            <Reorder.Group
+              axis="y"
+              values={primaryIds}
+              onReorder={handleReorderPrimary}
+              className="space-y-2"
+            >
+              {primaryIds.map((id) => {
+                const item = NAV_ITEMS.find((i) => i.id === id);
+                if (!item) return null;
+                return (
+                  <NavReorderRow
+                    key={id}
+                    item={item}
+                    canRemove={primaryIds.length > MIN_PRIMARY}
+                    onToggle={() => togglePrimary(id)}
+                  />
+                );
+              })}
+            </Reorder.Group>
+
+            {/* O'chiqlar — pastda; toggle qilinganda silliq joy almashadi */}
+            {NAV_ITEMS.some((i) => !primaryIds.includes(i.id)) && (
+              <div className="mt-2 space-y-2">
+                {NAV_ITEMS.filter((i) => !primaryIds.includes(i.id)).map((item) => {
+                  const atMax = primaryIds.length >= MAX_PRIMARY;
+                  return (
+                    <motion.button
+                      key={item.id}
+                      layout
+                      layoutId={`nav-${item.id}`}
+                      transition={{ type: "spring", stiffness: 520, damping: 42 }}
+                      type="button"
+                      onClick={() => togglePrimary(item.id)}
+                      disabled={atMax}
                       className={cn(
-                        "absolute top-0.5 size-4 rounded-full bg-background shadow transition-[left] duration-200",
-                        selected ? "left-[18px]" : "left-0.5"
+                        "flex w-full items-center rounded-md border border-border bg-surface pr-3.5 transition-colors hover:bg-hover/40",
+                        atMax && "opacity-50"
                       )}
-                    />
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                    >
+                      {/* grip joyi uchun bo'sh spacer (tekislash) */}
+                      <span aria-hidden className="py-2.5 pl-3 pr-1 opacity-0">
+                        <GripVertical className="size-4" />
+                      </span>
+                      <span className="flex flex-1 items-center justify-between py-2.5 pl-1.5">
+                        <span className="flex items-center gap-2.5">
+                          <item.icon className="size-4 text-faint" strokeWidth={2} />
+                          <span className="text-[13.5px] font-medium">{item.label}</span>
+                        </span>
+                        <span aria-hidden className="relative h-5 w-9 rounded-full bg-subtle">
+                          <span className="absolute left-0.5 top-0.5 size-4 rounded-full bg-background shadow" />
+                        </span>
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            )}
+          </LayoutGroup>
           <button
             type="button"
             onClick={resetPrimary}
@@ -523,5 +549,55 @@ function NotifToggle({
         />
       </span>
     </button>
+  );
+}
+
+/* Mobil menyu — yoqilgan bo'lim qatori (drag bilan tartiblanadi). */
+function NavReorderRow({
+  item,
+  canRemove,
+  onToggle,
+}: {
+  item: (typeof NAV_ITEMS)[number];
+  canRemove: boolean;
+  onToggle: () => void;
+}) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item
+      value={item.id}
+      layoutId={`nav-${item.id}`}
+      dragListener={false}
+      dragControls={controls}
+      whileDrag={{ scale: 1.03, boxShadow: "0 10px 28px -8px rgba(0,0,0,0.35)" }}
+      transition={{ type: "spring", stiffness: 520, damping: 42 }}
+      className="flex items-center rounded-md border border-foreground/30 bg-surface pr-3.5"
+    >
+      <button
+        type="button"
+        onPointerDown={(e) => controls.start(e)}
+        aria-label="Tartibini o'zgartirish"
+        className="cursor-grab touch-none py-2.5 pl-3 pr-1 text-faint active:cursor-grabbing"
+      >
+        <GripVertical className="size-4" />
+      </button>
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={!canRemove}
+        className={cn(
+          "flex flex-1 items-center justify-between py-2.5 pl-1.5",
+          !canRemove && "opacity-50"
+        )}
+      >
+        <div className="flex items-center gap-2.5">
+          <item.icon className="size-4 text-faint" strokeWidth={2} />
+          <p className="text-[13.5px] font-medium">{item.label}</p>
+        </div>
+        <span aria-hidden className="relative h-5 w-9 rounded-full bg-foreground">
+          <span className="absolute left-[18px] top-0.5 size-4 rounded-full bg-background shadow" />
+        </span>
+      </button>
+    </Reorder.Item>
   );
 }

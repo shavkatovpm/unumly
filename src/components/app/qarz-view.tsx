@@ -18,6 +18,7 @@ import type { Debt, DebtType } from "@/lib/types";
 import { useDebts, useHydratedDebts } from "@/lib/debts-store";
 import { dateKey, formatSom } from "@/lib/money";
 import { Dialog } from "./widgets/dialog";
+import { DatePickerButton } from "./widgets/date-picker-button";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
 
@@ -141,10 +142,19 @@ export function QarzPanel() {
         </div>
       )}
 
+      {/* Desktopda past qismda kesik chiziqli tugma */}
+      <button
+        onClick={() => { setEditing(null); setDialogOpen(true); }}
+        className="mt-2 hidden w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-[13.5px] font-medium text-muted transition-colors hover:border-border-strong hover:bg-hover hover:text-foreground md:flex"
+      >
+        <Plus className="size-4" />
+        Yangi qarz
+      </button>
+      {/* Mobilda FAB */}
       <button
         onClick={() => { setEditing(null); setDialogOpen(true); }}
         aria-label="Yangi qarz"
-        className="fixed bottom-20 right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 md:bottom-6"
+        className="fixed bottom-20 right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 md:hidden"
         style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         <Plus className="size-6" strokeWidth={2.5} />
@@ -167,8 +177,10 @@ function FilterButton({ active, onClick, children }: { active: boolean; onClick:
     <button
       onClick={onClick}
       className={cn(
-        "flex-1 whitespace-nowrap rounded-[7px] px-2 py-1.5 font-medium transition-colors",
-        active ? "bg-surface text-foreground shadow-[0_1px_0_var(--border)]" : "text-muted hover:text-foreground"
+        "flex-1 whitespace-nowrap rounded-[7px] px-2 py-1.5 font-medium transition-all duration-150 active:scale-[0.96]",
+        active
+          ? "bg-accent font-semibold text-accent-ink shadow-sm"
+          : "text-muted hover:bg-hover/50 hover:text-foreground"
       )}
     >
       {children}
@@ -356,11 +368,27 @@ function DebtDialog({
         </div>
 
         {!editing && (
-          <div className="mb-3 flex gap-1 rounded-lg bg-subtle/60 p-0.5 text-[13px]">
-            <button onClick={() => setType("BORROWED")} className={cn("flex-1 rounded-[7px] py-2 font-medium transition-colors", type === "BORROWED" ? "bg-surface shadow-[0_1px_0_var(--border)]" : "text-muted")} style={type === "BORROWED" ? { color: BORROWED_COLOR } : undefined}>
+          <div className="mb-3 grid grid-cols-2 gap-2 text-[13.5px]">
+            <button
+              onClick={() => setType("BORROWED")}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-lg border py-2.5 font-semibold transition-all",
+                type === "BORROWED" ? "border-transparent text-white shadow-sm" : "border-border font-medium text-muted hover:bg-hover"
+              )}
+              style={type === "BORROWED" ? { background: BORROWED_COLOR } : undefined}
+            >
+              <ArrowDownLeft className="size-4" />
               Men oldim
             </button>
-            <button onClick={() => setType("LENT")} className={cn("flex-1 rounded-[7px] py-2 font-medium transition-colors", type === "LENT" ? "bg-surface shadow-[0_1px_0_var(--border)]" : "text-muted")} style={type === "LENT" ? { color: LENT_COLOR } : undefined}>
+            <button
+              onClick={() => setType("LENT")}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-lg border py-2.5 font-semibold transition-all",
+                type === "LENT" ? "border-transparent text-white shadow-sm" : "border-border font-medium text-muted hover:bg-hover"
+              )}
+              style={type === "LENT" ? { background: LENT_COLOR } : undefined}
+            >
+              <ArrowUpRight className="size-4" />
               Men berdim
             </button>
           </div>
@@ -385,15 +413,21 @@ function DebtDialog({
           <span className="shrink-0 text-[13px] text-faint">so&apos;m</span>
         </div>
 
-        <div className="mb-3 grid grid-cols-2 gap-2">
-          <div>
-            <p className="mb-1.5 text-[12px] text-faint">Muddat (ixtiyoriy)</p>
-            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full rounded-lg border border-border bg-subtle/30 px-2.5 py-2 text-[13px] outline-none focus:border-foreground/30" />
-          </div>
-          <div>
-            <p className="mb-1.5 text-[12px] text-faint">Izoh</p>
-            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="ixtiyoriy" className="w-full rounded-lg border border-border bg-subtle/30 px-2.5 py-2 text-[13px] outline-none placeholder:text-faint/50 focus:border-foreground/30" />
-          </div>
+        <div className="mb-3">
+          <p className="mb-1.5 text-[12px] text-faint">Muddat (ixtiyoriy)</p>
+          <DatePickerButton
+            value={dueDate}
+            onChange={setDueDate}
+            onClear={() => setDueDate("")}
+            format={formatDate}
+            placeholder="Sana tanlash"
+            min={dateKey()}
+          />
+        </div>
+
+        <div className="mb-3">
+          <p className="mb-1.5 text-[12px] text-faint">Izoh</p>
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="ixtiyoriy" className="w-full rounded-lg border border-border bg-subtle/30 px-2.5 py-2 text-[13px] outline-none placeholder:text-faint/50 focus:border-foreground/30" />
         </div>
         {dueDate && (
           <p className="mb-3 -mt-1 text-[11.5px] text-faint">Muddat kuni ertalab bot eslatma yuboradi.</p>

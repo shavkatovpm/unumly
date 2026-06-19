@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowRight, Target } from "lucide-react";
 import { DocsToc } from "@/components/landing/docs-toc";
 import { FaqList } from "@/components/landing/faq-list";
+import { DocsHeader } from "@/components/landing/docs-header";
+import { LangProvider } from "@/components/landing/i18n";
 
 export const metadata: Metadata = {
   title: "Haqida: Unumly to'liq qo'llanma va dokumentatsiya",
@@ -104,26 +106,19 @@ const TOC = [
   { id: "reja", label: "8. Reja bo'limi" },
   { id: "odat", label: "9. Odat bo'limi" },
   { id: "maqsad", label: "10. Maqsad bo'limi" },
-  { id: "bajarilgan-ochirilgan", label: "11. Bajarilgan va O'chirilgan" },
-  { id: "sozlamalar", label: "12. Sozlamalar" },
-  { id: "telegram-bot", label: "13. Telegram bot" },
-  { id: "malumotlar", label: "14. Ma'lumotlar va xavfsizlik" },
-  { id: "faq", label: "15. Tez-tez so'raladigan savollar" },
+  { id: "moliya", label: "11. Moliya bo'limi" },
+  { id: "bajarilgan-ochirilgan", label: "12. Bajarilgan va O'chirilgan" },
+  { id: "sozlamalar", label: "13. Sozlamalar" },
+  { id: "telegram-bot", label: "14. Telegram bot" },
+  { id: "malumotlar", label: "15. Ma'lumotlar va xavfsizlik" },
+  { id: "faq", label: "16. Tez-tez so'raladigan savollar" },
 ];
 
 export default function HaqidaPage() {
   return (
-    <>
+    <LangProvider>
+      <DocsHeader />
       <main className="mx-auto min-h-screen max-w-4xl px-6 py-12 sm:px-8 sm:py-16">
-        <nav className="mb-12" aria-label="Breadcrumb">
-          <Link
-            href="/"
-            className="font-mono text-[11px] uppercase tracking-[0.2em] text-faint hover:text-foreground"
-          >
-            ← Bosh sahifa
-          </Link>
-        </nav>
-
         <header className="mb-14">
           <p className="font-mono text-[10.5px] uppercase tracking-[0.22em] text-faint">
             Dokumentatsiya
@@ -601,8 +596,58 @@ Gugurt`}</pre>
           </ul>
         </Section>
 
-        {/* ─── 11. Bajarilgan / O'chirilgan ──────────────────── */}
-        <Section id="bajarilgan-ochirilgan" title="11. Bajarilgan va O'chirilgan">
+        {/* ─── 11. Moliya ──────────────────── */}
+        <Section id="moliya" title="11. Moliya bo'limi">
+          <p className="text-faint">URL: <code>/moliya</code></p>
+          <p>
+            Kunlik moliyani bir joyda boshqarish: kirim/chiqim, kategoriyalar,
+            limitlar, yig&apos;im maqsadlari va qarzdorlik. Barcha summalar{" "}
+            <strong>so&apos;m</strong>da. Bo&apos;lim 5 ta tabga bo&apos;lingan,
+            yuqorida <strong>oy bo&apos;yicha</strong> navigatsiya bor.
+          </p>
+          <h3>Umumiy</h3>
+          <ul>
+            <li><strong>Oylik balans</strong> (kirim − chiqim), kirim va chiqim jami</li>
+            <li><strong>Kirim taqsimoti</strong> va <strong>Chiqim taqsimoti</strong> — kategoriya bo&apos;yicha donut grafik va foizlar</li>
+            <li>Taqsimot kartasini bossangiz — «Kirim-chiqim» tabidagi tegishli (kirim/chiqim) qismiga o&apos;tadi</li>
+          </ul>
+
+          <h3>Tarix</h3>
+          <p>
+            Barcha kirim/chiqim yozuvlari sana bo&apos;yicha guruhlangan. Har
+            birini bosib tahrirlash yoki o&apos;chirish mumkin. Yangi yozuv —
+            pastdagi <strong>+</strong> (mobil) yoki kesik chiziqli tugma (desktop).
+          </p>
+
+          <h3>Kirim-chiqim (kategoriyalar)</h3>
+          <ul>
+            <li><strong>Kirim / Chiqim</strong> toggle orqali turni tanlash</li>
+            <li>Kategoriya <strong>qo&apos;shish</strong>, tahrirlash, o&apos;chirish (ikona va rang bilan) — boshida 18 ta tayyor kategoriya</li>
+            <li>Har kategoriyada <strong>shu oydagi jami summa</strong>; ko&apos;pi tepada turadi; yuqorida «Bu oy — jami kirim/chiqim»</li>
+            <li>Chiqim kategoriyasiga <strong>oylik limit</strong> — sarf limitga nisbatan progress bar, oshsa qizil ogohlantirish</li>
+          </ul>
+
+          <h3>Yig&apos;im</h3>
+          <p>
+            Moliyaviy maqsadlar (masalan «Mashina — 50 mln»). Har maqsadga nom,
+            maqsad summa, ixtiyoriy muddat va belgi. <strong>Hissa qo&apos;shish</strong>{" "}
+            yoki <strong>yechish</strong> bilan yig&apos;ilgan summa o&apos;zgaradi
+            (0 dan past tushmaydi); progress va «yana qancha qoldi» ko&apos;rinadi;
+            maqsadga yetganda <strong>«Bajarildi»</strong> belgisi chiqadi.
+          </p>
+
+          <h3>Qarz</h3>
+          <ul>
+            <li>Ikki tur: <strong>Men oldim</strong> (qarzdorman) va <strong>Men berdim</strong> (menga qarzdor)</li>
+            <li>Yuqorida: menga qancha qarzdor, men qancha qarzdorman; filtr orqali ajratish</li>
+            <li><strong>Qisman qaytarish</strong> (qoldiq kamayadi, progress) yoki to&apos;liq hal qilish</li>
+            <li>Muddat qo&apos;ysangiz — <strong>muddat kuni ertalab Telegram bot eslatma</strong> yuboradi; muddat o&apos;tsa qizil belgi</li>
+            <li>Hal qilinganlar pastda alohida; qayta ochish yoki o&apos;chirish mumkin</li>
+          </ul>
+        </Section>
+
+        {/* ─── 12. Bajarilgan / O'chirilgan ──────────────────── */}
+        <Section id="bajarilgan-ochirilgan" title="12. Bajarilgan va O'chirilgan">
           <h3>Bajarilgan bo&apos;limi</h3>
           <p className="text-faint">URL: <code>/bajarilgan</code></p>
           <p>
@@ -630,7 +675,7 @@ Gugurt`}</pre>
         </Section>
 
         {/* ─── 9. Sozlamalar ─────────────────────────────────── */}
-        <Section id="sozlamalar" title="12. Sozlamalar">
+        <Section id="sozlamalar" title="13. Sozlamalar">
           <p>
             Sozlamalar dialogini ochish: yuqori-o&apos;ng burchakdagi
             sozlamalar ikonkasini bosib. Dialog 4 qism bo&apos;limga ega:
@@ -698,7 +743,7 @@ Gugurt`}</pre>
         </Section>
 
         {/* ─── 10. Telegram bot ─────────────────────────────── */}
-        <Section id="telegram-bot" title="13. Telegram bot">
+        <Section id="telegram-bot" title="14. Telegram bot">
           <p>
             Unumly bot: <code>@unumlybot</code>: uch ish bajaradi: kirish
             uchun OTP yuborish, vaqt belgilangan rejalar uchun bildirishnoma
@@ -772,7 +817,7 @@ Gugurt`}</pre>
         </Section>
 
         {/* ─── 11. Ma'lumotlar va xavfsizlik ────────────────── */}
-        <Section id="malumotlar" title="14. Ma'lumotlar va xavfsizlik">
+        <Section id="malumotlar" title="15. Ma'lumotlar va xavfsizlik">
           <h3>Qaerda saqlanadi?</h3>
           <p>Ikki rejim bor:</p>
           <ul>
@@ -816,7 +861,7 @@ Gugurt`}</pre>
         </Section>
 
         {/* ─── 12. FAQ ───────────────────────────────────────── */}
-        <Section id="faq" title="15. Tez-tez so'raladigan savollar">
+        <Section id="faq" title="16. Tez-tez so'raladigan savollar">
           <FaqList items={FAQS} />
         </Section>
 
@@ -919,7 +964,7 @@ Gugurt`}</pre>
           ]),
         }}
       />
-    </>
+    </LangProvider>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { CheckCircle2, Clock, ListChecks, RotateCcw, Trash2 } from "lucide-react";
+import { CheckCircle2, ClipboardList, Clock, ListChecks, RotateCcw, Trash2 } from "lucide-react";
 import {
   togglePlanStatus,
   removePlan,
@@ -13,7 +13,8 @@ import {
   restoreCompletedList,
   useCompletedQuickLists,
 } from "@/lib/tezkor-store";
-import type { Plan } from "@/lib/types";
+import { useIdeas } from "@/lib/ideas-store";
+import type { Idea, Plan } from "@/lib/types";
 import type { QuickList } from "@/lib/tezkor-types";
 import { cn } from "@/lib/utils";
 import { formatUzDate } from "@/lib/dates";
@@ -33,18 +34,36 @@ function dayKey(iso?: string): string {
 
 type FeedEntry =
   | { kind: "plan"; id: string; completedAt: string; plan: Plan }
-  | { kind: "list"; id: string; completedAt: string; list: QuickList };
+  | { kind: "list"; id: string; completedAt: string; list: QuickList }
+  | { kind: "idea"; id: string; completedAt: string; idea: Idea };
 
 export function BajarilganView() {
   const completedPlans = useCompletedPlans();
   const completedLists = useCompletedQuickLists();
+  const { ideas, hydrated: ideasHydrated, toggleDone: restoreIdea, remove: removeIdea } = useIdeas();
   const hydrated = useHydrated();
+
+  // Sanasiz, rejada bajarilgan g'oyalar (sanali g'oyalar Plan sifatida
+  // yuqorida allaqachon ko'rinadi — takror bo'lmasligi uchun ularni chiqaramiz).
+  const completedIdeas = useMemo(
+    () => ideas.filter((i) => i.done && !i.scheduledFor),
+    [ideas]
+  );
+
   const { askRemove: askRemovePlan, confirmEl: confirmPlanEl } = useConfirmRemove(
     completedPlans,
     removePlan,
     {
       description:
         '"{title}" o\'chiriladi va 30 kun davomida "O\'chirilgan" bo\'limida saqlanadi.',
+    }
+  );
+  const { askRemove: askRemoveIdea, confirmEl: confirmIdeaEl } = useConfirmRemove(
+    completedIdeas.map((i) => ({ id: i.id, title: i.title })),
+    removeIdea,
+    {
+      itemLabel: "G'oyani",
+      description: '"{title}" butunlay o\'chiriladi. Bu amalni qaytarib bo\'lmaydi.',
     }
   );
 
@@ -65,6 +84,13 @@ export function BajarilganView() {
       arr.push({ kind: "list", id: l.id, completedAt: at, list: l });
       map.set(key, arr);
     }
+    for (const idea of completedIdeas) {
+      const at = idea.completedAt ?? idea.createdAt;
+      const key = dayKey(at);
+      const arr = map.get(key) ?? [];
+      arr.push({ kind: "idea", id: idea.id, completedAt: at, idea });
+      map.set(key, arr);
+    }
     return Array.from(map.entries())
       .map(([key, entries]) => ({
         key,
@@ -74,9 +100,9 @@ export function BajarilganView() {
           .sort((a, b) => b.completedAt.localeCompare(a.completedAt)),
       }))
       .sort((a, b) => b.key.localeCompare(a.key));
-  }, [completedPlans, completedLists]);
+  }, [completedPlans, completedLists, completedIdeas]);
 
-  const totalCount = completedPlans.length + completedLists.length;
+  const totalCount = completedPlans.length + completedLists.length + completedIdeas.length;
 
   function confirmRemoveList(id: string, name: string) {
     if (typeof window !== "undefined" && !window.confirm(`"${name}" o'chirilsinmi? (30 kun davomida tiklash mumkin)`)) return;
@@ -100,7 +126,7 @@ export function BajarilganView() {
       </header>
 
       <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:pb-8">
-        {totalCount === 0 && !hydrated ? (
+        {totalCount === 0 && (!hydrated || !ideasHydrated) ? (
           <ListLoader />
         ) : totalCount === 0 ? (
           <div className="rounded-lg border border-dashed border-border px-6 py-16 text-center">
@@ -134,12 +160,19 @@ export function BajarilganView() {
                         onRestore={() => togglePlanStatus(entry.plan.id)}
                         onRemove={() => askRemovePlan(entry.plan.id)}
                       />
-                    ) : (
+                    ) : entry.kind === "list" ? (
                       <CompletedListRow
                         key={`l-${entry.id}`}
                         list={entry.list}
                         onRestore={() => restoreCompletedList(entry.list.id)}
                         onRemove={() => confirmRemoveList(entry.list.id, entry.list.name)}
+                      />
+                    ) : (
+                      <CompletedIdeaRow
+                        key={`i-${entry.id}`}
+                        idea={entry.idea}
+                        onRestore={() => restoreIdea(entry.idea.id)}
+                        onRemove={() => askRemoveIdea(entry.idea.id)}
                       />
                     )
                   )}
@@ -151,6 +184,7 @@ export function BajarilganView() {
       </div>
 
       {confirmPlanEl}
+      {confirmIdeaEl}
     </div>
   );
 }
@@ -194,6 +228,56 @@ function CompletedPlanRow({
           onClick={onRestore}
           aria-label="Qayta tiklash"
           title="Qayta tiklash"
+          className="grid size-8 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-foreground"
+        >
+          <RotateCcw className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label="O'chirish"
+          title="O'chirish"
+          className="grid size-8 place-items-center rounded-md text-faint transition-colors hover:bg-danger-soft hover:text-danger"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
+      </div>
+    </li>
+  );
+}
+
+function CompletedIdeaRow({
+  idea,
+  onRestore,
+  onRemove,
+}: {
+  idea: Idea;
+  onRestore: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <li className="group flex items-center gap-3 border-b border-border/70 px-3 py-2.5 last:border-b-0 hover:bg-hover/40">
+      <span
+        aria-hidden
+        className="grid size-5 shrink-0 place-items-center rounded text-faint/70"
+      >
+        <ClipboardList className="size-3.5" />
+      </span>
+
+      <span className="w-[58px] shrink-0 text-center font-mono text-[10.5px] text-faint">
+        reja
+      </span>
+
+      <span className="min-w-0 flex-1 truncate text-[14px] text-muted line-through sm:text-[13.5px]">
+        {idea.title}
+      </span>
+
+      <div className="flex shrink-0 items-center gap-1 opacity-100 sm:opacity-60 sm:transition-opacity sm:group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={onRestore}
+          aria-label="Qayta tiklash"
+          title="Qayta tiklash (Reja'ga)"
           className="grid size-8 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-foreground"
         >
           <RotateCcw className="size-3.5" />

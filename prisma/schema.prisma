@@ -395,6 +395,7 @@ model Idea {
   notes        String?       @db.Text
   categoryId   String        // references Category.id (loose, like Plan)
   done         Boolean       @default(false)
+  completedAt  DateTime?     // bajarilgan vaqt — Arxiv "Bajarilganlar" uchun
   order        Int           @default(0)
 
   // Optional scheduling — when present, the idea is mirrored as a Plan

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDownLeft,
@@ -33,6 +33,7 @@ import {
   shiftMonth,
 } from "@/lib/money";
 import { Dialog } from "./widgets/dialog";
+import { DatePickerButton } from "./widgets/date-picker-button";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
 import { TestBadge } from "./widgets/test-badge";
@@ -42,6 +43,16 @@ const INCOME_COLOR = "oklch(0.62 0.13 158)"; // yashil
 const EXPENSE_COLOR = "oklch(0.62 0.17 22)"; // qizil
 
 type Tab = "umumiy" | "tranzaksiyalar" | "kategoriya" | "yigim" | "qarz";
+
+const TAB_ORDER: Tab[] = ["umumiy", "tranzaksiyalar", "kategoriya", "yigim", "qarz"];
+
+// Swipe / gorizontal scroll bilan tab almashtirish animatsiyasi
+const SWIPE_VARIANTS = {
+  enter: (dir: number) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
+  center: { x: "0%", opacity: 1 },
+  exit: (dir: number) => ({ x: dir > 0 ? "-100%" : "100%", opacity: 0 }),
+};
+const SWIPE_THRESHOLD = 56;
 
 function catColor(c: FinanceCategory | undefined): CategoryColor {
   return c?.color ?? "gray";
@@ -62,8 +73,84 @@ export function MoliyaView() {
 
   const [month, setMonth] = useState(() => monthKey());
   const [tab, setTab] = useState<Tab>("umumiy");
+  const [dir, setDir] = useState(0); // swipe animatsiya yo'nalishi
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  // "Kirim-chiqim" tabidagi faol tur (Umumiy'dagi taqsimotdan o'tishda boshqariladi)
+  const [catType, setCatType] = useState<TransactionType>("EXPENSE");
+
+  // Tab almashtirish — animatsiya yo'nalishi bilan
+  function selectTab(t: Tab) {
+    const cur = TAB_ORDER.indexOf(tab);
+    const next = TAB_ORDER.indexOf(t);
+    setDir(next > cur ? 1 : next < cur ? -1 : 0);
+    setTab(t);
+  }
+  // Touch swipe (mobil) — bitta drag tugashida bitta bo'lim.
+  function goTab(delta: number) {
+    const ni = TAB_ORDER.indexOf(tab) + delta;
+    if (ni < 0 || ni >= TAB_ORDER.length) return;
+    setDir(delta);
+    setTab(TAB_ORDER[ni]);
+  }
+
+  // Sensorli qurilmada — drag bilan swipe; desktopda — gorizontal wheel.
+  const [touchSwipe, setTouchSwipe] = useState(false);
+  useEffect(() => {
+    setTouchSwipe(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+
+  const scrollWrapRef = useRef<HTMLDivElement>(null);
+  const tabRef = useRef(tab);
+  useEffect(() => { tabRef.current = tab; }, [tab]);
+  useEffect(() => {
+    const el = scrollWrapRef.current;
+    if (!el) return;
+    // Bitta gesture = bitta switch, lekin qasddan qilingan ketma-ket swipe'lar
+    // darhol ishlashi kerak. Trackpad momentumi FAQAT pasayadi; yangi qasddan
+    // swipe esa deltani QAYTA ko'taradi. Shu sabab switch'dan keyin avval
+    // momentum "dumi"ni (kichik delta) kutamiz, so'ng delta qayta ko'tarilsa —
+    // bu yangi swipe deb darhol ruxsat beramiz.
+    let armed = true;
+    let accum = 0;
+    let sawTail = false;
+    let idleTimer: number | null = null;
+    function onWheel(e: WheelEvent) {
+      // Faqat gorizontal niyat — vertikal scrollga tegmaymiz.
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      const abs = Math.abs(e.deltaX);
+
+      if (!armed) {
+        if (abs < 10) sawTail = true;          // momentum pasaydi
+        else if (sawTail && abs > 16) {        // delta qayta ko'tarildi — yangi swipe
+          armed = true;
+          accum = 0;
+        }
+      }
+
+      // Idle (oqim to'xtadi) — qayta arm (fallback).
+      if (idleTimer) window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => { armed = true; accum = 0; sawTail = false; }, 120);
+
+      if (!armed) return;
+      accum += e.deltaX;
+      if (Math.abs(accum) < 45) return;
+      const delta = accum > 0 ? 1 : -1;
+      accum = 0;
+      const ni = TAB_ORDER.indexOf(tabRef.current) + delta;
+      if (ni < 0 || ni >= TAB_ORDER.length) { armed = false; sawTail = false; return; }
+      setDir(delta);
+      setTab(TAB_ORDER[ni]);
+      armed = false;   // momentum dumi shu bo'limda qoldiradi
+      sawTail = false;
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      if (idleTimer) window.clearTimeout(idleTimer);
+    };
+  }, [hydrated]);
 
   const catMap = useMemo(() => {
     const m = new Map<string, FinanceCategory>();
@@ -77,11 +164,11 @@ export function MoliyaView() {
   );
   const summary = useMemo(() => summarize(transactions, month), [transactions, month]);
 
-  // Joriy oy chiqimi — kategoriya bo'yicha (byudjet progress uchun)
-  const spentByCat = useMemo(() => {
+  // Joriy oy bo'yicha kategoriya summalari (kirim/chiqim — har biri uchun)
+  const totalByCat = useMemo(() => {
     const m = new Map<string, number>();
     for (const b of summary.byCategory) {
-      if (b.type === "EXPENSE" && b.categoryId) m.set(b.categoryId, b.total);
+      if (b.categoryId) m.set(b.categoryId, b.total);
     }
     return m;
   }, [summary]);
@@ -132,19 +219,19 @@ export function MoliyaView() {
 
       {/* Tabs */}
       <div className="mb-4 flex items-center gap-0.5 overflow-x-auto rounded-lg bg-subtle/60 p-0.5 text-[12px] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <TabButton active={tab === "umumiy"} onClick={() => setTab("umumiy")}>
+        <TabButton active={tab === "umumiy"} onClick={() => selectTab("umumiy")}>
           Umumiy
         </TabButton>
-        <TabButton active={tab === "tranzaksiyalar"} onClick={() => setTab("tranzaksiyalar")}>
+        <TabButton active={tab === "tranzaksiyalar"} onClick={() => selectTab("tranzaksiyalar")}>
           Tarix
         </TabButton>
-        <TabButton active={tab === "kategoriya"} onClick={() => setTab("kategoriya")}>
-          Kategoriya
+        <TabButton active={tab === "kategoriya"} onClick={() => selectTab("kategoriya")}>
+          Kirim-chiqim
         </TabButton>
-        <TabButton active={tab === "yigim"} onClick={() => setTab("yigim")}>
+        <TabButton active={tab === "yigim"} onClick={() => selectTab("yigim")}>
           Yig&apos;im
         </TabButton>
-        <TabButton active={tab === "qarz"} onClick={() => setTab("qarz")}>
+        <TabButton active={tab === "qarz"} onClick={() => selectTab("qarz")}>
           Qarz
         </TabButton>
       </div>
@@ -152,51 +239,87 @@ export function MoliyaView() {
       {!hydrated ? (
         <ListLoader />
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {tab === "umumiy" ? (
-            <OverviewTab summary={summary} catMap={catMap} />
-          ) : tab === "tranzaksiyalar" ? (
-            <TransactionsTab
-              txns={monthTxns}
-              catMap={catMap}
-              onEdit={openEdit}
-              onRemove={askRemove}
-            />
-          ) : tab === "kategoriya" ? (
-            <CategoriesTab
-              categories={categories}
-              budgets={budgets}
-              spentByCat={spentByCat}
-              onAddCategory={addCategory}
-              onUpdateCategory={updateCategory}
-              onRemoveCategory={removeCategory}
-              onSetBudget={setBudget}
-              onRemoveBudget={removeBudget}
-            />
-          ) : tab === "yigim" ? (
-            <YigimTab
-              goals={goals}
-              onCreate={addFinancialGoal}
-              onUpdate={updateFinancialGoal}
-              onContribute={contributeFinancialGoal}
-              onRemove={removeFinancialGoal}
-            />
-          ) : (
-            <QarzPanel />
-          )}
+        <div ref={scrollWrapRef} className="relative min-h-0 flex-1 overflow-hidden">
+          <AnimatePresence initial={false} custom={dir}>
+            <motion.div
+              key={tab}
+              custom={dir}
+              variants={SWIPE_VARIANTS}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ x: { type: "spring", stiffness: 460, damping: 42 }, opacity: { duration: 0.18 } }}
+              drag={touchSwipe ? "x" : false}
+              dragDirectionLock
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.16}
+              onDragEnd={(_, info) => {
+                if (info.offset.x < -SWIPE_THRESHOLD || info.velocity.x < -500) goTab(1);
+                else if (info.offset.x > SWIPE_THRESHOLD || info.velocity.x > 500) goTab(-1);
+              }}
+              className="absolute inset-0 overflow-y-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]"
+            >
+              {tab === "umumiy" ? (
+                <OverviewTab
+                  summary={summary}
+                  catMap={catMap}
+                  onOpenCategory={(t) => { setCatType(t); selectTab("kategoriya"); }}
+                />
+              ) : tab === "tranzaksiyalar" ? (
+                <TransactionsTab
+                  txns={monthTxns}
+                  catMap={catMap}
+                  onEdit={openEdit}
+                  onRemove={askRemove}
+                />
+              ) : tab === "kategoriya" ? (
+                <CategoriesTab
+                  type={catType}
+                  onTypeChange={setCatType}
+                  categories={categories}
+                  budgets={budgets}
+                  totalByCat={totalByCat}
+                  onAddCategory={addCategory}
+                  onUpdateCategory={updateCategory}
+                  onRemoveCategory={removeCategory}
+                  onSetBudget={setBudget}
+                  onRemoveBudget={removeBudget}
+                />
+              ) : tab === "yigim" ? (
+                <YigimTab
+                  goals={goals}
+                  onCreate={addFinancialGoal}
+                  onUpdate={updateFinancialGoal}
+                  onContribute={contributeFinancialGoal}
+                  onRemove={removeFinancialGoal}
+                />
+              ) : (
+                <QarzPanel />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       )}
 
-      {/* Qo'shish FAB — vazifa qo'shish kabi (accent dumaloq), faqat yozuv tablarida */}
+      {/* Qo'shish — desktopda past qismda kesik chiziqli tugma, mobilda FAB */}
       {(tab === "umumiy" || tab === "tranzaksiyalar") && (
-        <button
-          onClick={() => { setEditing(null); setAddOpen(true); }}
-          aria-label="Qo'shish"
-          className="fixed bottom-20 right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 md:bottom-6"
-          style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
-        >
-          <Plus className="size-6" strokeWidth={2.5} />
-        </button>
+        <>
+          <button
+            onClick={() => { setEditing(null); setAddOpen(true); }}
+            className="mt-3 hidden w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-[13.5px] font-medium text-muted transition-colors hover:border-border-strong hover:bg-hover hover:text-foreground md:flex"
+          >
+            <Plus className="size-4" />
+            Yangi yozuv
+          </button>
+          <button
+            onClick={() => { setEditing(null); setAddOpen(true); }}
+            aria-label="Qo'shish"
+            className="fixed bottom-20 right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 md:hidden"
+            style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
+          >
+            <Plus className="size-6" strokeWidth={2.5} />
+          </button>
+        </>
       )}
 
       <TxnDialog
@@ -226,8 +349,10 @@ function TabButton({
     <button
       onClick={onClick}
       className={cn(
-        "min-w-fit flex-1 whitespace-nowrap rounded-[7px] px-2.5 py-1.5 font-medium transition-colors",
-        active ? "bg-surface text-foreground shadow-[0_1px_0_var(--border)]" : "text-muted hover:text-foreground"
+        "min-w-fit flex-1 whitespace-nowrap rounded-[7px] px-2.5 py-1.5 font-medium transition-all duration-150 active:scale-[0.96]",
+        active
+          ? "bg-accent font-semibold text-accent-ink shadow-sm"
+          : "text-muted hover:bg-hover/50 hover:text-foreground"
       )}
     >
       {children}
@@ -242,15 +367,20 @@ function TabButton({
 function OverviewTab({
   summary,
   catMap,
+  onOpenCategory,
 }: {
   summary: ReturnType<typeof summarize>;
   catMap: Map<string, FinanceCategory>;
+  onOpenCategory: (type: TransactionType) => void;
 }) {
+  const incomeSlices = useMemo(
+    () => summary.byCategory.filter((b) => b.type === "INCOME"),
+    [summary]
+  );
   const expenseSlices = useMemo(
     () => summary.byCategory.filter((b) => b.type === "EXPENSE"),
     [summary]
   );
-  const totalExpense = summary.expense;
 
   return (
     <div className="space-y-4">
@@ -269,40 +399,86 @@ function OverviewTab({
         </div>
       </div>
 
-      {/* Chiqim taqsimoti — donut */}
-      <div className="rounded-xl border border-border bg-surface p-4">
-        <p className="mb-3 text-[13px] font-medium">Chiqim taqsimoti</p>
-        {totalExpense === 0 ? (
-          <p className="py-6 text-center text-[13px] text-faint">Bu oyda chiqim yo&apos;q</p>
-        ) : (
-          <div className="flex items-center gap-5">
-            <Donut
-              slices={expenseSlices.map((s) => ({
-                value: s.total,
-                color: colorWithAlpha(catColor(s.categoryId ? catMap.get(s.categoryId) : undefined), 1),
-              }))}
-              total={totalExpense}
-            />
-            <ul className="min-w-0 flex-1 space-y-2">
-              {expenseSlices.map((s) => {
-                const c = s.categoryId ? catMap.get(s.categoryId) : undefined;
-                const pct = Math.round((s.total / totalExpense) * 100);
-                return (
-                  <li key={`${s.type}:${s.categoryId ?? "none"}`} className="flex items-center gap-2 text-[13px]">
-                    <span
-                      className="size-2.5 shrink-0 rounded-full"
-                      style={{ background: colorWithAlpha(catColor(c), 1) }}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-muted">{c?.label ?? "Kategoriyasiz"}</span>
-                    <span className="shrink-0 tabular-nums text-faint">{pct}%</span>
-                    <span className="shrink-0 tabular-nums font-medium">{formatSom(s.total)}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
+      {/* Kirim taqsimoti */}
+      <DistributionCard
+        title="Kirim taqsimoti"
+        slices={incomeSlices}
+        total={summary.income}
+        catMap={catMap}
+        emptyText="Bu oyda kirim yo'q"
+        onClick={() => onOpenCategory("INCOME")}
+      />
+
+      {/* Chiqim taqsimoti */}
+      <DistributionCard
+        title="Chiqim taqsimoti"
+        slices={expenseSlices}
+        total={summary.expense}
+        catMap={catMap}
+        emptyText="Bu oyda chiqim yo'q"
+        onClick={() => onOpenCategory("EXPENSE")}
+      />
+    </div>
+  );
+}
+
+function DistributionCard({
+  title,
+  slices,
+  total,
+  catMap,
+  emptyText,
+  onClick,
+}: {
+  title: string;
+  slices: Array<{ categoryId: string | null; type: TransactionType; total: number }>;
+  total: number;
+  catMap: Map<string, FinanceCategory>;
+  emptyText: string;
+  onClick?: () => void;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      className={cn(
+        "rounded-xl border border-border bg-surface p-4",
+        onClick && "cursor-pointer transition-colors hover:border-border-strong"
+      )}
+    >
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-[13px] font-medium">{title}</p>
+        {onClick && <ChevronRight className="size-4 text-faint" />}
       </div>
+      {total === 0 ? (
+        <p className="py-6 text-center text-[13px] text-faint">{emptyText}</p>
+      ) : (
+        <div className="flex items-center gap-5">
+          <Donut
+            slices={slices.map((s) => ({
+              value: s.total,
+              color: colorWithAlpha(catColor(s.categoryId ? catMap.get(s.categoryId) : undefined), 1),
+            }))}
+            total={total}
+          />
+          <ul className="min-w-0 flex-1 space-y-2">
+            {slices.map((s) => {
+              const c = s.categoryId ? catMap.get(s.categoryId) : undefined;
+              const pct = Math.round((s.total / total) * 100);
+              return (
+                <li key={`${s.type}:${s.categoryId ?? "none"}`} className="flex items-center gap-2 text-[13px]">
+                  <span
+                    className="size-2.5 shrink-0 rounded-full"
+                    style={{ background: colorWithAlpha(catColor(c), 1) }}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-muted">{c?.label ?? "Kategoriyasiz"}</span>
+                  <span className="shrink-0 tabular-nums text-faint">{pct}%</span>
+                  <span className="shrink-0 tabular-nums font-medium">{formatSom(s.total)}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -366,7 +542,6 @@ function Donut({
       </svg>
       <div className="absolute text-center">
         <p className="text-[15px] font-semibold tabular-nums leading-none">{formatSom(total)}</p>
-        <p className="mt-0.5 text-[10px] text-faint">so&apos;m</p>
       </div>
     </div>
   );
@@ -488,36 +663,53 @@ function budgetColor(pct: number): string {
 }
 
 function CategoriesTab({
+  type,
+  onTypeChange,
   categories,
   budgets,
-  spentByCat,
+  totalByCat,
   onAddCategory,
   onUpdateCategory,
   onRemoveCategory,
   onSetBudget,
   onRemoveBudget,
 }: {
+  type: TransactionType;
+  onTypeChange: (type: TransactionType) => void;
   categories: FinanceCategory[];
   budgets: Budget[];
-  spentByCat: Map<string, number>;
+  totalByCat: Map<string, number>;
   onAddCategory: (input: { type: TransactionType; label: string; icon: string; color: CategoryColor }) => string;
   onUpdateCategory: (id: string, patch: { label?: string; icon?: string; color?: CategoryColor }) => void;
   onRemoveCategory: (id: string) => void;
   onSetBudget: (categoryId: string, amount: number) => void;
   onRemoveBudget: (categoryId: string) => void;
 }) {
-  const [type, setType] = useState<TransactionType>("EXPENSE");
   const [creating, setCreating] = useState(false);
 
   const typeCats = useMemo(
-    () => categories.filter((c) => c.type === type).sort((a, b) => a.order - b.order),
-    [categories, type]
+    () =>
+      categories
+        .filter((c) => c.type === type)
+        .sort((a, b) => {
+          // Shu oy summasi ko'p bo'lgan kategoriya tepada; teng bo'lsa — tartib bo'yicha
+          const ta = totalByCat.get(a.id) ?? 0;
+          const tb = totalByCat.get(b.id) ?? 0;
+          if (tb !== ta) return tb - ta;
+          return a.order - b.order;
+        }),
+    [categories, type, totalByCat]
   );
   const budgetMap = useMemo(() => {
     const m = new Map<string, number>();
     for (const b of budgets) m.set(b.categoryId, b.amount);
     return m;
   }, [budgets]);
+
+  const grandTotal = useMemo(
+    () => typeCats.reduce((s, c) => s + (totalByCat.get(c.id) ?? 0), 0),
+    [typeCats, totalByCat]
+  );
 
   const confirmItems = useMemo(() => categories.map((c) => ({ id: c.id, title: c.label })), [categories]);
   const { askRemove, confirmEl } = useConfirmRemove(confirmItems, onRemoveCategory, {
@@ -526,26 +718,34 @@ function CategoriesTab({
   });
 
   function changeType(next: TransactionType) {
-    setType(next);
+    onTypeChange(next);
     setCreating(false);
   }
 
   return (
     <div className="space-y-3">
-      {/* Kirim / Chiqim toggle */}
-      <div className="flex gap-1 rounded-lg bg-subtle/60 p-0.5 text-[13px]">
+      {/* Kirim / Chiqim toggle — faol tugma rang bilan to'ladi */}
+      <div className="grid grid-cols-2 gap-2 text-[13.5px]">
         <button
           onClick={() => changeType("EXPENSE")}
-          className={cn("flex-1 rounded-[7px] py-2 font-medium transition-colors", type === "EXPENSE" ? "bg-surface shadow-[0_1px_0_var(--border)]" : "text-muted")}
-          style={type === "EXPENSE" ? { color: EXPENSE_COLOR } : undefined}
+          className={cn(
+            "flex items-center justify-center gap-1.5 rounded-lg border py-2.5 font-semibold transition-all",
+            type === "EXPENSE" ? "border-transparent text-white shadow-sm" : "border-border font-medium text-muted hover:bg-hover"
+          )}
+          style={type === "EXPENSE" ? { background: EXPENSE_COLOR } : undefined}
         >
+          <ArrowUpRight className="size-4" />
           Chiqim
         </button>
         <button
           onClick={() => changeType("INCOME")}
-          className={cn("flex-1 rounded-[7px] py-2 font-medium transition-colors", type === "INCOME" ? "bg-surface shadow-[0_1px_0_var(--border)]" : "text-muted")}
-          style={type === "INCOME" ? { color: INCOME_COLOR } : undefined}
+          className={cn(
+            "flex items-center justify-center gap-1.5 rounded-lg border py-2.5 font-semibold transition-all",
+            type === "INCOME" ? "border-transparent text-white shadow-sm" : "border-border font-medium text-muted hover:bg-hover"
+          )}
+          style={type === "INCOME" ? { background: INCOME_COLOR } : undefined}
         >
+          <ArrowDownLeft className="size-4" />
           Kirim
         </button>
       </div>
@@ -574,6 +774,16 @@ function CategoriesTab({
         <p className="px-1 text-[11.5px] text-faint">Har chiqim kategoriyasiga oylik limit qo&apos;ysangiz bo&apos;ladi.</p>
       )}
 
+      {/* Bu oy bo'yicha jami */}
+      <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-3.5 py-2.5">
+        <span className="text-[12.5px] text-faint">
+          {type === "EXPENSE" ? "Bu oy — jami chiqim" : "Bu oy — jami kirim"}
+        </span>
+        <span className="text-[15px] font-semibold tabular-nums" style={{ color: type === "EXPENSE" ? EXPENSE_COLOR : INCOME_COLOR }}>
+          {formatSom(grandTotal)}
+        </span>
+      </div>
+
       {typeCats.length === 0 ? (
         <p className="py-6 text-center text-[13px] text-faint">Kategoriya yo&apos;q</p>
       ) : (
@@ -584,7 +794,7 @@ function CategoriesTab({
               cat={c}
               hasLimit={type === "EXPENSE"}
               limit={budgetMap.get(c.id) ?? null}
-              spent={spentByCat.get(c.id) ?? 0}
+              total={totalByCat.get(c.id) ?? 0}
               onUpdate={(patch) => onUpdateCategory(c.id, patch)}
               onRemove={() => askRemove(c.id)}
               onSetBudget={(amount) => onSetBudget(c.id, amount)}
@@ -614,7 +824,7 @@ function CategoryManageRow({
   cat,
   hasLimit,
   limit,
-  spent,
+  total,
   onUpdate,
   onRemove,
   onSetBudget,
@@ -623,7 +833,7 @@ function CategoryManageRow({
   cat: FinanceCategory;
   hasLimit: boolean;
   limit: number | null;
-  spent: number;
+  total: number;
   onUpdate: (patch: { label?: string; icon?: string; color?: CategoryColor }) => void;
   onRemove: () => void;
   onSetBudget: (amount: number) => void;
@@ -634,7 +844,8 @@ function CategoryManageRow({
   const [amountStr, setAmountStr] = useState("");
   const Icon = financeIcon(cat.icon);
   const color = colorWithAlpha(cat.color, 1);
-  const pct = limit && limit > 0 ? spent / limit : 0;
+  const pct = limit && limit > 0 ? total / limit : 0;
+  const typeColor = cat.type === "INCOME" ? INCOME_COLOR : EXPENSE_COLOR;
 
   function startLimitEdit() {
     setAmountStr(limit ? String(limit) : "");
@@ -668,10 +879,12 @@ function CategoryManageRow({
           <Icon className="size-[18px]" strokeWidth={2} />
         </span>
         <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{cat.label}</span>
-        {hasLimit && limit != null && !limitEditing && (
-          <span className="shrink-0 text-[12px] tabular-nums text-faint">
-            <span className="font-medium" style={{ color: budgetColor(pct) }}>{formatSom(spent)}</span>
-            {" / "}{formatSom(limit)}
+        {!limitEditing && (
+          <span className="shrink-0 text-[12.5px] tabular-nums">
+            <span className="font-semibold" style={{ color: hasLimit && limit != null ? budgetColor(pct) : typeColor }}>
+              {formatSom(total)}
+            </span>
+            {hasLimit && limit != null && <span className="text-faint">{" / "}{formatSom(limit)}</span>}
           </span>
         )}
         <button onClick={() => setEditing(true)} aria-label="Tahrirlash" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><Pencil className="size-3.5" /></button>
@@ -703,7 +916,7 @@ function CategoryManageRow({
             <ProgressBar pct={pct} />
             {pct > 1 && (
               <p className="mt-1 text-left text-[11.5px]" style={{ color: EXPENSE_COLOR }}>
-                Limitdan {formatSom(spent - limit)} so&apos;m oshib ketdi
+                Limitdan {formatSom(total - limit)} so&apos;m oshib ketdi
               </p>
             )}
           </button>
@@ -1088,6 +1301,9 @@ function TxnDialog({
 
   const amount = Number(amountStr || "0");
   const typeCats = categories.filter((c) => c.type === type);
+  const todayKey = dateKey();
+  const yesterdayKey = dateKey(new Date(Date.now() - 86400000));
+  const isCustomDate = date !== todayKey && date !== yesterdayKey;
 
   function onAmountChange(v: string) {
     setAmountStr(v.replace(/\D/g, "").slice(0, 12));
@@ -1107,29 +1323,38 @@ function TxnDialog({
 
   return (
     <Dialog open={open} onClose={onClose} mobilePlacement="top" className="w-full max-w-md">
-      <div className="p-4">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
           <p className="text-[15px] font-semibold">{editing ? "Yozuvni tahrirlash" : "Yangi yozuv"}</p>
           <button onClick={onClose} aria-label="Yopish" className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
             <X className="size-4" />
           </button>
-        </div>
+        </header>
 
-        {/* Tur: Chiqim / Kirim (tahrirda o'zgarmaydi) */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch]">
+        {/* Tur: Chiqim / Kirim (tahrirda o'zgarmaydi) — faol tugma rang bilan to'ladi */}
         {!editing && (
-          <div className="mb-3 flex gap-1 rounded-lg bg-subtle/60 p-0.5 text-[13px]">
+          <div className="mb-3 grid grid-cols-2 gap-2 text-[13.5px]">
             <button
               onClick={() => changeType("EXPENSE")}
-              className={cn("flex-1 rounded-[7px] py-2 font-medium transition-colors", type === "EXPENSE" ? "bg-surface text-foreground shadow-[0_1px_0_var(--border)]" : "text-muted")}
-              style={type === "EXPENSE" ? { color: EXPENSE_COLOR } : undefined}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-lg border py-2.5 font-semibold transition-all",
+                type === "EXPENSE" ? "border-transparent text-white shadow-sm" : "border-border font-medium text-muted hover:bg-hover"
+              )}
+              style={type === "EXPENSE" ? { background: EXPENSE_COLOR } : undefined}
             >
+              <ArrowUpRight className="size-4" />
               Chiqim
             </button>
             <button
               onClick={() => changeType("INCOME")}
-              className={cn("flex-1 rounded-[7px] py-2 font-medium transition-colors", type === "INCOME" ? "bg-surface text-foreground shadow-[0_1px_0_var(--border)]" : "text-muted")}
-              style={type === "INCOME" ? { color: INCOME_COLOR } : undefined}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-lg border py-2.5 font-semibold transition-all",
+                type === "INCOME" ? "border-transparent text-white shadow-sm" : "border-border font-medium text-muted hover:bg-hover"
+              )}
+              style={type === "INCOME" ? { background: INCOME_COLOR } : undefined}
             >
+              <ArrowDownLeft className="size-4" />
               Kirim
             </button>
           </div>
@@ -1208,35 +1433,63 @@ function TxnDialog({
           </AnimatePresence>
         </div>
 
-        {/* Sana + izoh */}
-        <div className="mb-4 grid grid-cols-2 gap-2">
-          <div>
-            <p className="mb-1.5 text-[12px] text-faint">Sana</p>
-            <input
-              type="date"
+        {/* Sana — tezkor chiplar + kalendardan tanlash */}
+        <div className="mb-3">
+          <p className="mb-1.5 text-[12px] text-faint">Sana</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { key: todayKey, label: "Bugun" },
+              { key: yesterdayKey, label: "Kecha" },
+            ].map((opt) => {
+              const active = date === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setDate(opt.key)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-[12.5px] transition-colors",
+                    active
+                      ? "border-foreground/30 bg-hover font-medium text-foreground"
+                      : "border-border text-muted hover:bg-hover"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+            <DatePickerButton
               value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full rounded-lg border border-border bg-subtle/30 px-2.5 py-2 text-[13px] outline-none focus:border-foreground/30"
-            />
-          </div>
-          <div>
-            <p className="mb-1.5 text-[12px] text-faint">Izoh</p>
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="ixtiyoriy"
-              className="w-full rounded-lg border border-border bg-subtle/30 px-2.5 py-2 text-[13px] outline-none placeholder:text-faint/50 focus:border-foreground/30"
+              onChange={setDate}
+              active={isCustomDate}
+              format={formatDeadline}
+              label={isCustomDate ? formatDeadline(date) : "Boshqa sana"}
+              placeholder="Boshqa sana"
             />
           </div>
         </div>
 
-        <button
-          onClick={save}
-          disabled={amount <= 0}
-          className="w-full rounded-lg bg-foreground py-2.5 text-[14px] font-medium text-background transition-opacity disabled:opacity-40"
-        >
-          {editing ? "Saqlash" : "Qo'shish"}
-        </button>
+        {/* Izoh */}
+        <div className="mb-4">
+          <p className="mb-1.5 text-[12px] text-faint">Izoh</p>
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="ixtiyoriy"
+            className="w-full rounded-lg border border-border bg-subtle/30 px-2.5 py-2 text-[13px] outline-none placeholder:text-faint/50 focus:border-foreground/30"
+          />
+        </div>
+        </div>
+
+        <div className="shrink-0 border-t border-border px-4 py-3">
+          <button
+            onClick={save}
+            disabled={amount <= 0}
+            className="w-full rounded-lg bg-foreground py-2.5 text-[14px] font-medium text-background transition-opacity disabled:opacity-40"
+          >
+            {editing ? "Saqlash" : "Qo'shish"}
+          </button>
+        </div>
       </div>
     </Dialog>
   );

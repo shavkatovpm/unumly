@@ -37,7 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 export const STORAGE_PRIMARY = "unumly:mobilenav:primary";
-export const DEFAULT_PRIMARY: NavItemId[] = ["bugun", "agenda", "tezkor"];
+export const DEFAULT_PRIMARY: NavItemId[] = ["bugun", "tezkor", "moliya"];
 
 /** Min/max configurable slots (Boshqaruv is pinned on top of these). */
 export const MIN_PRIMARY = 2;

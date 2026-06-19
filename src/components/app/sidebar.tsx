@@ -33,7 +33,6 @@ import { Avatar } from "./widgets/avatar";
 type IconCmp = ComponentType<{ className?: string; strokeWidth?: number }>;
 
 const STORAGE_ARXIV_OPEN = "unumly:sidebar:arxiv";
-const STORAGE_MAXSUS_OPEN = "unumly:sidebar:maxsus";
 
 export function Sidebar({
   todayCount,
@@ -102,52 +101,6 @@ export function Sidebar({
     });
   }
 
-  // Maxsus section collapsible — Moliya/Qarz (sinov). Joriy route shu
-  // bo'limga tegishli bo'lsa avtomatik ochiladi, chiqib ketganda yopiladi.
-  const [maxsusOpen, setMaxsusOpen] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const v = window.localStorage.getItem(STORAGE_MAXSUS_OPEN);
-      if (v === "1") setMaxsusOpen(true);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const onMaxsusRoute =
-    pathname === "/moliya" || pathname.startsWith("/moliya/");
-
-  useEffect(() => {
-    if (onMaxsusRoute) {
-      setMaxsusOpen(true);
-    } else if (maxsusOpen) {
-      setMaxsusOpen(false);
-      try {
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(STORAGE_MAXSUS_OPEN, "0");
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
-
-  function toggleMaxsus() {
-    setMaxsusOpen((v) => {
-      const next = !v;
-      try {
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(STORAGE_MAXSUS_OPEN, next ? "1" : "0");
-        }
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
-  }
-
   function isActive(href: string) {
     return pathname === href || pathname.startsWith(href + "/");
   }
@@ -205,17 +158,17 @@ export function Sidebar({
             onNavigate={closeOnMobile}
           />
           <SidebarLink
+            href="/moliya"
+            label="Moliya"
+            icon={Wallet}
+            active={isActive("/moliya")}
+            onNavigate={closeOnMobile}
+          />
+          <SidebarLink
             href="/agenda"
             label="Agenda"
             icon={ListChecks}
             active={isActive("/agenda")}
-            onNavigate={closeOnMobile}
-          />
-          <SidebarLink
-            href="/tezkor"
-            label="Tezkor"
-            icon={Zap}
-            active={isActive("/tezkor")}
             onNavigate={closeOnMobile}
           />
           <SidebarLink
@@ -230,13 +183,6 @@ export function Sidebar({
         {/* ── Boshqaruv ─────────────────────────── */}
         <Section label="Boshqaruv">
           <SidebarLink
-            href="/reja"
-            label="Reja"
-            icon={ClipboardList}
-            active={isActive("/reja")}
-            onNavigate={closeOnMobile}
-          />
-          <SidebarLink
             href="/odat"
             label="Odat"
             icon={Repeat}
@@ -248,6 +194,20 @@ export function Sidebar({
             label="Maqsad"
             icon={Target}
             active={isActive("/maqsad")}
+            onNavigate={closeOnMobile}
+          />
+          <SidebarLink
+            href="/reja"
+            label="Reja"
+            icon={ClipboardList}
+            active={isActive("/reja")}
+            onNavigate={closeOnMobile}
+          />
+          <SidebarLink
+            href="/tezkor"
+            label="Tezkor"
+            icon={Zap}
+            active={isActive("/tezkor")}
             onNavigate={closeOnMobile}
           />
         </Section>
@@ -274,21 +234,10 @@ export function Sidebar({
           />
         </CollapsibleSection>
 
-        {/* ── Maxsus (Moliya / Qarz — sinov) ── */}
-        <CollapsibleSection
-          label="Maxsus"
-          open={maxsusOpen}
-          onToggle={toggleMaxsus}
-        >
-          <SidebarLink
-            href="/moliya"
-            label="Moliya"
-            icon={Wallet}
-            active={isActive("/moliya")}
-            onNavigate={closeOnMobile}
-          />
+        {/* ── Maxsus (to'liq workspace — hozircha tez orada) ── */}
+        <Section label="Maxsus">
           <SidebarItem label="Loyiha" icon={Sparkles} badge="tez orada" disabled />
-        </CollapsibleSection>
+        </Section>
       </div>
 
       {/* Bottom: profile + theme toggle */}

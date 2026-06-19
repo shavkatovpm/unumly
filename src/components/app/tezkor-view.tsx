@@ -82,25 +82,26 @@ export function TezkorView() {
               Yo&apos;lda esda saqlash kerak narsalar ko&apos;pmi? Har qatorga
               bittadan yozing — bir ro&apos;yhatga jam bo&apos;ladi.
             </p>
+            {/* Desktop: asosiy text ostida kesik chiziqli qo'shish card (mobil FAB) */}
             <button
               type="button"
               onClick={() => setShowCreate(true)}
-              className="mt-5 hidden items-center gap-2 rounded-md bg-foreground px-4 py-2 text-[13.5px] font-medium text-background transition-opacity hover:opacity-90 md:inline-flex"
+              className="mx-auto mt-6 hidden w-full max-w-sm items-center justify-center gap-2 rounded-xl border border-dashed border-border py-4 text-[13.5px] font-medium text-faint transition-colors hover:border-border-strong hover:bg-hover hover:text-foreground md:flex"
             >
               <Plus className="size-4" />
-              Yangi ro&apos;yhat
+              Yangi ro&apos;yhat qo&apos;shish
             </button>
           </div>
         ) : (
           <>
-            {/* Desktop: yangi ro'yhat tugmasi (mobil FAB ishlatadi) */}
+            {/* Desktop: yangi ro'yhat — kesik chiziqli card (mobil FAB ishlatadi) */}
             <div className="rise-in mb-6 hidden md:block">
               <button
                 type="button"
                 onClick={() => setShowCreate(true)}
-                className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface px-4 py-3 text-left text-[13.5px] text-muted shadow-[0_1px_0_var(--border)] transition-colors hover:border-border-strong hover:text-foreground"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-4 text-[13.5px] font-medium text-faint transition-colors hover:border-border-strong hover:bg-hover hover:text-foreground"
               >
-                <Plus className="size-4 text-faint" />
+                <Plus className="size-4" />
                 Yangi ro&apos;yhat qo&apos;shish
               </button>
             </div>

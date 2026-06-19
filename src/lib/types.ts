@@ -70,6 +70,7 @@ export type Idea = {
   notes?: string;
   categoryId: string;
   done: boolean;
+  completedAt?: string; // ISO datetime — bajarilgan vaqt (Arxiv uchun)
   createdAt: string; // ISO datetime
   order: number;
   // Optional scheduling — when present, the idea is mirrored as a Plan

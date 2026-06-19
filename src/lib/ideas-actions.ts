@@ -13,6 +13,7 @@ function toIdea(i: DbIdea): Idea {
     notes: i.notes ?? undefined,
     categoryId: i.categoryId,
     done: i.done,
+    completedAt: i.completedAt?.toISOString() ?? undefined,
     order: i.order,
     scheduledFor: i.scheduledFor ?? undefined,
     time: i.time ?? undefined,
@@ -99,7 +100,7 @@ export async function updateIdea(id: string, patch: UpdateIdeaPatch): Promise<Id
       ...(patch.title !== undefined && { title: patch.title.trim() }),
       ...(patch.notes !== undefined && { notes: patch.notes }),
       ...(patch.categoryId !== undefined && { categoryId: patch.categoryId }),
-      ...(patch.done !== undefined && { done: patch.done }),
+      ...(patch.done !== undefined && { done: patch.done, completedAt: patch.done ? new Date() : null }),
       ...(patch.order !== undefined && { order: patch.order }),
       ...(patch.scheduledFor !== undefined && { scheduledFor: patch.scheduledFor }),
       ...(patch.time !== undefined && { time: patch.time }),
@@ -114,9 +115,10 @@ export async function toggleIdeaDone(id: string): Promise<Idea> {
   const user = await requireUser();
   const existing = await prisma.idea.findFirst({ where: { id, userId: user.id } });
   if (!existing) throw new Error("NOT_FOUND");
+  const nowDone = !existing.done;
   const row = await prisma.idea.update({
     where: { id },
-    data: { done: !existing.done },
+    data: { done: nowDone, completedAt: nowDone ? new Date() : null },
   });
   return toIdea(row);
 }

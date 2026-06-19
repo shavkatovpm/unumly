@@ -18,14 +18,14 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useIdeas } from "@/lib/ideas-store";
+import { dismissDoneIdeas, isIdeaDismissed, useIdeas } from "@/lib/ideas-store";
 import { useCategories, useHydratedCategories } from "@/lib/categories-store";
 import { useDragReorder } from "@/lib/use-drag-reorder";
 import { CATEGORY_COLOR_KEYS, CATEGORY_PALETTE } from "@/lib/category-palette";
 import type { Category, CategoryColor, Idea } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Dialog } from "./widgets/dialog";
-import { useConfirmRemove } from "./widgets/confirm-dialog";
+import { ConfirmDialog, useConfirmRemove } from "./widgets/confirm-dialog";
 import { IdeaDetail } from "./widgets/idea-detail";
 import { ListLoader } from "./widgets/list-loader";
 
@@ -110,8 +110,12 @@ export function RejaView() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const detailIdea = detailId ? ideas.find((i) => i.id === detailId) ?? null : null;
 
-  const total = ideas.length;
-  const done = ideas.filter((i) => i.done).length;
+  // Reja board faqat sanasiz g'oyalardan iborat — sanali g'oyalar Plan sifatida
+  // Bugun/Agenda/Kalendarga o'tib, rejadan chiqib ketadi (Rule 1).
+  const boardIdeas = useMemo(() => ideas.filter(isOnBoard), [ideas]);
+
+  const total = boardIdeas.length;
+  const done = boardIdeas.filter((i) => i.done).length;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -134,7 +138,7 @@ export function RejaView() {
         <EmptyState onCreate={() => setDialogState({ mode: "create" })} />
       ) : view === "tab" ? (
         <TabView
-          ideas={ideas}
+          ideas={boardIdeas}
           categories={categories}
           sortOrder={sortOrder}
           justCreatedId={justCreatedId}
@@ -150,7 +154,7 @@ export function RejaView() {
         />
       ) : (
         <KanbanView
-          ideas={ideas}
+          ideas={boardIdeas}
           categories={categories}
           sortOrder={sortOrder}
           justCreatedId={justCreatedId}
@@ -327,6 +331,22 @@ function sortIdeas(arr: Idea[], order: SortOrder): Idea[] {
   });
 }
 
+// Sanali g'oyalar rejadan chiqadi (ular Plan sifatida Bugun/Agenda/Kalendarda).
+function isOnBoard(i: Idea): boolean {
+  return !i.scheduledFor;
+}
+
+// "Bajarilgan" dropdownda faqat yaqinda (oxirgi 7 kun) bajarilganlar ko'rinadi
+// va "Tozalash" bilan yashirilmaganlar. Ma'lumot o'chmaydi — Arxivda qoladi.
+const DONE_VISIBLE_DAYS = 7;
+function isRecentlyDone(i: Idea): boolean {
+  if (!i.done || i.scheduledFor) return false;
+  if (isIdeaDismissed(i.id)) return false;
+  const at = i.completedAt;
+  if (!at) return true; // eski (completedAt yo'q) — ko'rsatamiz
+  return Date.now() - new Date(at).getTime() <= DONE_VISIBLE_DAYS * 86_400_000;
+}
+
 /* Swipe (chap/o'ng) bilan toifalar orasida o'tish animatsiyasi. */
 const SWIPE_VARIANTS = {
   enter: (dir: number) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
@@ -368,7 +388,7 @@ function TabView(props: ViewProps) {
   const active = props.categories.find((c) => c.id === tab) ?? props.categories[0];
   const items = props.ideas.filter((i) => i.categoryId === tab);
   const ac = sortIdeas(items.filter((i) => !i.done), props.sortOrder);
-  const dn = sortIdeas(items.filter((i) => i.done), props.sortOrder);
+  const dn = sortIdeas(items.filter(isRecentlyDone), props.sortOrder);
 
   const [adding, setAdding] = useState(false);
   const [v, setV] = useState("");
@@ -376,6 +396,7 @@ function TabView(props: ViewProps) {
   useEffect(() => { if (adding) addRef.current?.focus(); }, [adding]);
 
   const [doneOpen, setDoneOpen] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   // Sensorli (touch) qurilmada — drag bilan swipe; desktopda esa wheel (pastda).
   // Desktopda mouse-drag panelni tortib yuborib chalkashtirardi, shuning uchun o'chiramiz.
@@ -396,36 +417,50 @@ function TabView(props: ViewProps) {
   useEffect(() => {
     const el = scrollWrapRef.current;
     if (!el) return;
-    let lock = false;
+    // Bitta gesture = bitta switch, lekin qasddan ketma-ket swipe darhol ishlaydi.
+    // Trackpad momentumi FAQAT pasayadi; yangi swipe deltani QAYTA ko'taradi.
+    // Switch'dan keyin momentum "dumi"ni kutamiz, delta qayta ko'tarilsa — yangi swipe.
+    let armed = true;
     let accum = 0;
-    let resetTimer: number | null = null;
-    let lockTimer: number | null = null;
+    let sawTail = false;
+    let idleTimer: number | null = null;
     function onWheel(e: WheelEvent) {
       // Faqat gorizontal niyat — vertikal scrollga tegmaymiz.
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       e.preventDefault(); // brauzer "orqaga/oldinga" gesturasini to'xtatadi
-      if (lock) return;
+      const abs = Math.abs(e.deltaX);
+
+      if (!armed) {
+        if (abs < 10) sawTail = true;          // momentum pasaydi
+        else if (sawTail && abs > 16) {        // delta qayta ko'tarildi — yangi swipe
+          armed = true;
+          accum = 0;
+        }
+      }
+
+      // Idle (oqim to'xtadi) — qayta arm (fallback).
+      if (idleTimer) window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => { armed = true; accum = 0; sawTail = false; }, 120);
+
+      if (!armed) return;
       accum += e.deltaX;
-      if (resetTimer) window.clearTimeout(resetTimer);
-      resetTimer = window.setTimeout(() => { accum = 0; }, 200);
-      if (Math.abs(accum) < 60) return;
+      if (Math.abs(accum) < 45) return;
       const delta = accum > 0 ? 1 : -1;
       accum = 0;
       const { idx: cur, ids } = navRef.current;
       const ni = cur + delta;
-      if (ni < 0 || ni >= ids.length) return;
+      if (ni < 0 || ni >= ids.length) { armed = false; sawTail = false; return; }
       setDir(delta);
       setTab(ids[ni]);
       setAdding(false);
       setV("");
-      lock = true;
-      lockTimer = window.setTimeout(() => { lock = false; }, 450);
+      armed = false;   // momentum dumi shu toifada qoldiradi
+      sawTail = false;
     }
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       el.removeEventListener("wheel", onWheel);
-      if (resetTimer) window.clearTimeout(resetTimer);
-      if (lockTimer) window.clearTimeout(lockTimer);
+      if (idleTimer) window.clearTimeout(idleTimer);
     };
   }, []);
 
@@ -525,24 +560,43 @@ function TabView(props: ViewProps) {
         {/* Bottom done dropdown */}
         {dn.length > 0 && (
           <section className="border-t border-border bg-subtle/40">
-            <button
-              onClick={() => setDoneOpen((v) => !v)}
-              className="flex w-full items-center gap-2 px-5 py-2 text-left text-muted hover:bg-hover/40 hover:text-foreground"
-            >
-              <ChevronRight
-                className={cn(
-                  "size-3 transition-transform",
-                  doneOpen && "rotate-90"
-                )}
-              />
-              <Check className="size-3" strokeWidth={3} />
-              <span className="text-[11.5px] font-medium uppercase tracking-wider">
-                Bajarilgan
-              </span>
-              <span className="font-mono text-[10.5px] tabular-nums">
-                {dn.length}
-              </span>
-            </button>
+            <div className="flex items-center">
+              <button
+                onClick={() => setDoneOpen((v) => !v)}
+                className="flex flex-1 items-center gap-2 px-5 py-2 text-left text-muted hover:bg-hover/40 hover:text-foreground"
+              >
+                <ChevronRight
+                  className={cn(
+                    "size-3 transition-transform",
+                    doneOpen && "rotate-90"
+                  )}
+                />
+                <Check className="size-3" strokeWidth={3} />
+                <span className="text-[11.5px] font-medium uppercase tracking-wider">
+                  Bajarilgan
+                </span>
+                <span className="font-mono text-[10.5px] tabular-nums">
+                  {dn.length}
+                </span>
+              </button>
+              {doneOpen && (
+                <button
+                  onClick={() => setConfirmClear(true)}
+                  className="mr-3 shrink-0 rounded px-2 py-1 text-[11px] font-medium text-faint transition-colors hover:bg-hover hover:text-foreground"
+                  title="Bajarilganlarni ro'yxatdan yashirish (o'chmaydi)"
+                >
+                  Tozalash
+                </button>
+              )}
+            </div>
+            <ConfirmDialog
+              open={confirmClear}
+              title="Bajarilganlarni tozalash"
+              description={`${dn.length} ta bajarilgan g'oya shu ro'yxatdan olib tashlanadi.`}
+              confirmLabel="Tozalash"
+              onConfirm={() => { dismissDoneIdeas(dn.map((i) => i.id)); setConfirmClear(false); }}
+              onClose={() => setConfirmClear(false)}
+            />
             <div
               className="grid transition-[grid-template-rows] duration-300 ease-out"
               style={{ gridTemplateRows: doneOpen ? "1fr" : "0fr" }}
@@ -919,12 +973,13 @@ function KanbanColumn({
 }) {
   const color = CATEGORY_PALETTE[cat.color].oklch;
   const active = sortIdeas(ideas.filter((i) => !i.done), sortOrder);
-  const done = sortIdeas(ideas.filter((i) => i.done), sortOrder);
+  const done = sortIdeas(ideas.filter(isRecentlyDone), sortOrder);
   const [adding, setAdding] = useState(false);
   const [v, setV] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (adding) inputRef.current?.focus(); }, [adding]);
   const [showDone, setShowDone] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   return (
     <section className={cn("flex min-h-0 flex-col overflow-hidden", !isFirst && "border-l border-border")}>
@@ -1012,15 +1067,34 @@ function KanbanColumn({
         {/* Done dropdown */}
         {done.length > 0 && (
           <div className="border-t border-border bg-subtle/40">
-            <button
-              onClick={() => setShowDone((v) => !v)}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[10.5px] uppercase tracking-wider text-muted hover:bg-hover/40 hover:text-foreground"
-            >
-              <ChevronRight className={cn("size-3 transition-transform", showDone && "rotate-90")} />
-              <Check className="size-3" strokeWidth={3} />
-              <span className="flex-1">Bajarilgan</span>
-              <span className="font-mono tabular-nums">{done.length}</span>
-            </button>
+            <div className="flex items-center">
+              <button
+                onClick={() => setShowDone((v) => !v)}
+                className="flex flex-1 items-center gap-2 px-3 py-1.5 text-left text-[10.5px] uppercase tracking-wider text-muted hover:bg-hover/40 hover:text-foreground"
+              >
+                <ChevronRight className={cn("size-3 transition-transform", showDone && "rotate-90")} />
+                <Check className="size-3" strokeWidth={3} />
+                <span className="flex-1">Bajarilgan</span>
+                <span className="font-mono tabular-nums">{done.length}</span>
+              </button>
+              {showDone && (
+                <button
+                  onClick={() => setConfirmClear(true)}
+                  className="mr-2 shrink-0 rounded px-1.5 py-1 text-[10.5px] font-medium text-faint transition-colors hover:bg-hover hover:text-foreground"
+                  title="Bajarilganlarni ro'yxatdan yashirish (o'chmaydi)"
+                >
+                  Tozalash
+                </button>
+              )}
+            </div>
+            <ConfirmDialog
+              open={confirmClear}
+              title="Bajarilganlarni tozalash"
+              description={`${done.length} ta bajarilgan g'oya shu ro'yxatdan olib tashlanadi.`}
+              confirmLabel="Tozalash"
+              onConfirm={() => { dismissDoneIdeas(done.map((i) => i.id)); setConfirmClear(false); }}
+              onClose={() => setConfirmClear(false)}
+            />
             {showDone && (
               <ul>
                 {done.map((i) => (

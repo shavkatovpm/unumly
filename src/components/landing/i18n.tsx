@@ -15,7 +15,7 @@ const STORAGE_KEY = "unumly-lang";
 /* ───────────────────────── UZ ───────────────────────── */
 const uz = {
   metaTitle: "Unumly: Rejalashtirish va boshqarish ilovasi",
-  nav: { features: "Imkoniyatlar", price: "Narx", blog: "Blog", login: "Kirish" },
+  nav: { features: "Imkoniyatlar", price: "Narx", blog: "Blog", about: "Haqida", login: "Kirish" },
   modal: {
     title: "Qanday boshlaymiz?",
     telegramTitle: "Telegram bot orqali",
@@ -179,7 +179,7 @@ type Translation = typeof uz;
 /* ───────────────────────── EN ───────────────────────── */
 const en: Translation = {
   metaTitle: "Unumly: Plan it, manage it, master it",
-  nav: { features: "Features", price: "Pricing", blog: "Blog", login: "Sign in" },
+  nav: { features: "Features", price: "Pricing", blog: "Blog", about: "About", login: "Sign in" },
   modal: {
     title: "How would you like to start?",
     telegramTitle: "Via Telegram bot",
@@ -341,7 +341,7 @@ const en: Translation = {
 /* ───────────────────────── RU ───────────────────────── */
 const ru: Translation = {
   metaTitle: "Unumly: планируй, управляй, достигай",
-  nav: { features: "Возможности", price: "Цены", blog: "Blog", login: "Войти" },
+  nav: { features: "Возможности", price: "Цены", blog: "Blog", about: "О приложении", login: "Войти" },
   modal: {
     title: "Как начнём?",
     telegramTitle: "Через Telegram-бот",
