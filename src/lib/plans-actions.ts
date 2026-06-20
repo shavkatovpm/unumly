@@ -3,7 +3,7 @@
 import { Prisma, type Plan as DbPlan } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, getSessionUserId } from "@/lib/auth";
 import { computeNotifyAt, sanitizeLeadMin } from "@/lib/notify-time";
 import { markReminderDone } from "@/lib/telegram-bot";
 import type { Plan, PlanScope, PlanStatus, PlanPriority, Subtask } from "@/lib/types";
@@ -58,21 +58,29 @@ async function requireUser() {
 
 /* ─── Read ────────────────────────────────────────────────── */
 
-/** Returns all plans for the current user, with expired-trash purged. */
+/** Returns all plans for the current user.
+ *  Tez yuklanish uchun: auth faqat JWT'dan (DB urmasdan) va bitta `findMany`.
+ *  Eski trash'ni tozalash bu hot path'da emas — cron'da bajariladi
+ *  (`purgeExpiredTrash`), shuning uchun har yuklanishda ortiqcha yozish yo'q. */
 export async function listPlans(): Promise<Plan[]> {
-  const user = await requireUser();
-
-  // Auto-purge expired soft-deleted plans (older than 30 days)
-  const cutoff = new Date(Date.now() - TRASH_TTL_MS);
-  await prisma.plan.deleteMany({
-    where: { userId: user.id, deletedAt: { lt: cutoff } },
-  });
+  const userId = await getSessionUserId();
+  if (!userId) throw new Error("UNAUTHENTICATED");
 
   const rows = await prisma.plan.findMany({
-    where: { userId: user.id },
+    where: { userId },
     orderBy: [{ createdAt: "asc" }],
   });
   return rows.map(toPlan);
+}
+
+/** 30 kundan oshgan soft-deleted rejalarni butunlay o'chiradi (barcha userlar
+ *  bo'yicha). Cron tomonidan chaqiriladi — endi har `listPlans`'da emas. */
+export async function purgeExpiredTrash(): Promise<number> {
+  const cutoff = new Date(Date.now() - TRASH_TTL_MS);
+  const res = await prisma.plan.deleteMany({
+    where: { deletedAt: { lt: cutoff } },
+  });
+  return res.count;
 }
 
 export async function getPlan(id: string): Promise<Plan | null> {

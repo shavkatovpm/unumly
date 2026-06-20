@@ -208,3 +208,18 @@ export async function getSessionUser() {
     return null;
   }
 }
+
+/** Sessiya user ID'sini faqat JWT'dan o'qiydi (DB urmasdan). O'qish (read)
+ *  action'lari uchun tezroq — faqat userId kerak bo'lganda ishlatiladi
+ *  (rejalarni yuklashda ortiqcha bir DB so'rovini tejaydi). */
+export async function getSessionUserId(): Promise<string | null> {
+  const jar = await cookies();
+  const token = jar.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, sessionSecret());
+    return typeof payload.uid === "string" ? payload.uid : null;
+  } catch {
+    return null;
+  }
+}

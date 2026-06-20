@@ -7,6 +7,7 @@ import {
   sendTaskReminder,
 } from "@/lib/telegram-bot";
 import { computeNotifyAt } from "@/lib/notify-time";
+import { purgeExpiredTrash } from "@/lib/plans-actions";
 
 export const runtime = "nodejs";
 // Cron pings frequently — make sure Vercel doesn't cache this
@@ -124,6 +125,11 @@ export async function GET(req: Request) {
   // ── Qarz: muddati yetgan qarzlar uchun bot eslatmasi ──
   const debtResult = await processDueDebts();
 
+  // ── Eski trash tozalash (30 kundan oshgan o'chirilgan rejalar) ──
+  // Avval har listPlans'da edi (sekin); endi shu yerda — DB allaqachon uyg'oq.
+  let purgedTrash = 0;
+  try { purgedTrash = await purgeExpiredTrash(); } catch { /* ignore */ }
+
   return NextResponse.json({
     ok: true,
     scanned: due.length,
@@ -131,6 +137,7 @@ export async function GET(req: Request) {
     failed,
     tezkor: tezkorResult,
     debts: debtResult,
+    purgedTrash,
   });
 }
 
