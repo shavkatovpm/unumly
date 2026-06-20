@@ -18,7 +18,7 @@ export function ListLoader({ label = "Yuklanmoqda…" }: { label?: string }) {
         {[0, 1, 2, 3, 4].map((i) => (
           <span
             key={i}
-            className="block rounded-full bg-foreground"
+            className="block rounded-full bg-accent"
             style={{
               width: 5,
               height: 14,

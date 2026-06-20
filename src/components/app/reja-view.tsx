@@ -8,6 +8,7 @@ import {
   ArrowUp,
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CircleDashed,
   LayoutGrid,
@@ -669,6 +670,25 @@ function MaterialTabBar({
     onCategoryReorder(id, beforeId);
   }
 
+  // Mobil (sensorli): drag o'rniga strip oddiy scroll qiladi, tartib esa menyu
+  // ichidagi ← → strelkalar orqali o'zgaradi.
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => { setCoarse(window.matchMedia("(pointer: coarse)").matches); }, []);
+  function moveTab(id: string, delta: -1 | 1) {
+    if (!onCategoryReorder) return;
+    const i = categories.findIndex((c) => c.id === id);
+    if (i < 0) return;
+    const j = i + delta;
+    if (j < 0 || j >= categories.length) return;
+    const beforeId =
+      delta < 0
+        ? categories[i - 1].id
+        : i + 2 < categories.length
+        ? categories[i + 2].id
+        : null;
+    onCategoryReorder(id, beforeId);
+  }
+
   const active = categories.find((c) => c.id === tab) ?? categories[0];
   const activeColor = CATEGORY_PALETTE[active.color].oklch;
   const [menuFor, setMenuFor] = useState<{ id: string; top: number; left: number } | null>(null);
@@ -759,90 +779,132 @@ function MaterialTabBar({
     };
   }, [draggingId]);
 
+  function tabBtn(c: Category) {
+    const isA = tab === c.id;
+    const color = CATEGORY_PALETTE[c.color].oklch;
+    const count = ideas.filter((i) => i.categoryId === c.id).length;
+    return (
+      <button
+        ref={(el) => { tabBtnRefs.current[c.id] = el; }}
+        onClick={(e) => {
+          // Tanlangan tabni qayta bosish → amallar menyusi (tahrir/o'chir/surish).
+          if (isA) openMenu(c.id, e.currentTarget);
+          else setTab(c.id);
+        }}
+        className={cn(
+          "flex items-center gap-2 whitespace-nowrap py-3.5 pl-4 pr-4 text-[12.5px] font-medium uppercase tracking-wider transition-colors",
+          isA ? "text-foreground" : "text-muted hover:text-foreground"
+        )}
+      >
+        <span
+          className={cn("size-1.5 shrink-0 rounded-full", isA ? "opacity-100" : "opacity-60")}
+          style={{ background: color }}
+        />
+        <span className="truncate">{c.label}</span>
+        <span className="font-mono text-[10px] tabular-nums text-faint">{count}</span>
+      </button>
+    );
+  }
+  const addBtn = (
+    <button
+      onClick={onCategoryNew}
+      aria-label="Yangi toifa"
+      className="flex shrink-0 items-center justify-center gap-1 border-l border-border/60 px-4 py-3.5 text-[12px] text-faint hover:bg-hover/40 hover:text-foreground"
+    >
+      <Plus className="size-3" />
+    </button>
+  );
+  const indicatorEl = (
+    <div
+      className="pointer-events-none absolute bottom-0 h-[3px] transition-all duration-300 ease-out"
+      style={{ left: indicator.left, width: indicator.width, background: activeColor, opacity: draggingId ? 0 : 1 }}
+    />
+  );
+  const stripCls = "reja-tabbar relative flex items-stretch overflow-x-auto overflow-y-hidden";
+
   return (
     <div className="relative shrink-0 border-b border-border bg-subtle/20">
-      <Reorder.Group
-        as="div"
-        axis="x"
-        values={order}
-        onReorder={setOrder}
-        ref={scrollRef}
-        className="reja-tabbar relative flex items-stretch overflow-x-auto overflow-y-hidden"
-        style={{ scrollbarWidth: "none" }}
-      >
-        {order.map((id) => {
-          const c = catById.get(id);
-          if (!c) return null;
-          const isA = tab === c.id;
-          const color = CATEGORY_PALETTE[c.color].oklch;
-          const count = ideas.filter((i) => i.categoryId === c.id).length;
-          const isDragged = draggingId === c.id;
-          return (
-            <Reorder.Item
-              key={id}
-              value={id}
-              as="div"
-              ref={(el: HTMLDivElement | null) => { tabWrapperRefs.current[id] = el; }}
-              drag={onCategoryReorder ? "x" : false}
-              onDragStart={() => setDraggingId(id)}
-              onDragEnd={() => { persistOrder(id); setDraggingId(null); }}
-              whileDrag={{ scale: 1.06, zIndex: 30, boxShadow: "0 12px 30px -8px rgba(0,0,0,0.5)" }}
-              transition={{ type: "spring", stiffness: 600, damping: 44 }}
-              className={cn(
-                "group relative shrink-0 select-none rounded-lg",
-                onCategoryReorder && "cursor-grab active:cursor-grabbing",
-                isDragged && "z-30 bg-surface"
-              )}
+      {coarse ? (
+        // MOBIL: oddiy scroll; tartib menyu ichidagi ← → strelkalar orqali
+        <div ref={scrollRef} className={stripCls} style={{ scrollbarWidth: "none" }}>
+          {categories.map((c) => (
+            <div
+              key={c.id}
+              ref={(el) => { tabWrapperRefs.current[c.id] = el; }}
+              className="group relative shrink-0 select-none"
             >
-              <button
-                ref={(el) => { tabBtnRefs.current[id] = el; }}
-                onClick={(e) => {
-                  // Tanlangan tabni qayta bosish → amallar menyusi (tahrir/o'chir).
-                  if (isA) openMenu(c.id, e.currentTarget);
-                  else setTab(c.id);
-                }}
+              {tabBtn(c)}
+            </div>
+          ))}
+          {addBtn}
+          {indicatorEl}
+        </div>
+      ) : (
+        // DESKTOP: drag-reorder — ko'chirilayotgan tab kursorni ergashadi, bo'shliq ochiladi
+        <Reorder.Group as="div" axis="x" values={order} onReorder={setOrder} ref={scrollRef} className={stripCls} style={{ scrollbarWidth: "none" }}>
+          {order.map((id) => {
+            const c = catById.get(id);
+            if (!c) return null;
+            const isDragged = draggingId === c.id;
+            return (
+              <Reorder.Item
+                key={id}
+                value={id}
+                as="div"
+                ref={(el: HTMLDivElement | null) => { tabWrapperRefs.current[id] = el; }}
+                drag="x"
+                onDragStart={() => setDraggingId(id)}
+                onDragEnd={() => { persistOrder(id); setDraggingId(null); }}
+                whileDrag={{ scale: 1.06, zIndex: 30, boxShadow: "0 12px 30px -8px rgba(0,0,0,0.5)" }}
+                transition={{ type: "spring", stiffness: 600, damping: 44 }}
                 className={cn(
-                  "flex items-center gap-2 whitespace-nowrap py-3.5 pl-4 pr-4 text-[12.5px] font-medium uppercase tracking-wider transition-colors",
-                  isA ? "text-foreground" : "text-muted hover:text-foreground"
+                  "group relative shrink-0 cursor-grab select-none rounded-lg active:cursor-grabbing",
+                  isDragged && "z-30 bg-surface"
                 )}
               >
-                <span
-                  className={cn("size-1.5 shrink-0 rounded-full", isA ? "opacity-100" : "opacity-60")}
-                  style={{ background: color }}
-                />
-                <span className="truncate">{c.label}</span>
-                <span className="font-mono text-[10px] tabular-nums text-faint">{count}</span>
-              </button>
-            </Reorder.Item>
-          );
-        })}
-        <button
-          onClick={onCategoryNew}
-          aria-label="Yangi toifa"
-          className="flex shrink-0 items-center justify-center gap-1 border-l border-border/60 px-4 py-3.5 text-[12px] text-faint hover:bg-hover/40 hover:text-foreground"
-        >
-          <Plus className="size-3" />
-        </button>
-        {/* Sliding indicator placed at the bottom of the scrollable strip */}
-        <div
-          className="pointer-events-none absolute bottom-0 h-[3px] transition-all duration-300 ease-out"
-          style={{
-            left: indicator.left,
-            width: indicator.width,
-            background: activeColor,
-            opacity: draggingId ? 0 : 1,
-          }}
-        />
-      </Reorder.Group>
+                {tabBtn(c)}
+              </Reorder.Item>
+            );
+          })}
+          {addBtn}
+          {indicatorEl}
+        </Reorder.Group>
+      )}
 
       {/* Portal-rendered menu so it escapes overflow clipping */}
       {portalReady && menuFor &&
         createPortal(
           <div
             ref={menuRef}
-            className="fade-in fixed z-[100] w-36 overflow-hidden rounded-md border border-border bg-surface shadow-xl"
+            className="fade-in fixed z-[100] w-44 overflow-hidden rounded-md border border-border bg-surface shadow-xl"
             style={{ top: menuFor.top, left: menuFor.left }}
           >
+            {coarse && (() => {
+              const i = categories.findIndex((c) => c.id === menuFor.id);
+              return (
+                <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+                  <span className="text-[11px] text-faint">Joyini surish</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => moveTab(menuFor.id, -1)}
+                      disabled={i <= 0}
+                      aria-label="Chapga"
+                      className="grid size-6 place-items-center rounded text-muted transition-colors hover:bg-hover hover:text-foreground disabled:opacity-30"
+                    >
+                      <ChevronLeft className="size-4" />
+                    </button>
+                    <button
+                      onClick={() => moveTab(menuFor.id, 1)}
+                      disabled={i < 0 || i >= categories.length - 1}
+                      aria-label="O'ngga"
+                      className="grid size-6 place-items-center rounded text-muted transition-colors hover:bg-hover hover:text-foreground disabled:opacity-30"
+                    >
+                      <ChevronRight className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
             <button
               onClick={() => {
                 const cat = categories.find((c) => c.id === menuFor.id);
