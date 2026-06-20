@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity, Apple, Archive, Bed, Bike, BookOpen, Brain, Briefcase, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Code,
   Coffee, DollarSign, Droplet, Dumbbell, Flame, Folder, Footprints, GraduationCap, Hammer,
@@ -79,8 +80,19 @@ function occupiedForDays(plans: Plan[], days: number[], excludeHabitId?: string)
 
 type Tab = "habits" | "calendar";
 
+const TAB_ORDER: Tab[] = ["habits", "calendar"];
+
+// Swipe / gorizontal scroll bilan tab almashtirish animatsiyasi
+const SWIPE_VARIANTS = {
+  enter: (dir: number) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
+  center: { x: "0%", opacity: 1 },
+  exit: (dir: number) => ({ x: dir > 0 ? "-100%" : "100%", opacity: 0 }),
+};
+const SWIPE_THRESHOLD = 56;
+
 export function OdatView() {
   const [tab, setTab] = useState<Tab>("habits");
+  const [dir, setDir] = useState(0); // swipe animatsiya yo'nalishi
   const { categories: cats, create: createCat, update: updateCat, remove: removeCat } = useHabitCategories();
   const { habits, archived, create, update, archive, restore, remove } = useHabits();
   const habitsHydrated = useHydratedHabits();
@@ -125,28 +137,108 @@ export function OdatView() {
   const detailHabit = detailId ? habits.find((h) => h.id === detailId) ?? null : null;
   const editCat = editCatId ? cats.find((c) => c.id === editCatId) ?? null : null;
 
+  // ─── Swipe / gorizontal scroll bilan tab almashtirish ───
+  function selectTab(t: Tab) {
+    const cur = TAB_ORDER.indexOf(tab);
+    const next = TAB_ORDER.indexOf(t);
+    setDir(next > cur ? 1 : next < cur ? -1 : 0);
+    setTab(t);
+  }
+  function goTab(delta: number) {
+    const ni = TAB_ORDER.indexOf(tab) + delta;
+    if (ni < 0 || ni >= TAB_ORDER.length) return;
+    setDir(delta);
+    setTab(TAB_ORDER[ni]);
+  }
+  const [touchSwipe, setTouchSwipe] = useState(false);
+  useEffect(() => {
+    setTouchSwipe(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+  const scrollWrapRef = useRef<HTMLDivElement>(null);
+  const tabRef = useRef(tab);
+  useEffect(() => { tabRef.current = tab; }, [tab]);
+  useEffect(() => {
+    const el = scrollWrapRef.current;
+    if (!el) return;
+    // Bitta gesture = bitta switch; momentum dumi yangi switch qo'zg'atmaydi.
+    let armed = true;
+    let accum = 0;
+    let sawTail = false;
+    let idleTimer: number | null = null;
+    function onWheel(e: WheelEvent) {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      const abs = Math.abs(e.deltaX);
+      if (!armed) {
+        if (abs < 10) sawTail = true;
+        else if (sawTail && abs > 16) { armed = true; accum = 0; }
+      }
+      if (idleTimer) window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => { armed = true; accum = 0; sawTail = false; }, 120);
+      if (!armed) return;
+      accum += e.deltaX;
+      if (Math.abs(accum) < 45) return;
+      const delta = accum > 0 ? 1 : -1;
+      accum = 0;
+      const ni = TAB_ORDER.indexOf(tabRef.current) + delta;
+      if (ni < 0 || ni >= TAB_ORDER.length) { armed = false; sawTail = false; return; }
+      setDir(delta);
+      setTab(TAB_ORDER[ni]);
+      armed = false;
+      sawTail = false;
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      if (idleTimer) window.clearTimeout(idleTimer);
+    };
+  }, [hydrated]);
+
   return (
-    <div className="flex flex-col overflow-y-auto" style={{ height: "var(--tg-vh, 100vh)" }}>
-      <header className="sticky top-0 z-10 shrink-0 border-b border-border bg-background/85 backdrop-blur">
+    <div className="flex flex-col overflow-hidden" style={{ height: "var(--tg-vh, 100vh)" }}>
+      <header className="z-10 shrink-0 border-b border-border bg-background/85 backdrop-blur">
         <div className="flex h-12 items-center justify-between px-4 md:px-6">
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Odat</h1>
           <button type="button" onClick={() => { setAddCat(undefined); setAddDaysPreset(undefined); setShowAdd(true); }} className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground" aria-label="Yangi odat"><Plus className="size-4" /></button>
         </div>
         <div className="mx-auto flex max-w-xl gap-6 px-5 md:px-6">
           {([["habits", "Odatlar"], ["calendar", "Kalendar"]] as [Tab, string][]).map(([v, label]) => (
-            <button key={v} type="button" onClick={() => setTab(v)} className={cn("relative py-2.5 text-[13px] font-medium transition-colors", tab === v ? "text-foreground" : "text-faint hover:text-muted")}>
+            <button key={v} type="button" onClick={() => selectTab(v)} className={cn("relative py-2.5 text-[13px] font-medium transition-colors", tab === v ? "text-foreground" : "text-faint hover:text-muted")}>
               {label}{tab === v && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-foreground" />}
             </button>
           ))}
         </div>
       </header>
 
-      <div key={tab} className="fade-in mx-auto w-full max-w-xl px-5 pb-24 md:px-6 md:pb-12">
-        {tab === "habits" ? (
-          <HabitsTab hydrated={hydrated} cats={cats} habits={habits} archived={archived} onOpen={setDetailId} onAddHabit={(pre) => { setAddCat(pre); setAddDaysPreset(undefined); setShowAdd(true); }} onAddCategory={() => setShowAddCat(true)} onEditCategory={(id) => setEditCatId(id)} onDeleteCategory={askRemoveCategory} onRestore={restore} onDeleteHabit={askRemoveHabit} />
-        ) : (
-          <CalendarTab cats={cats} habits={habits} logs={logs} onToggle={toggleDay} onOpen={setDetailId} onAddExisting={addHabitWeekday} onNewHabit={newHabitForDay} />
-        )}
+      <div ref={scrollWrapRef} className="relative min-h-0 flex-1 overflow-hidden">
+        <AnimatePresence initial={false} custom={dir}>
+          <motion.div
+            key={tab}
+            custom={dir}
+            variants={SWIPE_VARIANTS}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ x: { type: "spring", stiffness: 460, damping: 42 }, opacity: { duration: 0.18 } }}
+            drag={touchSwipe ? "x" : false}
+            dragDirectionLock
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.16}
+            onDragEnd={(_, info) => {
+              if (info.offset.x < -SWIPE_THRESHOLD || info.velocity.x < -500) goTab(1);
+              else if (info.offset.x > SWIPE_THRESHOLD || info.velocity.x > 500) goTab(-1);
+            }}
+            className="absolute inset-0 overflow-y-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]"
+          >
+            <div className="mx-auto w-full max-w-xl px-5 pb-24 md:px-6 md:pb-12">
+              {tab === "habits" ? (
+                <HabitsTab hydrated={hydrated} cats={cats} habits={habits} archived={archived} onOpen={setDetailId} onAddHabit={(pre) => { setAddCat(pre); setAddDaysPreset(undefined); setShowAdd(true); }} onAddCategory={() => setShowAddCat(true)} onEditCategory={(id) => setEditCatId(id)} onDeleteCategory={askRemoveCategory} onRestore={restore} onDeleteHabit={askRemoveHabit} />
+              ) : (
+                <CalendarTab cats={cats} habits={habits} logs={logs} onToggle={toggleDay} onOpen={setDetailId} onAddExisting={addHabitWeekday} onNewHabit={newHabitForDay} />
+              )}
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {showAdd && <AddHabitModal cats={cats} plans={plans} initialCategory={addCat} initialDays={addDaysPreset} onClose={() => setShowAdd(false)} onAdd={(inp) => create(inp)} onCreateCategory={(inp) => createCat(inp)} />}

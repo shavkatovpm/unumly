@@ -291,6 +291,7 @@ export function updateIdea(id: string, patch: Partial<Idea>): void {
       .updateIdea(id, {
         ...(patch.title !== undefined && { title: patch.title }),
         ...(patch.notes !== undefined && { notes: patch.notes ?? null }),
+        ...(patch.subtasks !== undefined && { subtasks: patch.subtasks }),
         ...(patch.categoryId !== undefined && { categoryId: patch.categoryId }),
         ...(patch.done !== undefined && { done: patch.done }),
         ...(patch.order !== undefined && { order: patch.order }),

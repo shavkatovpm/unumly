@@ -2,10 +2,19 @@ export type PlanScope = "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
 export type PlanStatus = "TODO" | "IN_PROGRESS" | "DONE" | "ARCHIVED";
 export type PlanPriority = "LOW" | "MEDIUM" | "HIGH";
 
+/** Vazifa ichidagi kichik vazifa (sub-task). */
+export type Subtask = {
+  id: string;
+  title: string;
+  done: boolean;
+};
+
 export type Plan = {
   id: string;
   title: string;
   notes?: string;
+  /** Ichki vazifalar (sub-task'lar). */
+  subtasks?: Subtask[];
   scope: PlanScope;
   status: PlanStatus;
   priority?: PlanPriority;
@@ -71,6 +80,7 @@ export type Idea = {
   categoryId: string;
   done: boolean;
   completedAt?: string; // ISO datetime — bajarilgan vaqt (Arxiv uchun)
+  subtasks?: Subtask[]; // ichki vazifalar
   createdAt: string; // ISO datetime
   order: number;
   // Optional scheduling — when present, the idea is mirrored as a Plan

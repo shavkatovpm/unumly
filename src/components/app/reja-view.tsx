@@ -21,6 +21,7 @@ import {
 import { dismissDoneIdeas, isIdeaDismissed, useIdeas } from "@/lib/ideas-store";
 import { useCategories, useHydratedCategories } from "@/lib/categories-store";
 import { useDragReorder } from "@/lib/use-drag-reorder";
+import { usePointerReorder } from "@/lib/use-pointer-reorder";
 import { CATEGORY_COLOR_KEYS, CATEGORY_PALETTE } from "@/lib/category-palette";
 import type { Category, CategoryColor, Idea } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,9 @@ const SORT_KEY = "unumly:reja:sort";
 const NEW_ITEM_MS = 500;
 
 type SortOrder = "new" | "old";
+
+// Tab reorder: mouse — 6px siljishdan keyin; touch — 240ms long-press'dan keyin.
+const TAB_REORDER_OPTS = { activationDistance: 6, holdDelay: 240, holdTolerance: 12 };
 
 function colorAlpha(c: string, a: number) {
   return c.replace(")", ` / ${a})`);
@@ -648,17 +652,21 @@ function MaterialTabBar({
   onCategoryDelete: (id: string) => void;
   onCategoryReorder?: (draggedId: string, beforeId: string | null) => void;
 }) {
-  const dragCat = useDragReorder(categories, (d, b) => onCategoryReorder?.(d, b));
+  const dragCat = usePointerReorder((d, b) => onCategoryReorder?.(d, b), TAB_REORDER_OPTS);
   const active = categories.find((c) => c.id === tab) ?? categories[0];
   const activeColor = CATEGORY_PALETTE[active.color].oklch;
-  const [menuFor, setMenuFor] = useState<{ id: string; top: number; right: number } | null>(null);
+  const [menuFor, setMenuFor] = useState<{ id: string; top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const tabBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const tabWrapperRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const [indicator, setIndicator] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
   const [portalReady, setPortalReady] = useState(false);
   useEffect(() => { setPortalReady(true); }, []);
+  // Mobil (sensorli) — 3 nuqta yo'q; tanlangan tabni qayta bosganda menyu chiqadi.
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => { setCoarse(window.matchMedia("(pointer: coarse)").matches); }, []);
 
   useEffect(() => {
     if (!menuFor) return;
@@ -666,8 +674,8 @@ function MaterialTabBar({
     function onDown(e: MouseEvent) {
       const t = e.target as Node;
       if (menuRef.current?.contains(t)) return;
-      const btn = menuBtnRefs.current[menuForId];
-      if (btn?.contains(t)) return;
+      if (menuBtnRefs.current[menuForId]?.contains(t)) return;
+      if (tabBtnRefs.current[menuForId]?.contains(t)) return;
       setMenuFor(null);
     }
     document.addEventListener("mousedown", onDown);
@@ -680,11 +688,11 @@ function MaterialTabBar({
       return;
     }
     const r = btn.getBoundingClientRect();
-    setMenuFor({
-      id,
-      top: r.bottom + 4,
-      right: window.innerWidth - r.right,
-    });
+    // Menyu kengligi (w-36 = 144px) — viewport chetidan chiqib qirqilmasligi
+    // uchun left'ni clamp qilamiz (chap tabda chapga, o'ng tabda o'ngga sig'adi).
+    const MENU_W = 144;
+    const left = Math.min(Math.max(8, r.left), window.innerWidth - MENU_W - 8);
+    setMenuFor({ id, top: r.bottom + 4, left });
   }
 
   // Track indicator position to active tab (measured against the scroll container)
@@ -719,22 +727,31 @@ function MaterialTabBar({
               layout
               transition={{ type: "spring", stiffness: 500, damping: 38, mass: 0.5 }}
               ref={(el) => { tabWrapperRefs.current[c.id] = el; }}
-              draggable={!!onCategoryReorder}
-              onDragStart={(e) => dragCat.start(e as unknown as React.DragEvent, c.id)}
-              onDragOver={(e) => dragCat.over(e, c.id)}
-              onDrop={(e) => dragCat.drop(e, c.id)}
-              onDragEnd={dragCat.end}
+              data-reorder-id={c.id}
               className={cn(
-                "group relative shrink-0 select-none transition-[opacity,box-shadow] duration-150",
-                dragCat.draggingId === c.id && "opacity-40",
-                dragCat.overId === c.id && dragCat.draggingId !== c.id &&
-                  "shadow-[inset_3px_0_0_var(--foreground)]"
+                "group relative shrink-0 select-none transition-[opacity,box-shadow,transform] duration-150",
+                dragCat.draggingId === c.id && "z-20 opacity-80 shadow-[0_6px_20px_-4px_rgba(0,0,0,0.35)]"
               )}
             >
+              {/* Drop indikatori — bu tabning OLDIGA tushadi; tablar oralab silliq suriladi */}
+              {dragCat.draggingId && dragCat.overId === c.id && dragCat.draggingId !== c.id && (
+                <motion.span
+                  layoutId="reja-tab-drop"
+                  className="pointer-events-none absolute inset-y-2 left-0 z-30 w-[3px] rounded-full bg-accent"
+                />
+              )}
               <button
-                onClick={() => setTab(c.id)}
+                ref={(el) => { tabBtnRefs.current[c.id] = el; }}
+                onPointerDown={(e) => { if (onCategoryReorder) dragCat.start(e, c.id); }}
+                onClick={(e) => {
+                  // Mobilda: tanlangan tabni qayta bosish → amallar menyusi.
+                  if (coarse && isA) openMenu(c.id, e.currentTarget);
+                  else setTab(c.id);
+                }}
                 className={cn(
-                  "flex items-center gap-2 whitespace-nowrap py-3.5 pl-4 pr-8 text-[12.5px] font-medium uppercase tracking-wider transition-colors",
+                  // Desktopda o'ngdagi 3 nuqta uchun joy (pr-8); mobilda kerak emas (pr-4).
+                  "flex items-center gap-2 whitespace-nowrap py-3.5 pl-4 pr-4 text-[12.5px] font-medium uppercase tracking-wider transition-colors md:pr-8",
+                  dragCat.draggingId === c.id && "cursor-grabbing",
                   isA ? "text-foreground" : "text-muted hover:text-foreground"
                 )}
               >
@@ -754,7 +771,8 @@ function MaterialTabBar({
                 }}
                 aria-label="Toifa amallari"
                 className={cn(
-                  "absolute right-1 top-1.5 z-10 grid size-6 place-items-center rounded text-faint transition-colors hover:bg-hover hover:text-foreground",
+                  // Faqat desktop — mobilda tanlangan tabni bosib menyu ochiladi.
+                  "absolute right-1 top-1.5 z-10 hidden size-6 place-items-center rounded text-faint transition-colors hover:bg-hover hover:text-foreground md:grid",
                   menuFor?.id === c.id ? "bg-hover text-foreground opacity-100" : "opacity-0 group-hover:opacity-100"
                 )}
               >
@@ -787,7 +805,7 @@ function MaterialTabBar({
           <div
             ref={menuRef}
             className="fade-in fixed z-[100] w-36 overflow-hidden rounded-md border border-border bg-surface shadow-xl"
-            style={{ top: menuFor.top, right: menuFor.right }}
+            style={{ top: menuFor.top, left: menuFor.left }}
           >
             <button
               onClick={() => {
@@ -820,7 +838,7 @@ function MaterialTabBar({
    ════════════════════════════════════════════════════════════ */
 
 function KanbanView(props: ViewProps) {
-  const [menuFor, setMenuFor] = useState<{ id: string; top: number; right: number } | null>(null);
+  const [menuFor, setMenuFor] = useState<{ id: string; top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [portalReady, setPortalReady] = useState(false);
@@ -848,11 +866,11 @@ function KanbanView(props: ViewProps) {
       return;
     }
     const r = btn.getBoundingClientRect();
-    setMenuFor({
-      id,
-      top: r.bottom + 4,
-      right: window.innerWidth - r.right,
-    });
+    // Menyu kengligi (w-36 = 144px) — viewport chetidan chiqib qirqilmasligi
+    // uchun left'ni clamp qilamiz (chap tabda chapga, o'ng tabda o'ngga sig'adi).
+    const MENU_W = 144;
+    const left = Math.min(Math.max(8, r.left), window.innerWidth - MENU_W - 8);
+    setMenuFor({ id, top: r.bottom + 4, left });
   }
 
   return (
@@ -914,7 +932,7 @@ function KanbanView(props: ViewProps) {
           <div
             ref={menuRef}
             className="fade-in fixed z-[100] w-36 overflow-hidden rounded-md border border-border bg-surface shadow-xl"
-            style={{ top: menuFor.top, right: menuFor.right }}
+            style={{ top: menuFor.top, left: menuFor.left }}
           >
             <button
               onClick={() => {

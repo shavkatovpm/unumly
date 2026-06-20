@@ -136,17 +136,22 @@ export function addTransaction(input: NewTransaction): string {
 
 export function updateTransaction(
   id: string,
-  patch: { amount?: number; categoryId?: string | null; note?: string; date?: string }
+  patch: { type?: TransactionType; amount?: number; categoryId?: string | null; note?: string; date?: string }
 ): void {
   const prev = snapshot.txns.find((t) => t.id === id);
   if (!prev) return;
+  // Tur o'zgarsa, kategoriya yangi turga mos kelmasligi mumkin — optimistik
+  // ravishda tozalaymiz (server ham shunday qiladi).
+  const clearCat = patch.type !== undefined && patch.type !== prev.type && patch.categoryId === undefined;
   set({
     txns: snapshot.txns.map((t) =>
       t.id === id
         ? {
             ...t,
+            ...(patch.type !== undefined && { type: patch.type }),
             ...(patch.amount !== undefined && { amount: Math.round(patch.amount) }),
             ...(patch.categoryId !== undefined && { categoryId: patch.categoryId }),
+            ...(clearCat && { categoryId: null }),
             ...(patch.note !== undefined && { note: patch.note.trim() || undefined }),
             ...(patch.date !== undefined && { date: patch.date }),
           }

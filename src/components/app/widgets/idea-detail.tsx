@@ -7,11 +7,12 @@ import {
   Clock,
   FileText,
   Flag,
+  ListChecks,
   Tag,
   Trash2,
   X,
 } from "lucide-react";
-import type { Category, Idea, PlanPriority } from "@/lib/types";
+import type { Category, Idea, PlanPriority, Subtask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   formatUzDate,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/dates";
 import { CATEGORY_PALETTE } from "@/lib/category-palette";
 import { Dialog } from "./dialog";
+import { CollapseSection, SubtaskEditor, makeSubtaskId } from "./subtask-ui";
 import { TimePickerPopover } from "./time-picker-popover";
 import { DatePickerPopover } from "./date-picker-popover";
 
@@ -54,6 +56,10 @@ export function IdeaDetail({
 }) {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [newSub, setNewSub] = useState("");
+  const [izohOpen, setIzohOpen] = useState(false);
+  const [subOpen, setSubOpen] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
   const [time, setTime] = useState("");
@@ -71,6 +77,10 @@ export function IdeaDetail({
     if (!idea) return;
     setTitle(idea.title);
     setNotes(idea.notes ?? "");
+    setSubtasks(idea.subtasks ?? []);
+    setIzohOpen(!!(idea.notes && idea.notes.trim()));
+    setSubOpen((idea.subtasks?.length ?? 0) > 0);
+    setNewSub("");
     setCategoryId(idea.categoryId);
     setScheduledFor(idea.scheduledFor ?? "");
     setTime(idea.time ?? "");
@@ -94,11 +104,29 @@ export function IdeaDetail({
   }
   const blockSave = isDateInPast || isTimePast;
 
+  // ─── Ichki vazifalar (sub-task) ───
+  function addSubtask() {
+    const t = newSub.trim();
+    if (!t) return;
+    setSubtasks((s) => [...s, { id: makeSubtaskId(), title: t, done: false }]);
+    setNewSub("");
+  }
+  function toggleSub(id: string) {
+    setSubtasks((s) => s.map((x) => (x.id === id ? { ...x, done: !x.done } : x)));
+  }
+  function removeSub(id: string) {
+    setSubtasks((s) => s.filter((x) => x.id !== id));
+  }
+  function editSubTitle(id: string, t: string) {
+    setSubtasks((s) => s.map((x) => (x.id === id ? { ...x, title: t } : x)));
+  }
+
   function save() {
     if (blockSave) return;
     onUpdate(idea!.id, {
       title: title.trim() || idea!.title,
       notes: notes.trim() || undefined,
+      subtasks,
       categoryId,
       scheduledFor: scheduledFor || undefined,
       time: scheduledFor ? (time || undefined) : undefined,
@@ -168,20 +196,41 @@ export function IdeaDetail({
             className="w-full bg-transparent text-[18px] font-semibold tracking-[-0.01em] placeholder:text-faint focus:outline-none"
           />
 
-          {/* Notes */}
-          <div>
-            <label className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
-              <FileText className="size-3" /> Izoh
-            </label>
+          {/* Izoh — yig'iladigan */}
+          <CollapseSection
+            icon={<FileText className="size-3.5" />}
+            title="Izoh"
+            hint={notes.trim() ? "to'ldirilgan" : undefined}
+            open={izohOpen}
+            onToggle={() => setIzohOpen((v) => !v)}
+          >
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Qo'shimcha tafsilot..."
               rows={3}
-              autoFocus
               className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-2 text-[13px] leading-relaxed placeholder:text-faint focus:border-border-strong focus:outline-none"
             />
-          </div>
+          </CollapseSection>
+
+          {/* Ichki vazifalar — yig'iladigan */}
+          <CollapseSection
+            icon={<ListChecks className="size-3.5" />}
+            title="Ichki vazifalar"
+            hint={subtasks.length ? `${subtasks.filter((s) => s.done).length}/${subtasks.length}` : undefined}
+            open={subOpen}
+            onToggle={() => setSubOpen((v) => !v)}
+          >
+            <SubtaskEditor
+              subtasks={subtasks}
+              newSub={newSub}
+              setNewSub={setNewSub}
+              onAdd={addSubtask}
+              onToggle={toggleSub}
+              onRemove={removeSub}
+              onEditTitle={editSubTitle}
+            />
+          </CollapseSection>
 
           {/* Category */}
           <div>

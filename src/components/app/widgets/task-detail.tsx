@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Check, X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon, Pencil } from "lucide-react";
-import type { Plan, PlanPriority } from "@/lib/types";
+import { Bell, Check, X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon, Pencil, ListChecks } from "lucide-react";
+import type { Plan, PlanPriority, Subtask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   formatUzDate,
@@ -14,6 +14,7 @@ import {
 import {
   DEFAULT_LEAD_MIN,
   LEAD_MIN_OPTIONS,
+  computeNotifyAt,
   formatLeadLabel,
   formatLeadOptionLabel,
   sanitizeLeadMin,
@@ -21,6 +22,7 @@ import {
 } from "@/lib/notify-time";
 import { getNotificationPrefs } from "@/lib/user-settings-actions";
 import { Dialog } from "./dialog";
+import { CollapseSection, SubtaskEditor, SubtaskViewList, makeSubtaskId } from "./subtask-ui";
 import { TimePickerPopover } from "./time-picker-popover";
 import { DatePickerPopover } from "./date-picker-popover";
 
@@ -44,6 +46,7 @@ const PRIORITY_DISPLAY: Record<PlanPriority, { label: string; dot: string }> = {
 function hasDetails(p: Plan): boolean {
   return (
     !!(p.notes && p.notes.trim()) ||
+    (p.subtasks?.length ?? 0) > 0 ||
     p.duration != null ||
     p.priority != null ||
     p.notifyLeadMin != null
@@ -72,6 +75,11 @@ export function TaskDetail({
 }) {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [newSub, setNewSub] = useState("");
+  // Form'dagi yig'iladigan sektsiyalar (izoh / ichki vazifalar)
+  const [izohOpen, setIzohOpen] = useState(false);
+  const [subOpen, setSubOpen] = useState(false);
   const [scheduledFor, setScheduledFor] = useState<string>("");
   const [time, setTime] = useState("");
   const [duration, setDuration] = useState<number | undefined>(undefined);
@@ -94,10 +102,35 @@ export function TaskDetail({
     [scheduledFor, today]
   );
 
+  // Task vaqtigacha qancha daqiqa qolgani (lead presetlarini cheklash uchun).
+  // null = vaqt belgilanmagan. Manfiy/0 = vaqt yetib kelgan/o'tgan.
+  const availableMin = (() => {
+    const dateIso = scheduledFor || plan?.scheduledFor;
+    if (!time || !dateIso) return null;
+    const at = computeNotifyAt(dateIso, time, 0);
+    if (!at) return null;
+    return Math.floor((at.getTime() - Date.now()) / 60_000);
+  })();
+
+  // Faqat vaqtga sig'adigan eng katta lead amal qiladi. Vaqt deyarli yo'q
+  // bo'lsa (availableMin < 10) — faqat "O'z vaqtida" (0) qoladi, ya'ni eslatma
+  // aynan belgilangan vaqtda ("vaqt bo'ldi") keladi. Tanlangan lead saqlanadi
+  // (vaqt uzaytirilsa qaytadi), lekin amaldagi qiymat shu cheklov bilan.
+  const effectiveLead: LeadMin =
+    availableMin == null
+      ? leadMin
+      : (([...LEAD_MIN_OPTIONS].reverse().find(
+          (o) => o <= availableMin && o <= leadMin
+        ) ?? 0) as LeadMin);
+
   useEffect(() => {
     if (!plan) return;
     setTitle(plan.title);
     setNotes(plan.notes ?? "");
+    setSubtasks(plan.subtasks ?? []);
+    setIzohOpen(!!(plan.notes && plan.notes.trim()));
+    setSubOpen((plan.subtasks?.length ?? 0) > 0);
+    setNewSub("");
     setScheduledFor(plan.scheduledFor ?? "");
     setTime(plan.time ?? "");
     setDuration(plan.duration);
@@ -136,6 +169,7 @@ export function TaskDetail({
     if (!plan) return;
     setTitle(plan.title);
     setNotes(plan.notes ?? "");
+    setSubtasks(plan.subtasks ?? []);
     setScheduledFor(plan.scheduledFor ?? "");
     setTime(plan.time ?? "");
     setDuration(plan.duration);
@@ -203,6 +237,26 @@ export function TaskDetail({
 
   const blockSave = isTimePast || isDateInPast;
 
+  // ─── Ichki vazifalar (sub-task) ───
+  function addSubtask() {
+    const t = newSub.trim();
+    if (!t) return;
+    setSubtasks((s) => [...s, { id: makeSubtaskId(), title: t, done: false }]);
+    setNewSub("");
+  }
+  /** View rejimida darhol saqlanadi; edit/create'da faqat Saqlash bosilganda. */
+  function toggleSub(id: string) {
+    const next = subtasks.map((x) => (x.id === id ? { ...x, done: !x.done } : x));
+    setSubtasks(next);
+    if (mode === "view" && plan) onUpdate(plan.id, { subtasks: next });
+  }
+  function removeSub(id: string) {
+    setSubtasks((s) => s.filter((x) => x.id !== id));
+  }
+  function editSubTitle(id: string, t: string) {
+    setSubtasks((s) => s.map((x) => (x.id === id ? { ...x, title: t } : x)));
+  }
+
   function save() {
     if (blockSave) return;
     const safeDuration =
@@ -215,12 +269,13 @@ export function TaskDetail({
     // account-level default. Otherwise leave NULL so the plan follows future
     // account-default changes.
     const leadToPersist: number | undefined =
-      leadMin === accountLead ? undefined : leadMin;
+      effectiveLead === accountLead ? undefined : effectiveLead;
     if (draft && onCreate) {
       // Draft rejimi — yangi reja yaratamiz
       onCreate({
         title: title.trim() || plan!.title || "Yangi reja",
         notes: notes.trim() || undefined,
+        subtasks: subtasks.length ? subtasks : undefined,
         scope: plan!.scope,
         scheduledFor: effectiveDateIso,
         time: time || undefined,
@@ -232,6 +287,7 @@ export function TaskDetail({
       onUpdate(plan!.id, {
         title: title.trim() || plan!.title,
         notes: notes.trim() || undefined,
+        subtasks,
         scheduledFor: effectiveDateIso,
         time: time || undefined,
         duration: safeDuration,
@@ -250,7 +306,7 @@ export function TaskDetail({
   const isView = mode === "view";
 
   return (
-    <Dialog open={open} onClose={onClose} mobilePlacement="top" className="max-w-lg">
+    <Dialog open={open} onClose={onClose} mobilePlacement="top" dismissable={false} className="max-w-lg sm:min-h-[60vh]">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -291,10 +347,12 @@ export function TaskDetail({
           <ViewBody
             title={title}
             notes={notes}
+            subtasks={subtasks}
+            onToggleSub={toggleSub}
             time={time}
             duration={duration}
             priority={priority}
-            leadMin={leadMin}
+            leadMin={effectiveLead}
             selectedDate={selectedDate}
             isDateInPast={isDateInPast}
             isTimePast={isTimePast}
@@ -310,24 +368,41 @@ export function TaskDetail({
             className="w-full bg-transparent text-[18px] font-semibold tracking-[-0.01em] placeholder:text-faint focus:outline-none"
           />
 
-          {/* Notes */}
-          <div>
-            <label className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
-              <FileText className="size-3" />
-              Izoh
-            </label>
+          {/* Izoh — yig'iladigan */}
+          <CollapseSection
+            icon={<FileText className="size-3.5" />}
+            title="Izoh"
+            hint={notes.trim() ? "to'ldirilgan" : undefined}
+            open={izohOpen}
+            onToggle={() => setIzohOpen((v) => !v)}
+          >
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Qo'shimcha tafsilot..."
               rows={3}
-              // Auto-focus only when the dialog originally opened in edit
-              // mode (skeletal task / draft). View→edit via Pencil should
-              // NOT pop the keyboard — user chooses what to edit.
-              autoFocus={initialMode === "edit"}
               className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-2 text-[13px] leading-relaxed placeholder:text-faint focus:border-border-strong focus:outline-none"
             />
-          </div>
+          </CollapseSection>
+
+          {/* Ichki vazifalar — yig'iladigan */}
+          <CollapseSection
+            icon={<ListChecks className="size-3.5" />}
+            title="Ichki vazifalar"
+            hint={subtasks.length ? `${subtasks.filter((s) => s.done).length}/${subtasks.length}` : undefined}
+            open={subOpen}
+            onToggle={() => setSubOpen((v) => !v)}
+          >
+            <SubtaskEditor
+              subtasks={subtasks}
+              newSub={newSub}
+              setNewSub={setNewSub}
+              onAdd={addSubtask}
+              onToggle={toggleSub}
+              onRemove={removeSub}
+              onEditTitle={editSubTitle}
+            />
+          </CollapseSection>
 
           {/* Date */}
           <div>
@@ -436,11 +511,12 @@ export function TaskDetail({
           {/* Eslatma vaqti — minimal inline pill (always visible); click
               opens a small popover with 0 / 5 / 15 / 30 daqiqa options. */}
           <LeadPicker
-            value={leadMin}
+            value={effectiveLead}
             onChange={(next) => setLeadMin(next)}
             open={showLeadPicker}
             onOpenChange={setShowLeadPicker}
             timeMissing={!time}
+            availableMin={availableMin}
           />
 
 
@@ -567,6 +643,8 @@ export function TaskDetail({
 function ViewBody({
   title,
   notes,
+  subtasks,
+  onToggleSub,
   time,
   duration,
   priority,
@@ -577,6 +655,8 @@ function ViewBody({
 }: {
   title: string;
   notes: string;
+  subtasks: Subtask[];
+  onToggleSub: (id: string) => void;
   time: string;
   duration: number | undefined;
   priority: PlanPriority;
@@ -587,6 +667,7 @@ function ViewBody({
 }) {
   const trimmedNotes = notes.trim();
   const pri = PRIORITY_DISPLAY[priority];
+  const subDone = subtasks.filter((s) => s.done).length;
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-7">
@@ -645,6 +726,20 @@ function ViewBody({
         </Row>
       )}
 
+      {/* Ichki vazifalar — bosib bajarish mumkin */}
+      {subtasks.length > 0 && (
+        <div className="mt-5">
+          <p className="mb-2 flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
+            <ListChecks className="size-3" />
+            Ichki vazifalar
+            <span className="ml-auto font-mono text-[10.5px] tabular-nums normal-case tracking-normal">
+              {subDone}/{subtasks.length}
+            </span>
+          </p>
+          <SubtaskViewList subtasks={subtasks} onToggle={onToggleSub} />
+        </div>
+      )}
+
       {/* Izoh — prominent block (only when present) */}
       {trimmedNotes && (
         <div className="mt-5">
@@ -660,6 +755,7 @@ function ViewBody({
     </div>
   );
 }
+
 
 function Row({
   label,
@@ -687,6 +783,7 @@ function LeadPicker({
   open,
   onOpenChange,
   timeMissing,
+  availableMin,
 }: {
   value: LeadMin;
   onChange: (v: LeadMin) => void;
@@ -694,8 +791,14 @@ function LeadPicker({
   onOpenChange: (v: boolean) => void;
   /** Hint text when no time set — reminder won't actually fire. */
   timeMissing: boolean;
+  /** Minutes until the task (null = no time). Lead presets larger than this
+   *  are disabled; when none fit, the picker locks to "O'z vaqtida". */
+  availableMin: number | null;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  // Eng kichik nol bo'lmagan preset (10) ham sig'masa — lead bloklanadi.
+  const minLeadOption = LEAD_MIN_OPTIONS.find((o) => o > 0) ?? 10;
+  const noLeadRoom = availableMin != null && availableMin < minLeadOption;
 
   useEffect(() => {
     if (!open) return;
@@ -710,15 +813,20 @@ function LeadPicker({
     <div ref={wrapRef} className="relative inline-block">
       <button
         type="button"
+        disabled={noLeadRoom}
         onClick={() => onOpenChange(!open)}
         title={
-          timeMissing
+          noLeadRoom
+            ? "Vaqt yaqin — eslatma aynan belgilangan vaqtda keladi"
+            : timeMissing
             ? "Vaqt belgilanmagan — eslatma yuborilmaydi"
             : "Bosib o'zgartiring"
         }
         className={cn(
           "flex items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-[11.5px] transition-colors",
-          timeMissing
+          noLeadRoom
+            ? "cursor-not-allowed border-border/60 text-faint opacity-70"
+            : timeMissing
             ? "border-border/60 text-faint hover:border-border hover:text-muted"
             : "border-border text-muted hover:border-border-strong hover:text-foreground"
         )}
@@ -728,7 +836,7 @@ function LeadPicker({
         <span
           className={cn(
             "font-mono tabular-nums",
-            timeMissing ? "text-faint" : "text-foreground"
+            timeMissing || noLeadRoom ? "text-faint" : "text-foreground"
           )}
         >
           {formatLeadLabel(value)}
@@ -742,23 +850,31 @@ function LeadPicker({
         >
           {LEAD_MIN_OPTIONS.map((opt) => {
             const active = opt === value;
+            // Vaqtga sig'maydigan lead (masalan 7 daq qolganda 10) — bloklanadi.
+            const optDisabled =
+              opt > 0 && availableMin != null && opt > availableMin;
             return (
               <button
                 key={opt}
                 type="button"
                 role="option"
                 aria-selected={active}
+                disabled={optDisabled}
                 onClick={() => {
+                  if (optDisabled) return;
                   onChange(opt);
                   onOpenChange(false);
                 }}
                 className={cn(
-                  "flex w-full items-center justify-between px-3 py-2 text-left text-[13px] transition-colors hover:bg-hover",
-                  active && "bg-subtle font-medium text-foreground"
+                  "flex w-full items-center justify-between px-3 py-2 text-left text-[13px] transition-colors",
+                  optDisabled
+                    ? "cursor-not-allowed text-faint/50"
+                    : "hover:bg-hover",
+                  active && !optDisabled && "bg-subtle font-medium text-foreground"
                 )}
               >
                 <span>{formatLeadOptionLabel(opt)}</span>
-                {active && <Check className="size-3.5 text-foreground" />}
+                {active && !optDisabled && <Check className="size-3.5 text-foreground" />}
               </button>
             );
           })}

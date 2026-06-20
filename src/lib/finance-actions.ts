@@ -138,6 +138,7 @@ export async function createTransaction(
 }
 
 export type UpdateTransactionPatch = Partial<{
+  type: TransactionType;
   amount: number;
   categoryId: string | null;
   note: string;
@@ -154,10 +155,18 @@ export async function updateTransaction(
   });
   if (!existing) throw new Error("NOT_FOUND");
 
-  const categoryId =
+  // Tur o'zgarsa, kategoriya yangi turga mos bo'lishi shart (kategoriyalar
+  // kirim/chiqimga bo'lingan). Mos bo'lmasa resolveCategory null qaytaradi.
+  const nextType = patch.type ?? existing.type;
+  let categoryId: string | null | undefined =
     patch.categoryId !== undefined
-      ? await resolveCategory(user.id, patch.categoryId, existing.type)
+      ? await resolveCategory(user.id, patch.categoryId, nextType)
       : undefined;
+  // Tur o'zgardi-yu yangi kategoriya berilmagan bo'lsa — eski kategoriya boshqa
+  // turga tegishli, shuning uchun uni tozalaymiz.
+  if (categoryId === undefined && patch.type !== undefined && patch.type !== existing.type) {
+    categoryId = null;
+  }
 
   if (patch.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(patch.date)) {
     throw new Error("INVALID_DATE");
@@ -166,6 +175,7 @@ export async function updateTransaction(
   const row = await prisma.transaction.update({
     where: { id },
     data: {
+      ...(patch.type !== undefined && { type: patch.type }),
       ...(patch.amount !== undefined && { amount: sanitizeAmount(patch.amount) }),
       ...(categoryId !== undefined && { categoryId }),
       ...(patch.note !== undefined && { note: patch.note.trim() || null }),

@@ -235,6 +235,34 @@ function BoshqaruvSheet({
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
 
+  // Boshqaruv sheet'da ko'rinadigan bo'limlar (asosiy nav'da bo'lmagan).
+  const visibleItems = SHEET_ORDER
+    .map((id) => NAV_ITEMS.find((i) => i.id === id))
+    .filter(
+      (item): item is NonNullable<typeof item> =>
+        !!item && !primaryHrefs.has(item.href) && !hidden.includes(item.id)
+    );
+
+  const itemBase = (active: boolean) =>
+    active
+      ? "border-foreground/30 bg-subtle text-foreground"
+      : "border-border bg-surface text-muted hover:bg-hover hover:text-foreground";
+
+  // 2 ustun katak — ikona tepada, label pastda.
+  function renderItems() {
+    return (
+      <div className="grid grid-cols-2 gap-2.5">
+        {visibleItems.map((item) => (
+          <Link key={item.id} href={item.href} onClick={onClose}
+            className={cn("flex flex-col items-center justify-center gap-2 rounded-2xl border px-3 py-5 transition-colors", itemBase(isActive(item.href)))}>
+            <item.icon className="size-7 shrink-0" strokeWidth={1.9} />
+            <span className="text-[14px] font-medium">{item.label}</span>
+          </Link>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <>
       <motion.div
@@ -286,27 +314,9 @@ function BoshqaruvSheet({
           </button>
         </header>
 
-        {/* Tana — barcha bo'limlar scrollsiz sig'adi (cardlar joyga qarab kichrayadi) */}
-        <div className="flex min-h-0 flex-1 flex-col">
-
-        {/* Boshqaruv links — asosiy nav'da bo'lmagan (o'chirilgan) barcha bo'limlar */}
-        <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 py-2.5">
-          {SHEET_ORDER.map((id) => {
-            const item = NAV_ITEMS.find((i) => i.id === id);
-            if (!item || primaryHrefs.has(item.href) || hidden.includes(item.id)) return null;
-            return (
-              <SheetLink
-                key={item.id}
-                href={item.href}
-                label={item.label}
-                icon={item.icon}
-                active={isActive(item.href)}
-                onNavigate={onClose}
-                fit
-              />
-            );
-          })}
-        </div>
+        {/* Tana — 2 ustun katak, scroll bilan */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+          <div className="px-3 py-2.5">{renderItems()}</div>
 
         {/* Arxiv — dropdown */}
         <SheetCollapsible label="Arxiv" open={openSection === "arxiv"} onToggle={() => toggleSection("arxiv")}>

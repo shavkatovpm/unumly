@@ -33,6 +33,7 @@ import { Avatar } from "./widgets/avatar";
 type IconCmp = ComponentType<{ className?: string; strokeWidth?: number }>;
 
 const STORAGE_ARXIV_OPEN = "unumly:sidebar:arxiv";
+const STORAGE_BOSHQARUV_OPEN = "unumly:sidebar:boshqaruv";
 
 export function Sidebar({
   todayCount,
@@ -93,6 +94,55 @@ export function Sidebar({
       try {
         if (typeof window !== "undefined") {
           window.localStorage.setItem(STORAGE_ARXIV_OPEN, next ? "1" : "0");
+        }
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+
+  // Boshqaruv section collapsible — default closed, persisted.
+  // Auto-closes when user navigates away from a Boshqaruv route.
+  const [boshqaruvOpen, setBoshqaruvOpen] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const v = window.localStorage.getItem(STORAGE_BOSHQARUV_OPEN);
+      if (v === "1") setBoshqaruvOpen(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const onBoshqaruvRoute =
+    pathname === "/odat" || pathname.startsWith("/odat/") ||
+    pathname === "/maqsad" || pathname.startsWith("/maqsad/") ||
+    pathname === "/reja" || pathname.startsWith("/reja/") ||
+    pathname === "/tezkor" || pathname.startsWith("/tezkor/");
+
+  // When user navigates away from a Boshqaruv route, collapse the section.
+  useEffect(() => {
+    if (!onBoshqaruvRoute && boshqaruvOpen) {
+      setBoshqaruvOpen(false);
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(STORAGE_BOSHQARUV_OPEN, "0");
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    // We only want to react to pathname changes, not to boshqaruvOpen toggles.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  function toggleBoshqaruv() {
+    setBoshqaruvOpen((v) => {
+      const next = !v;
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(STORAGE_BOSHQARUV_OPEN, next ? "1" : "0");
         }
       } catch {
         /* ignore */
@@ -181,7 +231,11 @@ export function Sidebar({
         </Section>
 
         {/* ── Boshqaruv ─────────────────────────── */}
-        <Section label="Boshqaruv">
+        <CollapsibleSection
+          label="Boshqaruv"
+          open={boshqaruvOpen}
+          onToggle={toggleBoshqaruv}
+        >
           <SidebarLink
             href="/odat"
             label="Odat"
@@ -210,7 +264,7 @@ export function Sidebar({
             active={isActive("/tezkor")}
             onNavigate={closeOnMobile}
           />
-        </Section>
+        </CollapsibleSection>
 
         {/* ── Arxiv ─────────────────────────────── */}
         <CollapsibleSection
@@ -289,7 +343,7 @@ function Section({
   return (
     <div className="group/section px-3 pb-3">
       <div className="flex items-center justify-between px-2 pb-1">
-        <p className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-faint">
+        <p className="text-[12.5px] font-medium uppercase tracking-[0.12em] text-faint">
           {label}
         </p>
         {action}
@@ -324,7 +378,7 @@ function CollapsibleSection({
             open && "rotate-90"
           )}
         />
-        <p className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-faint">
+        <p className="text-[12.5px] font-medium uppercase tracking-[0.12em] text-faint">
           {label}
         </p>
       </button>
@@ -358,7 +412,7 @@ function SidebarLink({
       href={href}
       onClick={onNavigate}
       className={cn(
-        "group flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-colors",
+        "group flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[15.5px] transition-colors",
         active
           ? "bg-surface text-foreground shadow-[0_1px_0_var(--border)]"
           : "text-muted hover:bg-hover hover:text-foreground"
@@ -404,7 +458,7 @@ function SidebarItem({
       disabled={disabled}
       title={disabled ? "Tez orada" : undefined}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors",
+        "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[15.5px] transition-colors",
         disabled ? "cursor-not-allowed text-faint/70" : "text-muted hover:bg-hover hover:text-foreground"
       )}
     >

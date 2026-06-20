@@ -132,6 +132,8 @@ model Plan {
 
   title        String
   notes        String?       @db.Text
+  // Ichki vazifalar (sub-task'lar): [{ id, title, done }] — JSON sifatida.
+  subtasks     Json?
   scope        PlanScope
   status       PlanStatus    @default(TODO)
   priority     PlanPriority?
@@ -396,6 +398,7 @@ model Idea {
   categoryId   String        // references Category.id (loose, like Plan)
   done         Boolean       @default(false)
   completedAt  DateTime?     // bajarilgan vaqt — Arxiv "Bajarilganlar" uchun
+  subtasks     Json?         // ichki vazifalar: [{ id, title, done }]
   order        Int           @default(0)
 
   // Optional scheduling — when present, the idea is mirrored as a Plan

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import type { Plan, PlanPriority, PlanScope } from "@/lib/types";
+import type { Plan, PlanPriority, PlanScope, Subtask } from "@/lib/types";
 import { playOnCreate } from "@/lib/sounds";
 import * as actions from "@/lib/plans-actions";
 import { markHabitDay as markHabitDayAction } from "@/lib/habits-actions";
@@ -163,6 +163,7 @@ export type CreatePlanInput = {
   id?: string;
   title: string;
   notes?: string;
+  subtasks?: Subtask[];
   scope?: PlanScope;
   scheduledFor: string;
   time?: string;
@@ -180,6 +181,7 @@ export function createPlan(input: CreatePlanInput): string {
     id,
     title: input.title.trim(),
     notes: input.notes,
+    subtasks: input.subtasks,
     scope: input.scope ?? "DAILY",
     status: "TODO",
     scheduledFor: input.scheduledFor,
@@ -285,6 +287,7 @@ export function updatePlan(id: string, patch: Partial<Plan>): void {
   const serverPatch: actions.UpdatePlanPatch = {
     ...(patch.title !== undefined && { title: patch.title }),
     ...(patch.notes !== undefined && { notes: patch.notes ?? null }),
+    ...(patch.subtasks !== undefined && { subtasks: patch.subtasks }),
     ...(patch.scope !== undefined && { scope: patch.scope }),
     ...(patch.status !== undefined && { status: patch.status }),
     ...(patch.priority !== undefined && { priority: patch.priority ?? null }),

@@ -1,12 +1,17 @@
 "use server";
 
-import type { Plan as DbPlan } from "@prisma/client";
+import { Prisma, type Plan as DbPlan } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { computeNotifyAt, sanitizeLeadMin } from "@/lib/notify-time";
 import { markReminderDone } from "@/lib/telegram-bot";
-import type { Plan, PlanScope, PlanStatus, PlanPriority } from "@/lib/types";
+import type { Plan, PlanScope, PlanStatus, PlanPriority, Subtask } from "@/lib/types";
+
+/** Json ustunni Subtask[] ga (yoki undefined) aylantirish. */
+function toSubtasks(v: unknown): Subtask[] | undefined {
+  return Array.isArray(v) ? (v as unknown as Subtask[]) : undefined;
+}
 
 const TRASH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -26,6 +31,7 @@ function toPlan(p: DbPlan): Plan {
     id: p.id,
     title: p.title,
     notes: p.notes ?? undefined,
+    subtasks: toSubtasks(p.subtasks),
     scope: p.scope as PlanScope,
     status: p.status as PlanStatus,
     priority: p.priority as PlanPriority | null ?? undefined,
@@ -83,6 +89,7 @@ export type CreatePlanInput = {
   id?: string;
   title: string;
   notes?: string;
+  subtasks?: Subtask[];
   scope?: PlanScope;
   scheduledFor: string;     // YYYY-MM-DD
   time?: string;            // HH:MM
@@ -145,6 +152,7 @@ export async function createPlan(input: CreatePlanInput): Promise<Plan> {
       userId: user.id,
       title: input.title.trim(),
       notes: input.notes,
+      ...(input.subtasks !== undefined && { subtasks: input.subtasks as unknown as Prisma.InputJsonValue }),
       scope: input.scope ?? "DAILY",
       status: "TODO",
       priority: input.priority,
@@ -162,6 +170,7 @@ export async function createPlan(input: CreatePlanInput): Promise<Plan> {
 export type UpdatePlanPatch = Partial<{
   title: string;
   notes: string | null;
+  subtasks: Subtask[];
   scope: PlanScope;
   status: PlanStatus;
   priority: PlanPriority | null;
@@ -196,10 +205,12 @@ export async function updatePlan(id: string, patch: UpdatePlanPatch): Promise<Pl
         : await getUserLeadMin(user.id);
   }
 
+  const { subtasks, ...rest } = patch;
   const row = await prisma.plan.update({
     where: { id },
     data: {
-      ...patch,
+      ...rest,
+      ...(subtasks !== undefined && { subtasks: subtasks as unknown as Prisma.InputJsonValue }),
       completedAt:
         patch.completedAt === undefined
           ? undefined
@@ -350,6 +361,7 @@ export async function importPlans(items: CreatePlanInput[]): Promise<{ imported:
       userId: user.id,
       title: i.title.trim(),
       notes: i.notes,
+      subtasks: (i.subtasks ?? undefined) as unknown as Prisma.InputJsonValue,
       scope: i.scope ?? "DAILY",
       status: "TODO",
       priority: i.priority,

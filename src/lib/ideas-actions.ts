@@ -1,10 +1,14 @@
 "use server";
 
-import type { Idea as DbIdea } from "@prisma/client";
+import { Prisma, type Idea as DbIdea } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import type { Idea, PlanPriority } from "@/lib/types";
+import type { Idea, PlanPriority, Subtask } from "@/lib/types";
+
+function toSubtasks(v: unknown): Subtask[] | undefined {
+  return Array.isArray(v) ? (v as unknown as Subtask[]) : undefined;
+}
 
 function toIdea(i: DbIdea): Idea {
   return {
@@ -14,6 +18,7 @@ function toIdea(i: DbIdea): Idea {
     categoryId: i.categoryId,
     done: i.done,
     completedAt: i.completedAt?.toISOString() ?? undefined,
+    subtasks: toSubtasks(i.subtasks),
     order: i.order,
     scheduledFor: i.scheduledFor ?? undefined,
     time: i.time ?? undefined,
@@ -47,6 +52,7 @@ export type CreateIdeaInput = {
   title: string;
   categoryId: string;
   notes?: string;
+  subtasks?: Subtask[];
   scheduledFor?: string;
   time?: string;
   duration?: number;
@@ -68,6 +74,7 @@ export async function createIdea(input: CreateIdeaInput): Promise<Idea> {
       title: input.title.trim(),
       categoryId: input.categoryId,
       notes: input.notes,
+      ...(input.subtasks !== undefined && { subtasks: input.subtasks as unknown as Prisma.InputJsonValue }),
       scheduledFor: input.scheduledFor,
       time: input.time,
       duration: input.duration,
@@ -81,6 +88,7 @@ export async function createIdea(input: CreateIdeaInput): Promise<Idea> {
 export type UpdateIdeaPatch = Partial<{
   title: string;
   notes: string | null;
+  subtasks: Subtask[];
   categoryId: string;
   done: boolean;
   order: number;
@@ -99,6 +107,7 @@ export async function updateIdea(id: string, patch: UpdateIdeaPatch): Promise<Id
     data: {
       ...(patch.title !== undefined && { title: patch.title.trim() }),
       ...(patch.notes !== undefined && { notes: patch.notes }),
+      ...(patch.subtasks !== undefined && { subtasks: patch.subtasks as unknown as Prisma.InputJsonValue }),
       ...(patch.categoryId !== undefined && { categoryId: patch.categoryId }),
       ...(patch.done !== undefined && { done: patch.done, completedAt: patch.done ? new Date() : null }),
       ...(patch.order !== undefined && { order: patch.order }),
@@ -161,6 +170,7 @@ export async function importIdeas(items: CreateIdeaInput[]): Promise<{ imported:
       title: i.title.trim(),
       categoryId: i.categoryId,
       notes: i.notes,
+      subtasks: (i.subtasks ?? undefined) as unknown as Prisma.InputJsonValue,
       scheduledFor: i.scheduledFor,
       time: i.time,
       duration: i.duration,

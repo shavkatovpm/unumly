@@ -126,8 +126,9 @@ export async function sendTaskReminder(opts: {
   title: string;
   time?: string | null;
   priority?: "LOW" | "MEDIUM" | "HIGH" | null;
-  /** Minutes between now and the task's scheduled time (for the message header). */
-  leadMin?: number;
+  /** Actual minutes between now and the task's scheduled time (for the header).
+   *  > 0 → "X daq. qoldi"; <= 0 → "vaqti keldi". */
+  minutesLeft?: number;
   appUrl: string;
 }): Promise<number> {
   const PRIORITY_ICON: Record<string, string> = {
@@ -138,8 +139,10 @@ export async function sendTaskReminder(opts: {
   const icon = opts.priority ? (PRIORITY_ICON[opts.priority] ?? "") : "";
   const timeText = opts.time ? ` · ${opts.time}` : "";
   const leadText =
-    opts.time && opts.leadMin && opts.leadMin > 0
-      ? ` · ${opts.leadMin} daq. qoldi`
+    opts.time && typeof opts.minutesLeft === "number"
+      ? opts.minutesLeft > 0
+        ? ` · ${opts.minutesLeft} daq. qoldi`
+        : " · vaqt bo'ldi"
       : "";
 
   const res = await fetch(`${BASE}/bot${token()}/sendMessage`, {

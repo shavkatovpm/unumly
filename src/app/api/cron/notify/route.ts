@@ -6,7 +6,7 @@ import {
   sendQuickListSummary,
   sendTaskReminder,
 } from "@/lib/telegram-bot";
-import { sanitizeLeadMin } from "@/lib/notify-time";
+import { computeNotifyAt } from "@/lib/notify-time";
 
 export const runtime = "nodejs";
 // Cron pings frequently — make sure Vercel doesn't cache this
@@ -76,18 +76,22 @@ export async function GET(req: Request) {
   for (const plan of due) {
     try {
       const chatId = Number(plan.user.telegramId);
+      // Actual minutes until the task's scheduled time (not the nominal lead).
+      // A task created after its lead window, or a cron tick that fired late,
+      // would otherwise always claim the configured lead ("10 daq. qoldi")
+      // even when the time has already arrived. Compute the real remaining
+      // time so the header shows "X daq. qoldi" or "vaqti keldi" accurately.
+      const scheduledAt = computeNotifyAt(plan.scheduledFor, plan.time, 0);
+      const minutesLeft = scheduledAt
+        ? Math.round((scheduledAt.getTime() - now.getTime()) / 60_000)
+        : undefined;
       const messageId = await sendTaskReminder({
         chatId,
         planId: plan.id,
         title: plan.title,
         time: plan.time,
         priority: plan.priority,
-        // Effective lead: per-task override (if set) takes precedence over
-        // the user's account default. Sanitized so a stale stored value
-        // (e.g. a pre-migration 5) is coerced to a current preset — this
-        // mirrors how notifyAt was computed, keeping the "X daq. qoldi"
-        // hint consistent with the actual fire time.
-        leadMin: sanitizeLeadMin(plan.notifyLeadMin ?? plan.user.notifyLeadMin),
+        minutesLeft,
         appUrl: APP_URL,
       });
       await prisma.$transaction([

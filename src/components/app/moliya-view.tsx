@@ -340,6 +340,7 @@ export function MoliyaView() {
         onClose={closeDialog}
         onCreate={(input) => { addTransaction(input); closeDialog(); }}
         onUpdate={(id, patch) => { updateTransaction(id, patch); closeDialog(); }}
+        onRemove={askRemove}
         onAddCategory={addCategory}
       />
       {confirmEl}
@@ -801,37 +802,46 @@ function CategoriesTab({
         <p className="py-6 text-center text-[13px] text-faint">Kategoriya yo&apos;q</p>
       ) : (
         <ul className="space-y-2">
-          {typeCats.map((c) => (
-            <CategoryManageRow
-              key={c.id}
-              cat={c}
-              hasLimit={type === "EXPENSE"}
-              limit={budgetMap.get(c.id) ?? null}
-              total={totalByCat.get(c.id) ?? 0}
-              onUpdate={(patch) => onUpdateCategory(c.id, patch)}
-              onRemove={() => askRemove(c.id)}
-              onSetBudget={(amount) => onSetBudget(c.id, amount)}
-              onRemoveBudget={() => onRemoveBudget(c.id)}
-            />
-          ))}
-          {/* Kategoriyasiz yozuvlar — kategoriya tanlanmagan kirim/chiqimlar */}
-          {uncategorized > 0 && (
-            <li className="rounded-xl border border-dashed border-border bg-surface p-3">
-              <div className="flex items-center gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-subtle text-faint">
-                  <Minus className="size-[18px]" strokeWidth={2} />
-                </span>
-                <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-muted">
-                  Kategoriyasiz
-                </span>
-                <span
-                  className="shrink-0 text-[12.5px] font-semibold tabular-nums"
-                  style={{ color: type === "EXPENSE" ? EXPENSE_COLOR : INCOME_COLOR }}
-                >
-                  {formatSom(uncategorized)}
-                </span>
-              </div>
-            </li>
+          {/* Kategoriyalar + "Kategoriyasiz" — hammasi summa bo'yicha tartiblanadi
+              (summasi ko'p bo'lgani tepada; "Kategoriyasiz" ham shu qatorda). */}
+          {(
+            uncategorized > 0
+              ? [
+                  ...typeCats.map((c) => ({ kind: "cat" as const, total: totalByCat.get(c.id) ?? 0, cat: c })),
+                  { kind: "none" as const, total: uncategorized },
+                ].sort((a, b) => b.total - a.total)
+              : typeCats.map((c) => ({ kind: "cat" as const, total: totalByCat.get(c.id) ?? 0, cat: c }))
+          ).map((r) =>
+            r.kind === "cat" ? (
+              <CategoryManageRow
+                key={r.cat.id}
+                cat={r.cat}
+                hasLimit={type === "EXPENSE"}
+                limit={budgetMap.get(r.cat.id) ?? null}
+                total={r.total}
+                onUpdate={(patch) => onUpdateCategory(r.cat.id, patch)}
+                onRemove={() => askRemove(r.cat.id)}
+                onSetBudget={(amount) => onSetBudget(r.cat.id, amount)}
+                onRemoveBudget={() => onRemoveBudget(r.cat.id)}
+              />
+            ) : (
+              <li key="__uncategorized" className="rounded-xl border border-dashed border-border bg-surface p-3">
+                <div className="flex items-center gap-3">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-subtle text-faint">
+                    <Minus className="size-[18px]" strokeWidth={2} />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-muted">
+                    Kategoriyasiz
+                  </span>
+                  <span
+                    className="shrink-0 text-[12.5px] font-semibold tabular-nums"
+                    style={{ color: type === "EXPENSE" ? EXPENSE_COLOR : INCOME_COLOR }}
+                  >
+                    {formatSom(r.total)}
+                  </span>
+                </div>
+              </li>
+            )
           )}
         </ul>
       )}
@@ -1285,6 +1295,7 @@ function TxnDialog({
   onClose,
   onCreate,
   onUpdate,
+  onRemove,
   onAddCategory,
 }: {
   open: boolean;
@@ -1300,8 +1311,9 @@ function TxnDialog({
   }) => void;
   onUpdate: (
     id: string,
-    patch: { amount: number; categoryId: string | null; note: string; date: string }
+    patch: { type: TransactionType; amount: number; categoryId: string | null; note: string; date: string }
   ) => void;
+  onRemove: (id: string) => void;
   onAddCategory: (input: {
     type: TransactionType;
     label: string;
@@ -1353,7 +1365,7 @@ function TxnDialog({
   function save() {
     if (amount <= 0) return;
     if (editing) {
-      onUpdate(editing.id, { amount, categoryId, note, date });
+      onUpdate(editing.id, { type, amount, categoryId, note, date });
     } else {
       onCreate({ type, amount, categoryId, note: note || undefined, date });
     }
@@ -1370,9 +1382,8 @@ function TxnDialog({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch]">
-        {/* Tur: Chiqim / Kirim (tahrirda o'zgarmaydi) — faol tugma rang bilan to'ladi */}
-        {!editing && (
-          <div className="mb-3 grid grid-cols-2 gap-2 text-[13.5px]">
+        {/* Tur: Chiqim / Kirim — tahrirda ham o'zgartirsa bo'ladi */}
+        <div className="mb-3 grid grid-cols-2 gap-2 text-[13.5px]">
             <button
               onClick={() => changeType("EXPENSE")}
               className={cn(
@@ -1395,8 +1406,7 @@ function TxnDialog({
               <ArrowDownLeft className="size-4" />
               Kirim
             </button>
-          </div>
-        )}
+        </div>
 
         {/* Summa */}
         <div className="mb-3">
@@ -1520,13 +1530,33 @@ function TxnDialog({
         </div>
 
         <div className="shrink-0 border-t border-border px-4 py-3">
-          <button
-            onClick={save}
-            disabled={amount <= 0}
-            className="w-full rounded-lg bg-foreground py-2.5 text-[14px] font-medium text-background transition-opacity disabled:opacity-40"
-          >
-            {editing ? "Saqlash" : "Qo'shish"}
-          </button>
+          {editing ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { onRemove(editing.id); onClose(); }}
+                aria-label="O'chirish"
+                title="O'chirish"
+                className="flex shrink-0 items-center justify-center rounded-lg border border-border px-3 py-2.5 text-faint transition-colors hover:border-danger hover:bg-danger-soft hover:text-danger"
+              >
+                <Trash2 className="size-4" />
+              </button>
+              <button
+                onClick={save}
+                disabled={amount <= 0}
+                className="flex-1 rounded-lg bg-foreground py-2.5 text-[14px] font-medium text-background transition-opacity disabled:opacity-40"
+              >
+                Saqlash
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={save}
+              disabled={amount <= 0}
+              className="w-full rounded-lg bg-foreground py-2.5 text-[14px] font-medium text-background transition-opacity disabled:opacity-40"
+            >
+              Qo&apos;shish
+            </button>
+          )}
         </div>
       </div>
     </Dialog>

@@ -11,6 +11,7 @@ export function Dialog({
   children,
   className,
   mobilePlacement = "bottom",
+  dismissable = true,
 }: {
   open: boolean;
   onClose: () => void;
@@ -23,6 +24,8 @@ export function Dialog({
    *            ochilganda kontent ko'rinib turadi)
    */
   mobilePlacement?: "bottom" | "center" | "top";
+  /** false bo'lsa — backdrop bosish va Esc yopmaydi (faqat X tugmasi). */
+  dismissable?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const isCenter = mobilePlacement === "center";
@@ -35,13 +38,13 @@ export function Dialog({
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && dismissable) onClose();
     }
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open, onClose, dismissable]);
 
   // iOS-da ishonchli scroll-lock: html+body+swipe konteynerlarni qulflaydi
   // (faqat body overflow yetarli emas — ortdagi konteyner rubber-band scroll
@@ -98,7 +101,7 @@ export function Dialog({
           same frame as the card — avoids a perceived blur-lag. */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-        onClick={onClose}
+        onClick={dismissable ? onClose : undefined}
       />
       <div
         ref={cardRef}
