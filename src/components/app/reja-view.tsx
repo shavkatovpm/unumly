@@ -674,6 +674,8 @@ function MaterialTabBar({
   // ichidagi ← → strelkalar orqali o'zgaradi.
   const [coarse, setCoarse] = useState(false);
   useEffect(() => { setCoarse(window.matchMedia("(pointer: coarse)").matches); }, []);
+  // moveTab paytidagi programmatik scroll menyuni yopmasligi uchun qisqa "suppress".
+  const suppressCloseRef = useRef(false);
   function moveTab(id: string, delta: -1 | 1) {
     if (!onCategoryReorder) return;
     const i = categories.findIndex((c) => c.id === id);
@@ -686,7 +688,11 @@ function MaterialTabBar({
         : i + 2 < categories.length
         ? categories[i + 2].id
         : null;
+    // Menyu ochiq qoladi va ko'chgan tab ostiga qayta joylashadi.
+    suppressCloseRef.current = true;
     onCategoryReorder(id, beforeId);
+    requestAnimationFrame(() => repositionMenu());
+    window.setTimeout(() => { suppressCloseRef.current = false; }, 600);
   }
 
   const active = categories.find((c) => c.id === tab) ?? categories[0];
@@ -710,21 +716,47 @@ function MaterialTabBar({
       if (tabBtnRefs.current[menuForId]?.contains(t)) return;
       setMenuFor(null);
     }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    // Strip scroll qilinsa — menyu tab'dan ajralib qolmasligi uchun yopamiz.
+    // Lekin strelka bilan ko'chirish paytidagi programmatik scroll'da yopmaymiz,
+    // balki menyuni tab ostiga ergashtiramiz.
+    function onScroll() {
+      if (suppressCloseRef.current) repositionMenu();
+      else setMenuFor(null);
+    }
+    const strip = scrollRef.current;
+    // pointerdown — mobilda mousedown ishonchsiz, touch'da ham ishlaydi.
+    document.addEventListener("pointerdown", onDown);
+    strip?.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      strip?.removeEventListener("scroll", onScroll);
+    };
   }, [menuFor]);
 
+  // Boshqa tabga o'tilsa (tap yoki swipe) — menyu yopiladi.
+  useEffect(() => { setMenuFor(null); }, [tab]);
+
+  const MENU_W = 176; // w-44
+  function clampLeft(r: DOMRect) {
+    return Math.min(Math.max(8, r.left), window.innerWidth - MENU_W - 8);
+  }
   function openMenu(id: string, btn: HTMLButtonElement) {
     if (menuFor?.id === id) {
       setMenuFor(null);
       return;
     }
     const r = btn.getBoundingClientRect();
-    // Menyu kengligi (w-36 = 144px) — viewport chetidan chiqib qirqilmasligi
-    // uchun left'ni clamp qilamiz (chap tabda chapga, o'ng tabda o'ngga sig'adi).
-    const MENU_W = 144;
-    const left = Math.min(Math.max(8, r.left), window.innerWidth - MENU_W - 8);
-    setMenuFor({ id, top: r.bottom + 4, left });
+    setMenuFor({ id, top: r.bottom + 4, left: clampLeft(r) });
+  }
+  // Menyuni o'z tab'i ostiga qayta joylashtirish (strelka bilan ko'chgandan keyin).
+  function repositionMenu() {
+    setMenuFor((m) => {
+      if (!m) return m;
+      const btn = tabBtnRefs.current[m.id];
+      if (!btn) return m;
+      const r = btn.getBoundingClientRect();
+      return { ...m, top: r.bottom + 4, left: clampLeft(r) };
+    });
   }
 
   // Track indicator position to active tab (measured against the scroll container)
