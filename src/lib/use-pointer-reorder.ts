@@ -81,7 +81,9 @@ export function usePointerReorder(
         const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
         const row = el?.closest?.("[data-reorder-id]") as HTMLElement | null;
         const id = row?.dataset.reorderId ?? null;
-        if (id !== overIdRef.current) { overIdRef.current = id; setOverId(id); }
+        // Live-reorder barqarorligi: nishon topilmasa (masalan barmoq ko'tarilgan
+        // elementning bo'sh joyida) — oxirgi over'ni saqlaymiz, null'ga tushirmaymiz.
+        if (id !== null && id !== overIdRef.current) { overIdRef.current = id; setOverId(id); }
         return;
       }
       if (phaseRef.current === "pending") {

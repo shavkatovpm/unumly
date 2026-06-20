@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, Reorder, motion } from "framer-motion";
 import {
   ArrowDown,
   ArrowUp,
@@ -21,7 +21,6 @@ import {
 import { dismissDoneIdeas, isIdeaDismissed, useIdeas } from "@/lib/ideas-store";
 import { useCategories, useHydratedCategories } from "@/lib/categories-store";
 import { useDragReorder } from "@/lib/use-drag-reorder";
-import { usePointerReorder } from "@/lib/use-pointer-reorder";
 import { CATEGORY_COLOR_KEYS, CATEGORY_PALETTE } from "@/lib/category-palette";
 import type { Category, CategoryColor, Idea } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -36,9 +35,6 @@ const SORT_KEY = "unumly:reja:sort";
 const NEW_ITEM_MS = 500;
 
 type SortOrder = "new" | "old";
-
-// Tab reorder: mouse — 6px siljishdan keyin; touch — 240ms long-press'dan keyin.
-const TAB_REORDER_OPTS = { activationDistance: 6, holdDelay: 240, holdTolerance: 12 };
 
 function colorAlpha(c: string, a: number) {
   return c.replace(")", ` / ${a})`);
@@ -652,21 +648,37 @@ function MaterialTabBar({
   onCategoryDelete: (id: string) => void;
   onCategoryReorder?: (draggedId: string, beforeId: string | null) => void;
 }) {
-  const dragCat = usePointerReorder((d, b) => onCategoryReorder?.(d, b), TAB_REORDER_OPTS);
+  // Drag-reorder (framer Reorder): ko'chirilayotgan tab kursor/barmoqni ergashadi,
+  // qolganlari silliq surilib bo'shliq ochadi. `order` — id'lar tartibi (drag
+  // paytida onReorder bilan yangilanadi), categories o'zgarsa qayta moslashadi.
+  const [order, setOrder] = useState<string[]>(() => categories.map((c) => c.id));
+  useEffect(() => { setOrder(categories.map((c) => c.id)); }, [categories]);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const catById = useMemo(() => {
+    const m = new Map<string, Category>();
+    for (const c of categories) m.set(c.id, c);
+    return m;
+  }, [categories]);
+  const orderRef = useRef(order);
+  useEffect(() => { orderRef.current = order; }, [order]);
+  function persistOrder(id: string) {
+    if (!onCategoryReorder) return;
+    const o = orderRef.current;
+    const idx = o.indexOf(id);
+    const beforeId = idx >= 0 && idx + 1 < o.length ? o[idx + 1] : null;
+    onCategoryReorder(id, beforeId);
+  }
+
   const active = categories.find((c) => c.id === tab) ?? categories[0];
   const activeColor = CATEGORY_PALETTE[active.color].oklch;
   const [menuFor, setMenuFor] = useState<{ id: string; top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const menuBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const tabBtnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const tabWrapperRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const [indicator, setIndicator] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
   const [portalReady, setPortalReady] = useState(false);
   useEffect(() => { setPortalReady(true); }, []);
-  // Mobil (sensorli) — 3 nuqta yo'q; tanlangan tabni qayta bosganda menyu chiqadi.
-  const [coarse, setCoarse] = useState(false);
-  useEffect(() => { setCoarse(window.matchMedia("(pointer: coarse)").matches); }, []);
 
   useEffect(() => {
     if (!menuFor) return;
@@ -674,7 +686,7 @@ function MaterialTabBar({
     function onDown(e: MouseEvent) {
       const t = e.target as Node;
       if (menuRef.current?.contains(t)) return;
-      if (menuBtnRefs.current[menuForId]?.contains(t)) return;
+      // Tanlangan tabni qayta bosish menyuni toggle qiladi (qayta ochmaslik uchun).
       if (tabBtnRefs.current[menuForId]?.contains(t)) return;
       setMenuFor(null);
     }
@@ -710,48 +722,87 @@ function MaterialTabBar({
     el.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
   }, [tab, categories]);
 
+  // Drag paytida chetga (chap/o'ng) yetganda strip'ni avtomatik suramiz —
+  // shunda ekrandan tashqaridagi tablarga ham ko'chirib bo'ladi.
+  useEffect(() => {
+    if (!draggingId) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const EDGE = 56; // chetdagi "issiq zona" (px)
+    const MAX = 16; // har kadrdagi maksimal scroll (px)
+    let dir = 0;
+    let speed = 0;
+    let raf = 0;
+    function step() {
+      if (dir !== 0 && el) el.scrollLeft += dir * speed;
+      raf = requestAnimationFrame(step);
+    }
+    function onMove(e: PointerEvent) {
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const x = e.clientX;
+      if (x < r.left + EDGE) {
+        dir = -1;
+        speed = Math.min(MAX, ((r.left + EDGE - x) / EDGE) * MAX);
+      } else if (x > r.right - EDGE) {
+        dir = 1;
+        speed = Math.min(MAX, ((x - (r.right - EDGE)) / EDGE) * MAX);
+      } else {
+        dir = 0;
+      }
+    }
+    document.addEventListener("pointermove", onMove, { passive: true });
+    raf = requestAnimationFrame(step);
+    return () => {
+      document.removeEventListener("pointermove", onMove);
+      cancelAnimationFrame(raf);
+    };
+  }, [draggingId]);
+
   return (
     <div className="relative shrink-0 border-b border-border bg-subtle/20">
-      <div
+      <Reorder.Group
+        as="div"
+        axis="x"
+        values={order}
+        onReorder={setOrder}
         ref={scrollRef}
         className="reja-tabbar relative flex items-stretch overflow-x-auto overflow-y-hidden"
         style={{ scrollbarWidth: "none" }}
       >
-        {categories.map((c) => {
+        {order.map((id) => {
+          const c = catById.get(id);
+          if (!c) return null;
           const isA = tab === c.id;
           const color = CATEGORY_PALETTE[c.color].oklch;
           const count = ideas.filter((i) => i.categoryId === c.id).length;
+          const isDragged = draggingId === c.id;
           return (
-            <motion.div
-              key={c.id}
-              layout
-              transition={{ type: "spring", stiffness: 500, damping: 38, mass: 0.5 }}
-              ref={(el) => { tabWrapperRefs.current[c.id] = el; }}
-              data-reorder-id={c.id}
+            <Reorder.Item
+              key={id}
+              value={id}
+              as="div"
+              ref={(el: HTMLDivElement | null) => { tabWrapperRefs.current[id] = el; }}
+              drag={onCategoryReorder ? "x" : false}
+              onDragStart={() => setDraggingId(id)}
+              onDragEnd={() => { persistOrder(id); setDraggingId(null); }}
+              whileDrag={{ scale: 1.06, zIndex: 30, boxShadow: "0 12px 30px -8px rgba(0,0,0,0.5)" }}
+              transition={{ type: "spring", stiffness: 600, damping: 44 }}
               className={cn(
-                "group relative shrink-0 select-none transition-[opacity,box-shadow,transform] duration-150",
-                dragCat.draggingId === c.id && "z-20 opacity-80 shadow-[0_6px_20px_-4px_rgba(0,0,0,0.35)]"
+                "group relative shrink-0 select-none rounded-lg",
+                onCategoryReorder && "cursor-grab active:cursor-grabbing",
+                isDragged && "z-30 bg-surface"
               )}
             >
-              {/* Drop indikatori — bu tabning OLDIGA tushadi; tablar oralab silliq suriladi */}
-              {dragCat.draggingId && dragCat.overId === c.id && dragCat.draggingId !== c.id && (
-                <motion.span
-                  layoutId="reja-tab-drop"
-                  className="pointer-events-none absolute inset-y-2 left-0 z-30 w-[3px] rounded-full bg-accent"
-                />
-              )}
               <button
-                ref={(el) => { tabBtnRefs.current[c.id] = el; }}
-                onPointerDown={(e) => { if (onCategoryReorder) dragCat.start(e, c.id); }}
+                ref={(el) => { tabBtnRefs.current[id] = el; }}
                 onClick={(e) => {
-                  // Mobilda: tanlangan tabni qayta bosish → amallar menyusi.
-                  if (coarse && isA) openMenu(c.id, e.currentTarget);
+                  // Tanlangan tabni qayta bosish → amallar menyusi (tahrir/o'chir).
+                  if (isA) openMenu(c.id, e.currentTarget);
                   else setTab(c.id);
                 }}
                 className={cn(
-                  // Desktopda o'ngdagi 3 nuqta uchun joy (pr-8); mobilda kerak emas (pr-4).
-                  "flex items-center gap-2 whitespace-nowrap py-3.5 pl-4 pr-4 text-[12.5px] font-medium uppercase tracking-wider transition-colors md:pr-8",
-                  dragCat.draggingId === c.id && "cursor-grabbing",
+                  "flex items-center gap-2 whitespace-nowrap py-3.5 pl-4 pr-4 text-[12.5px] font-medium uppercase tracking-wider transition-colors",
                   isA ? "text-foreground" : "text-muted hover:text-foreground"
                 )}
               >
@@ -762,23 +813,7 @@ function MaterialTabBar({
                 <span className="truncate">{c.label}</span>
                 <span className="font-mono text-[10px] tabular-nums text-faint">{count}</span>
               </button>
-              <button
-                ref={(el) => { menuBtnRefs.current[c.id] = el; }}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openMenu(c.id, e.currentTarget);
-                }}
-                aria-label="Toifa amallari"
-                className={cn(
-                  // Faqat desktop — mobilda tanlangan tabni bosib menyu ochiladi.
-                  "absolute right-1 top-1.5 z-10 hidden size-6 place-items-center rounded text-faint transition-colors hover:bg-hover hover:text-foreground md:grid",
-                  menuFor?.id === c.id ? "bg-hover text-foreground opacity-100" : "opacity-0 group-hover:opacity-100"
-                )}
-              >
-                <MoreHorizontal className="size-3.5" />
-              </button>
-            </motion.div>
+            </Reorder.Item>
           );
         })}
         <button
@@ -795,9 +830,10 @@ function MaterialTabBar({
             left: indicator.left,
             width: indicator.width,
             background: activeColor,
+            opacity: draggingId ? 0 : 1,
           }}
         />
-      </div>
+      </Reorder.Group>
 
       {/* Portal-rendered menu so it escapes overflow clipping */}
       {portalReady && menuFor &&
