@@ -127,10 +127,6 @@ export function TaskDetail({
     if (!plan) return;
     setTitle(plan.title);
     setNotes(plan.notes ?? "");
-    setSubtasks(plan.subtasks ?? []);
-    setIzohOpen(!!(plan.notes && plan.notes.trim()));
-    setSubOpen((plan.subtasks?.length ?? 0) > 0);
-    setNewSub("");
     setScheduledFor(plan.scheduledFor ?? "");
     setTime(plan.time ?? "");
     setDuration(plan.duration);
@@ -162,6 +158,14 @@ export function TaskDetail({
     setShowLeadPicker(false);
     setShowTimePicker(false);
     setShowDatePicker(false);
+    // Ichki vazifalarni FAQAT shu yerda (dialog ochilganda / boshqa task'ga
+    // o'tilganda) tiklaymiz — asosiy [plan] useEffect'da emas. Aks holda
+    // view'da darhol persist qilingan toggle prop yangilanishi bilan ortga
+    // qaytib qoladi (server javobigacha "revert" bo'ladi).
+    setSubtasks(plan?.subtasks ?? []);
+    setIzohOpen(!!(plan?.notes && plan.notes.trim()));
+    setSubOpen((plan?.subtasks?.length ?? 0) > 0);
+    setNewSub("");
   }, [open, planId, draft]);
 
   /** Restore inputs to the plan's current persisted values. */

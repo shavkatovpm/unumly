@@ -1288,6 +1288,57 @@ function GoalDialog({
    Qo'shish / tahrirlash dialogi
    ════════════════════════════════════════════════════════════ */
 
+/* ─── Tranzaksiya ko'rish (view) tanasi ─── */
+function TxnViewBody({ type, amount, cat, date, note }: {
+  type: TransactionType;
+  amount: number;
+  cat: FinanceCategory | undefined;
+  date: string;
+  note: string;
+}) {
+  const color = type === "INCOME" ? INCOME_COLOR : EXPENSE_COLOR;
+  const Icon = cat ? financeIcon(cat.icon) : null;
+  const catColorVal = cat ? CATEGORY_PALETTE[cat.color].oklch : undefined;
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+      <div className="text-center">
+        <p className="text-[30px] font-semibold tabular-nums tracking-[-0.02em]" style={{ color }}>
+          {type === "INCOME" ? "+" : "−"}{formatSom(amount)}{" "}
+          <span className="text-[15px] font-normal text-faint">so&apos;m</span>
+        </p>
+        <p className="mt-1 inline-flex items-center gap-1 text-[12px] text-faint">
+          {type === "INCOME" ? <ArrowDownLeft className="size-3.5" /> : <ArrowUpRight className="size-3.5" />}
+          {type === "INCOME" ? "Kirim" : "Chiqim"}
+        </p>
+      </div>
+
+      <div className="mt-5 overflow-hidden rounded-xl border border-border">
+        <ViewRow label="Kategoriya">
+          {cat ? (
+            <span className="inline-flex items-center gap-1.5">
+              {Icon && <Icon className="size-3.5" style={{ color: catColorVal }} />}
+              {cat.label}
+            </span>
+          ) : (
+            <span className="text-faint">Kategoriyasiz</span>
+          )}
+        </ViewRow>
+        <ViewRow label="Sana">{formatDeadline(date)}</ViewRow>
+        {note.trim() && <ViewRow label="Izoh">{note}</ViewRow>}
+      </div>
+    </div>
+  );
+}
+
+function ViewRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-surface px-3.5 py-2.5 last:border-b-0">
+      <span className="shrink-0 text-[11.5px] font-medium uppercase tracking-wide text-faint">{label}</span>
+      <span className="min-w-0 text-right text-[13.5px] text-foreground">{children}</span>
+    </div>
+  );
+}
+
 function TxnDialog({
   open,
   editing,
@@ -1327,12 +1378,15 @@ function TxnDialog({
   const [date, setDate] = useState(() => dateKey());
   const [note, setNote] = useState("");
   const [creatingCat, setCreatingCat] = useState(false);
+  // Mavjud yozuv avval ko'rish (view) rejimida ochiladi; "Tahrirlash" → forma.
+  const [editMode, setEditMode] = useState(false);
 
   // Dialog ochilganda holatni tiklash (editing'ga qarab)
   const [lastOpen, setLastOpen] = useState(false);
   if (open && !lastOpen) {
     setLastOpen(true);
     setCreatingCat(false);
+    setEditMode(!editing); // yangi yozuv → darhol forma; mavjud → avval ko'rish
     if (editing) {
       setType(editing.type);
       setAmountStr(String(editing.amount));
@@ -1354,6 +1408,8 @@ function TxnDialog({
   const todayKey = dateKey();
   const yesterdayKey = dateKey(new Date(Date.now() - 86400000));
   const isCustomDate = date !== todayKey && date !== yesterdayKey;
+  const isView = !!editing && !editMode;
+  const viewCat = categories.find((c) => c.id === categoryId);
 
   function onAmountChange(v: string) {
     setAmountStr(v.replace(/\D/g, "").slice(0, 12));
@@ -1375,12 +1431,27 @@ function TxnDialog({
     <Dialog open={open} onClose={onClose} mobilePlacement="top" className="w-full max-w-md">
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
-          <p className="text-[15px] font-semibold">{editing ? "Yozuvni tahrirlash" : "Yangi yozuv"}</p>
-          <button onClick={onClose} aria-label="Yopish" className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
-            <X className="size-4" />
-          </button>
+          <p className="text-[15px] font-semibold">{isView ? "Yozuv" : editing ? "Yozuvni tahrirlash" : "Yangi yozuv"}</p>
+          <div className="flex items-center gap-1">
+            {isView && (
+              <button
+                type="button"
+                onClick={() => setEditMode(true)}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-muted transition-colors hover:bg-hover hover:text-foreground"
+              >
+                <Pencil className="size-3.5" />
+                Tahrirlash
+              </button>
+            )}
+            <button onClick={onClose} aria-label="Yopish" className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
+              <X className="size-4" />
+            </button>
+          </div>
         </header>
 
+        {isView ? (
+          <TxnViewBody type={type} amount={amount} cat={viewCat} date={date} note={note} />
+        ) : (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch]">
         {/* Tur: Chiqim / Kirim — tahrirda ham o'zgartirsa bo'ladi */}
         <div className="mb-3 grid grid-cols-2 gap-2 text-[13.5px]">
@@ -1528,9 +1599,27 @@ function TxnDialog({
           />
         </div>
         </div>
+        )}
 
         <div className="shrink-0 border-t border-border px-4 py-3">
-          {editing ? (
+          {isView ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { onRemove(editing!.id); onClose(); }}
+                aria-label="O'chirish"
+                title="O'chirish"
+                className="flex shrink-0 items-center justify-center rounded-lg border border-border px-3 py-2.5 text-faint transition-colors hover:border-danger hover:bg-danger-soft hover:text-danger"
+              >
+                <Trash2 className="size-4" />
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 rounded-lg bg-foreground py-2.5 text-[14px] font-medium text-background transition-opacity hover:opacity-90"
+              >
+                Yopish
+              </button>
+            </div>
+          ) : editing ? (
             <div className="flex items-center gap-2">
               <button
                 onClick={() => { onRemove(editing.id); onClose(); }}

@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 import { useBlurInputOnScrollOut } from "@/lib/use-blur-on-scroll-out";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 
@@ -28,6 +31,26 @@ export function Dialog({
   dismissable?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
+  // Kontent o'zgarib karta balandligi o'zgarsa — uni silliq animatsiya qilamiz
+  // (masalan view→edit). Balandlikni TO'G'RIDAN-TO'G'RI animatsiya qilamiz
+  // (framer `layout` scale-proyeksiyasi matnni cho'zib yuborardi).
+  const prevHeightRef = useRef<number | null>(null);
+  const sizeAnimRef = useRef<Animation | null>(null);
+  useIsoLayoutEffect(() => {
+    if (!open) { prevHeightRef.current = null; return; }
+    const el = cardRef.current;
+    if (!el) return;
+    const next = el.offsetHeight;
+    const prev = prevHeightRef.current;
+    prevHeightRef.current = next;
+    if (prev == null || Math.abs(prev - next) < 2) return; // ilk o'lchov yoki o'zgarmagan
+    sizeAnimRef.current?.cancel();
+    sizeAnimRef.current = el.animate(
+      [{ height: `${prev}px` }, { height: `${next}px` }],
+      { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
+    );
+  });
+
   const isCenter = mobilePlacement === "center";
   // "center" va "top" rejimlarida overlay'ni ko'rinadigan maydonga (visual
   // viewport) moslaymiz — klaviatura ochilganda modal to'liq ko'rinib, balandlik
@@ -103,10 +126,13 @@ export function Dialog({
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={dismissable ? onClose : undefined}
       />
-      <div
+      <motion.div
         ref={cardRef}
+        initial={{ opacity: 0, y: mobilePlacement === "bottom" ? 24 : 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
         className={cn(
-          "rise-in relative z-10 flex w-full max-w-md flex-col border border-border bg-surface shadow-2xl",
+          "relative z-10 flex w-full max-w-md flex-col border border-border bg-surface shadow-2xl",
           mobilePlacement === "center" && "max-h-[calc(100%-2rem)] overflow-hidden rounded-xl",
           mobilePlacement === "bottom" && "max-h-[90vh] overflow-hidden rounded-t-2xl sm:rounded-xl",
           mobilePlacement === "top" && "max-h-[calc(100%-2rem)] overflow-hidden rounded-2xl sm:max-h-[85vh] sm:rounded-xl",
@@ -114,7 +140,7 @@ export function Dialog({
         )}
       >
         {children}
-      </div>
+      </motion.div>
     </div>
   );
 }
