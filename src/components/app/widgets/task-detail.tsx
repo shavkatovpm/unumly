@@ -25,6 +25,7 @@ import { Dialog } from "./dialog";
 import { CollapseSection, SubtaskEditor, SubtaskViewList, makeSubtaskId } from "./subtask-ui";
 import { TimePickerPopover } from "./time-picker-popover";
 import { DatePickerPopover } from "./date-picker-popover";
+import { DurationPicker } from "./duration-picker";
 
 const PRIORITIES: { value: PlanPriority; label: string; dot: string; ring: string }[] = [
   { value: "HIGH",   label: "Yuqori", dot: "bg-priority-high",   ring: "ring-priority-high" },
@@ -32,7 +33,6 @@ const PRIORITIES: { value: PlanPriority; label: string; dot: string; ring: strin
   { value: "LOW",    label: "Past",   dot: "bg-priority-low",    ring: "ring-priority-low" },
 ];
 
-const DURATIONS = [15, 30, 45, 60, 90, 120];
 
 const PRIORITY_DISPLAY: Record<PlanPriority, { label: string; dot: string }> = {
   HIGH:   { label: "Yuqori", dot: "bg-priority-high" },
@@ -485,30 +485,7 @@ export function TaskDetail({
                   </span>
                 )}
               </label>
-              <div className="flex flex-wrap gap-1">
-                {DURATIONS.map((d) => {
-                  const conflict = maxDuration !== null && d > maxDuration;
-                  return (
-                    <button
-                      key={d}
-                      type="button"
-                      disabled={conflict}
-                      onClick={() => setDuration(duration === d ? undefined : d)}
-                      title={conflict ? "Keyingi reja bilan to'qnashadi" : undefined}
-                      className={cn(
-                        "rounded-md border px-2 py-1 font-mono text-[11px] tabular-nums transition-colors",
-                        conflict
-                          ? "cursor-not-allowed border-border/40 text-faint/50 line-through"
-                          : duration === d
-                          ? "border-accent bg-accent text-accent-ink"
-                          : "border-border text-muted hover:bg-hover hover:text-foreground"
-                      )}
-                    >
-                      {d}m
-                    </button>
-                  );
-                })}
-              </div>
+              <DurationPicker value={duration} onChange={setDuration} max={maxDuration} />
             </div>
           </div>
 

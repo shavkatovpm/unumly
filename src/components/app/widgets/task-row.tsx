@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { AlertCircle, Check, Clock, Repeat, Target } from "lucide-react";
+import { AlertCircle, Check, Clock, Repeat, Tag, Target } from "lucide-react";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { playOnComplete } from "@/lib/sounds";
@@ -22,16 +22,22 @@ export function TaskRow({
   onOpen,
   isNew = false,
   overdue = false,
+  active = false,
   overdueDateLabel,
   staleUntimed = false,
+  rejaCategory,
 }: {
   plan: Plan;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
   onOpen?: (id: string) => void;
   isNew?: boolean;
+  /** Reja'dan kelgan task — qaysi toifadan ekanini ko'rsatuvchi belgi. */
+  rejaCategory?: { label: string; color: string };
   /** When true, time pill renders in red (overdue task). */
   overdue?: boolean;
+  /** Vaqti kelgan, davomiyligi tugamagan, bajarilmagan task — ko'k pill. */
+  active?: boolean;
   /** Optional date prefix shown inside the red time pill (e.g. "20-may"). */
   overdueDateLabel?: string;
   /** Vaqti belgilanmagan, bajarilmagan va o'tib ketgan kundagi task — sariq
@@ -125,12 +131,15 @@ export function TaskRow({
         <span
           className={cn(
             "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] tabular-nums",
-            done
-              ? "text-faint"
-              : overdue
-              ? "bg-danger-soft text-danger"
-              : "bg-subtle text-foreground"
+            done && "text-faint",
+            !done && overdue && "bg-danger-soft text-danger",
+            !done && !overdue && !active && "bg-subtle text-foreground"
           )}
+          style={
+            !done && !overdue && active
+              ? { background: "var(--info-soft)", color: "var(--info)" }
+              : undefined
+          }
         >
           <Clock className="size-2.5" />
           {overdueDateLabel ? `${overdueDateLabel} ${plan.time}` : plan.time}
@@ -151,6 +160,21 @@ export function TaskRow({
         {plan.title}
       </span>
 
+      {rejaCategory && (
+        <span
+          className="inline-flex shrink-0 items-center gap-1 opacity-50"
+          title={`Reja: ${rejaCategory.label}`}
+          aria-label={`Reja: ${rejaCategory.label}`}
+        >
+          <span
+            className="hidden max-w-[80px] truncate text-[11px] font-medium sm:inline"
+            style={{ color: rejaCategory.color }}
+          >
+            {rejaCategory.label}
+          </span>
+          <Tag className="size-3.5" style={{ color: rejaCategory.color }} />
+        </span>
+      )}
       {plan.habitId && <Repeat className="size-3.5 shrink-0 text-faint" aria-label="Odat" />}
       {plan.goalStepId && <Target className="size-3.5 shrink-0 text-faint" aria-label="Maqsad qadami" />}
 

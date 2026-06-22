@@ -60,6 +60,8 @@ export function addDebt(input: {
   amount: number;
   dueDate?: string | null;
   note?: string;
+  agendaReminder?: boolean;
+  reminderLeadDays?: number;
 }): string {
   const id = nextId();
   const optimistic: Debt = {
@@ -71,6 +73,8 @@ export function addDebt(input: {
     dueDate: input.dueDate ?? undefined,
     note: input.note?.trim() || undefined,
     order: memoryState.length,
+    agendaReminder: input.agendaReminder ?? false,
+    reminderLeadDays: input.reminderLeadDays ?? 0,
   };
   memoryState = [optimistic, ...memoryState];
   emit();
@@ -84,7 +88,15 @@ export function addDebt(input: {
 
 export function updateDebt(
   id: string,
-  patch: { counterparty?: string; amount?: number; dueDate?: string | null; note?: string }
+  patch: {
+    counterparty?: string;
+    amount?: number;
+    dueDate?: string | null;
+    note?: string;
+    agendaReminder?: boolean;
+    reminderLeadDays?: number;
+    snoozedUntil?: string | null;
+  }
 ): void {
   const prev = memoryState.find((d) => d.id === id);
   if (!prev) return;
@@ -96,11 +108,19 @@ export function updateDebt(
           ...(patch.amount !== undefined && { amount: Math.round(patch.amount) }),
           ...(patch.dueDate !== undefined && { dueDate: patch.dueDate ?? undefined }),
           ...(patch.note !== undefined && { note: patch.note.trim() || undefined }),
+          ...(patch.agendaReminder !== undefined && { agendaReminder: patch.agendaReminder }),
+          ...(patch.reminderLeadDays !== undefined && { reminderLeadDays: patch.reminderLeadDays }),
+          ...(patch.snoozedUntil !== undefined && { snoozedUntil: patch.snoozedUntil ?? undefined }),
         }
       : d
   );
   emit();
   void withPending(actions.updateDebt(id, patch).then(replace).catch(() => { replace(prev); }));
+}
+
+/** Agenda eslatmasini keyinroqqa surish (snooze). */
+export function snoozeDebt(id: string, untilIso: string): void {
+  updateDebt(id, { snoozedUntil: untilIso });
 }
 
 export function recordPayment(id: string, delta: number): void {
@@ -143,7 +163,7 @@ export function useDebts() {
     document.addEventListener("visibilitychange", onVisible);
     return () => { subs--; document.removeEventListener("visibilitychange", onVisible); if (subs <= 0) { subs = 0; stopPoll(); } };
   }, []);
-  return { debts: all, addDebt, updateDebt, recordPayment, setSettled, removeDebt };
+  return { debts: all, addDebt, updateDebt, recordPayment, setSettled, removeDebt, snoozeDebt };
 }
 
 export function useHydratedDebts(): boolean {

@@ -22,10 +22,12 @@ import {
   toDateInputValue,
 } from "@/lib/dates";
 import { CATEGORY_PALETTE } from "@/lib/category-palette";
+import { usePlans } from "@/lib/plans-store";
 import { Dialog } from "./dialog";
 import { CollapseSection, SubtaskEditor, makeSubtaskId } from "./subtask-ui";
 import { TimePickerPopover } from "./time-picker-popover";
 import { DatePickerPopover } from "./date-picker-popover";
+import { DurationPicker } from "./duration-picker";
 
 const PRIORITIES: { value: PlanPriority; label: string; dot: string }[] = [
   { value: "HIGH",   label: "Yuqori", dot: "bg-priority-high" },
@@ -33,7 +35,6 @@ const PRIORITIES: { value: PlanPriority; label: string; dot: string }[] = [
   { value: "LOW",    label: "Past",   dot: "bg-priority-low" },
 ];
 
-const DURATIONS = [15, 30, 45, 60, 90, 120];
 
 export function IdeaDetail({
   idea,
@@ -54,6 +55,8 @@ export function IdeaDetail({
   onRemove: (id: string) => void;
   onToggleDone: (id: string) => void;
 }) {
+  // Band vaqt slotlari uchun — barcha scheduled tasklar (Plan) canonik manba.
+  const { plans } = usePlans();
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
@@ -345,23 +348,7 @@ export function IdeaDetail({
                 <label className="mb-1.5 block text-[10.5px] font-medium uppercase tracking-[0.15em] text-faint">
                   Davomiyligi
                 </label>
-                <div className="flex flex-wrap gap-1">
-                  {DURATIONS.map((d) => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => setDuration(duration === d ? undefined : d)}
-                      className={cn(
-                        "rounded-md border px-2 py-1 font-mono text-[11px] tabular-nums transition-colors",
-                        duration === d
-                          ? "border-accent bg-accent text-accent-ink"
-                          : "border-border text-muted hover:bg-hover hover:text-foreground"
-                      )}
-                    >
-                      {d}m
-                    </button>
-                  ))}
-                </div>
+                <DurationPicker value={duration} onChange={setDuration} />
               </div>
             </div>
           )}
@@ -450,19 +437,7 @@ export function IdeaDetail({
             : undefined
         }
         occupiedSlots={
-          ideas && scheduledFor
-            ? occupiedTimeSlots(
-                ideas.map((i) => ({
-                  id: i.id,
-                  scope: "DAILY",
-                  scheduledFor: i.scheduledFor,
-                  time: i.time,
-                  duration: i.duration,
-                })),
-                scheduledFor,
-                idea.id
-              )
-            : []
+          scheduledFor ? occupiedTimeSlots(plans, scheduledFor, idea.id) : []
         }
       />
 
@@ -471,7 +446,7 @@ export function IdeaDetail({
         triggerRef={dateBtnRef}
         today={today}
         selected={selectedDate}
-        plans={[]}
+        plans={plans}
         onSelect={(d) => setScheduledFor(toDateInputValue(d))}
         onClose={() => setShowDatePicker(false)}
       />

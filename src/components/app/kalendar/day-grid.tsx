@@ -501,7 +501,7 @@ export function DayGrid({
                         aria-label={`${freeLabel} reja qo'shish`}
                       >
                         {isHourHovered && (
-                          <span className="absolute inset-0 grid place-items-center font-mono text-[11px] font-semibold tabular-nums text-accent-ink">
+                          <span className="absolute inset-0 grid place-items-center font-mono text-[11px] font-semibold tabular-nums text-foreground">
                             {freeLabel}
                           </span>
                         )}
@@ -639,7 +639,7 @@ export function DayGrid({
                           {p.title}
                         </p>
                         {!compact && (
-                          <p className={cn("mt-0.5 font-mono text-[10px] tabular-nums", done ? "text-faint" : "text-accent-ink")}>
+                          <p className={cn("mt-0.5 font-mono text-[10px] tabular-nums", done ? "text-faint" : "text-muted")}>
                             {p.time}
                             {p.duration ? ` · ${p.duration}m` : ""}
                           </p>
@@ -713,7 +713,7 @@ export function DayGrid({
                   >
                     <div className="flex h-full items-center gap-1.5">
                       {!eTiny && (
-                        <span className="shrink-0 font-mono text-[10px] tabular-nums text-accent-ink">
+                        <span className="shrink-0 font-mono text-[10px] tabular-nums text-foreground">
                           {String(editing.hour).padStart(2, "0")}:{String(editing.minute).padStart(2, "0")}
                           {!eCompact && (
                             <>

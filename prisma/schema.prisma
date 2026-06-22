@@ -542,6 +542,11 @@ model Debt {
   settledAt    DateTime? // to'liq hal qilingan
   order        Int       @default(0)
 
+  // Agenda/Bugun'da eslatma sifatida ko'rsatish (ixtiyoriy, toggle).
+  agendaReminder   Boolean @default(false)
+  reminderLeadDays Int     @default(0)   // muddatdan necha kun oldin ko'rinsin
+  snoozedUntil     String? @db.VarChar(10) // YYYY-MM-DD — shu kungача yashir
+
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

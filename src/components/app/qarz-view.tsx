@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import type { Debt, DebtType } from "@/lib/types";
 import { useDebts, useHydratedDebts } from "@/lib/debts-store";
 import { dateKey, formatSom } from "@/lib/money";
+import { debtLeadOptions, daysBetween } from "@/lib/debt-reminders";
 import { ensureVisibleOnFocus } from "@/lib/ensure-visible";
 import { Dialog } from "./widgets/dialog";
 import { DatePickerButton } from "./widgets/date-picker-button";
@@ -326,14 +327,16 @@ function DebtDialog({
   open: boolean;
   editing: Debt | null;
   onClose: () => void;
-  onCreate: (input: { type: DebtType; counterparty: string; amount: number; dueDate?: string | null; note?: string }) => void;
-  onUpdate: (id: string, patch: { counterparty: string; amount: number; dueDate: string | null; note: string }) => void;
+  onCreate: (input: { type: DebtType; counterparty: string; amount: number; dueDate?: string | null; note?: string; agendaReminder?: boolean; reminderLeadDays?: number }) => void;
+  onUpdate: (id: string, patch: { counterparty: string; amount: number; dueDate: string | null; note: string; agendaReminder: boolean; reminderLeadDays: number }) => void;
 }) {
   const [type, setType] = useState<DebtType>("BORROWED");
   const [counterparty, setCounterparty] = useState("");
   const [amountStr, setAmountStr] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [note, setNote] = useState("");
+  const [agendaReminder, setAgendaReminder] = useState(false);
+  const [reminderLeadDays, setReminderLeadDays] = useState(0);
 
   const [lastOpen, setLastOpen] = useState(false);
   if (open && !lastOpen) {
@@ -344,25 +347,33 @@ function DebtDialog({
       setAmountStr(String(editing.amount));
       setDueDate(editing.dueDate ?? "");
       setNote(editing.note ?? "");
+      setAgendaReminder(editing.agendaReminder ?? false);
+      setReminderLeadDays(editing.reminderLeadDays ?? 0);
     } else {
       setType("BORROWED");
       setCounterparty("");
       setAmountStr("");
       setDueDate("");
       setNote("");
+      setAgendaReminder(false);
+      setReminderLeadDays(0);
     }
   }
   if (!open && lastOpen) setLastOpen(false);
 
   const amount = Number(amountStr || "0");
   const valid = counterparty.trim().length > 0 && amount > 0;
+  // Muddatga qancha kun qolgan — lead variantlari shunga moslashadi.
+  const daysUntilDue = dueDate ? daysBetween(dateKey(), dueDate) : 0;
+  const leadOptions = debtLeadOptions(daysUntilDue);
+  const remindOn = !!dueDate && agendaReminder;
 
   function save() {
     if (!valid) return;
     if (editing) {
-      onUpdate(editing.id, { counterparty: counterparty.trim(), amount, dueDate: dueDate || null, note });
+      onUpdate(editing.id, { counterparty: counterparty.trim(), amount, dueDate: dueDate || null, note, agendaReminder: remindOn, reminderLeadDays });
     } else {
-      onCreate({ type, counterparty: counterparty.trim(), amount, dueDate: dueDate || null, note: note || undefined });
+      onCreate({ type, counterparty: counterparty.trim(), amount, dueDate: dueDate || null, note: note || undefined, agendaReminder: remindOn, reminderLeadDays });
     }
   }
 
@@ -432,6 +443,53 @@ function DebtDialog({
             min={dateKey()}
           />
         </div>
+
+        {dueDate && (
+          <div className="mb-3 rounded-lg border border-border bg-subtle/30 p-2.5">
+            <label className="flex cursor-pointer select-none items-center justify-between">
+              <span className="text-[13px] font-medium">Agendaga qo&apos;shish</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={agendaReminder}
+                onClick={() => setAgendaReminder((v) => !v)}
+                className={cn(
+                  "relative h-5 w-9 shrink-0 rounded-full transition-colors",
+                  agendaReminder ? "bg-accent" : "bg-border-strong"
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute left-0.5 top-0.5 size-4 rounded-full bg-background transition-transform",
+                    agendaReminder && "translate-x-4"
+                  )}
+                />
+              </button>
+            </label>
+            {agendaReminder && (
+              <div className="mt-2.5">
+                <p className="mb-1.5 text-[11.5px] text-faint">Qachon ko&apos;rinsin?</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {leadOptions.map((o) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      onClick={() => setReminderLeadDays(o.value)}
+                      className={cn(
+                        "rounded-md border px-2 py-1 text-[11.5px] transition-colors",
+                        reminderLeadDays === o.value
+                          ? "border-accent bg-accent text-accent-ink"
+                          : "border-border text-muted hover:bg-hover hover:text-foreground"
+                      )}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="mb-3">
           <p className="mb-1.5 text-[12px] text-faint">Izoh</p>

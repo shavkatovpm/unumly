@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Calendar as CalendarIcon, Check, Clock, Pencil, Plus, Repeat, X } from "lucide-react";
+import { Calendar as CalendarIcon, Check, Clock, Pencil, Plus, Repeat, Tag, X } from "lucide-react";
 import { useHydrated, usePlans } from "@/lib/plans-store";
+import { useRejaCategoryMap } from "@/lib/use-reja-category";
 import { useDragReorder } from "@/lib/use-drag-reorder";
 import { useBlurInputOnScrollOut } from "@/lib/use-blur-on-scroll-out";
 import type { Plan } from "@/lib/types";
@@ -43,12 +44,14 @@ function AgendaRow({
   onRemove,
   onOpen,
   isNew = false,
+  rejaCategory,
 }: {
   plan: Plan;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
   onOpen: (id: string) => void;
   isNew?: boolean;
+  rejaCategory?: { label: string; color: string };
 }) {
   const done = plan.status === "DONE";
   const [pendingDone, setPendingDone] = useState(false);
@@ -152,6 +155,21 @@ function AgendaRow({
         {plan.title}
       </span>
 
+      {rejaCategory && (
+        <span
+          className="inline-flex shrink-0 items-center gap-1 opacity-50"
+          title={`Reja: ${rejaCategory.label}`}
+          aria-label={`Reja: ${rejaCategory.label}`}
+        >
+          <span
+            className="hidden max-w-[80px] truncate text-[11px] font-medium sm:inline"
+            style={{ color: rejaCategory.color }}
+          >
+            {rejaCategory.label}
+          </span>
+          <Tag className="size-3.5" style={{ color: rejaCategory.color }} />
+        </span>
+      )}
       {plan.habitId && <Repeat className="size-3.5 shrink-0 text-faint" aria-label="Odat" />}
 
       <button
@@ -203,6 +221,7 @@ function shortDateLabel(date: Date, today: Date): string {
 
 export function AgendaView() {
   const { plans, create, update, toggleStatus, remove } = usePlans();
+  const rejaCatMap = useRejaCategoryMap();
   const hydrated = useHydrated();
   const { askRemove, confirmEl } = useConfirmRemove(plans, remove, {
     description:
@@ -548,6 +567,7 @@ export function AgendaView() {
                               onRemove={askRemove}
                               onOpen={setDetailId}
                               isNew={p.id === justCreatedId}
+                              rejaCategory={rejaCatMap.get(p.id)}
                             />
                           );
                         }
@@ -573,6 +593,7 @@ export function AgendaView() {
                               onRemove={askRemove}
                               onOpen={setDetailId}
                               isNew={p.id === justCreatedId}
+                              rejaCategory={rejaCatMap.get(p.id)}
                             />
                           </div>
                         );

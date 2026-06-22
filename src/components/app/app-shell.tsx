@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { detectMac } from "@/lib/platform";
+import { CommandPalette, NAV_ROUTES } from "./command-palette";
 import { refreshPlans, usePlans } from "@/lib/plans-store";
 import { refreshIdeas } from "@/lib/ideas-store";
 import { refreshCategories } from "@/lib/categories-store";
 import { syncOccurrences } from "@/lib/habits-store";
 import { migrateLocalStorageOnce } from "@/lib/migrate-localstorage";
-import { startOfDay, toDateInputValue } from "@/lib/dates";
+import { startOfDay, toDateInputValue, parseTimeToMinutes } from "@/lib/dates";
 import { Sidebar } from "./sidebar";
 import { MobileBottomNav } from "./mobile-bottom-nav";
 
@@ -27,12 +30,35 @@ function readInitialOpen(): boolean {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { plans } = usePlans();
   const todayIso = useMemo(() => toDateInputValue(startOfDay()), []);
+
+  // Joriy vaqt (kun boshidan o'tgan daqiqalar). Har daqiqada yangilanadi —
+  // shunda vaqti kelgan tasklar badge'da o'z vaqtida paydo bo'ladi.
+  const [nowMinutes, setNowMinutes] = useState(() => {
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  });
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const now = new Date();
+      setNowMinutes(now.getHours() * 60 + now.getMinutes());
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Badge faqat vaqti belgilangan VA o'sha vaqt yetgan (yoki o'tgan), ammo hali
+  // bajarilmagan bugungi tasklarni sanaydi. Vaqti belgilanmagan tasklar badge'ga
+  // umuman qo'shilmaydi — ular uchun "vaqti keldi" tushunchasi yo'q.
   const todayCount = useMemo(
     () =>
       plans.filter(
-        (p) => p.scope === "DAILY" && p.scheduledFor === todayIso && p.status !== "DONE"
+        (p) =>
+          p.scope === "DAILY" &&
+          p.scheduledFor === todayIso &&
+          p.status !== "DONE" &&
+          !!p.time &&
+          parseTimeToMinutes(p.time) <= nowMinutes
       ).length,
-    [plans, todayIso]
+    [plans, todayIso, nowMinutes]
   );
 
   const [open, setOpen] = useState(readInitialOpen);
@@ -115,7 +141,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  function toggle(next: boolean) {
+  const toggle = useCallback((next: boolean) => {
     setOpen(next);
     // Persist only the desktop preference (mobile always starts closed)
     if (typeof window !== "undefined" && !window.matchMedia("(max-width: 767px)").matches) {
@@ -125,7 +151,94 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         /* ignore */
       }
     }
-  }
+  }, []);
+
+  // ── Command palette + global klaviatura shortcut'lari (faqat desktop) ──
+  const router = useRouter();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteMode, setPaletteMode] = useState<"command" | "newTask" | "help">("command");
+  const paletteOpenRef = useRef(paletteOpen);
+  useEffect(() => {
+    paletteOpenRef.current = paletteOpen;
+  }, [paletteOpen]);
+
+  const setPalette = useCallback(
+    (next: boolean, mode?: "command" | "newTask" | "help") => {
+      if (mode) setPaletteMode(mode);
+      setPaletteOpen(next);
+    },
+    []
+  );
+
+  // Sidebar'dagi "⌘K" tugmasi shu hodisa orqali oynani ochadi.
+  useEffect(() => {
+    const onOpen = () => setPalette(true, "command");
+    window.addEventListener("unumly:open-command", onOpen);
+    return () => window.removeEventListener("unumly:open-command", onOpen);
+  }, [setPalette]);
+
+  useEffect(() => {
+    function otherDialogOpen(): boolean {
+      // Palette o'zining role="dialog"'idan tashqari boshqa modal ochiqmi?
+      return !!document.querySelector('[role="dialog"]:not([data-command-palette])');
+    }
+
+    function onKey(e: KeyboardEvent) {
+      const mac = detectMac();
+      const mod = mac ? e.metaKey : e.ctrlKey;
+      if (!mod) return; // Barcha shortcut'lar ⌘ (Mac) / Ctrl bilan boshlanadi.
+      const k = e.key.toLowerCase();
+
+      // ── ⌘K — buyruqlar oynasi (har joyda, input ichida ham) ──
+      if (!e.shiftKey && k === "k") {
+        e.preventDefault();
+        if (paletteOpenRef.current) setPaletteOpen(false);
+        else setPalette(true, "command");
+        return;
+      }
+
+      // Faqat desktop; palette yoki boshqa modal ochiq bo'lsa — qolganlari yo'q.
+      if (window.innerWidth < 768) return;
+      if (paletteOpenRef.current || otherDialogOpen()) return;
+
+      // ── 2-daraja: ⌘ + Shift + harf — sahifaga o'tish ──
+      if (e.shiftKey) {
+        const route = NAV_ROUTES.find((r) => r.key === k);
+        if (route) {
+          e.preventDefault();
+          router.push(route.href);
+        }
+        return;
+      }
+
+      // ── 1-daraja: ⌘ + harf — asosiy amallar ──
+      if (k === "b") {
+        // Sidebar
+        e.preventDefault();
+        setOpen((o) => {
+          const next = !o;
+          try {
+            if (!window.matchMedia("(max-width: 767px)").matches)
+              window.localStorage.setItem(STORAGE_OPEN, next ? "1" : "0");
+          } catch {
+            /* ignore */
+          }
+          return next;
+        });
+      } else if (k === "i") {
+        // Yangi task
+        e.preventDefault();
+        setPalette(true, "newTask");
+      } else if (k === "/") {
+        // Shortcut'lar ro'yxati
+        e.preventDefault();
+        setPalette(true, "help");
+      }
+    }
+
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [router, setPalette]);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -170,6 +283,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom navigation */}
       <MobileBottomNav todayCount={todayCount} />
+
+      {/* Buyruqlar oynasi (⌘K) + klaviatura shortcut'lari — desktop */}
+      <CommandPalette
+        open={paletteOpen}
+        mode={paletteMode}
+        onOpenChange={setPalette}
+        onToggleSidebar={() => toggle(!open)}
+      />
     </div>
   );
 }

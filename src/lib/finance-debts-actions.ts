@@ -17,6 +17,9 @@ function toDebt(d: DbDebt): Debt {
     note: d.note ?? undefined,
     settledAt: d.settledAt?.toISOString() ?? undefined,
     order: d.order,
+    agendaReminder: d.agendaReminder,
+    reminderLeadDays: d.reminderLeadDays,
+    snoozedUntil: d.snoozedUntil ?? undefined,
   };
 }
 
@@ -54,6 +57,8 @@ export type CreateDebtInput = {
   amount: number;
   dueDate?: string | null;
   note?: string;
+  agendaReminder?: boolean;
+  reminderLeadDays?: number;
 };
 
 export async function createDebt(input: CreateDebtInput): Promise<Debt> {
@@ -76,6 +81,8 @@ export async function createDebt(input: CreateDebtInput): Promise<Debt> {
       dueDate: input.dueDate ?? null,
       note: input.note?.trim() || null,
       notifyAt: computeNotifyAt(input.dueDate),
+      agendaReminder: input.agendaReminder ?? false,
+      reminderLeadDays: input.reminderLeadDays ?? 0,
       order: (last?.order ?? -1) + 1,
     },
   });
@@ -87,6 +94,9 @@ export type UpdateDebtPatch = Partial<{
   amount: number;
   dueDate: string | null;
   note: string;
+  agendaReminder: boolean;
+  reminderLeadDays: number;
+  snoozedUntil: string | null;
 }>;
 
 export async function updateDebt(id: string, patch: UpdateDebtPatch): Promise<Debt> {
@@ -106,6 +116,9 @@ export async function updateDebt(id: string, patch: UpdateDebtPatch): Promise<De
       ...(patch.note !== undefined && { note: patch.note.trim() || null }),
       ...(patch.dueDate !== undefined && { dueDate: patch.dueDate }),
       ...(dueChanged && { notifyAt: computeNotifyAt(patch.dueDate), notifiedAt: null }),
+      ...(patch.agendaReminder !== undefined && { agendaReminder: patch.agendaReminder }),
+      ...(patch.reminderLeadDays !== undefined && { reminderLeadDays: patch.reminderLeadDays }),
+      ...(patch.snoozedUntil !== undefined && { snoozedUntil: patch.snoozedUntil }),
     },
   });
   return toDebt(row);

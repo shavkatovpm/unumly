@@ -280,7 +280,6 @@ export function MoliyaView() {
                   txns={monthTxns}
                   catMap={catMap}
                   onEdit={openEdit}
-                  onRemove={askRemove}
                 />
               ) : tab === "kategoriya" ? (
                 <CategoriesTab
@@ -567,12 +566,10 @@ function TransactionsTab({
   txns,
   catMap,
   onEdit,
-  onRemove,
 }: {
   txns: Transaction[];
   catMap: Map<string, FinanceCategory>;
   onEdit: (t: Transaction) => void;
-  onRemove: (id: string) => void;
 }) {
   // Sana bo'yicha guruhlash
   const groups = useMemo(() => {
@@ -604,7 +601,6 @@ function TransactionsTab({
                 cat={t.categoryId ? catMap.get(t.categoryId) : undefined}
                 first={i === 0}
                 onEdit={() => onEdit(t)}
-                onRemove={() => onRemove(t.id)}
               />
             ))}
           </ul>
@@ -619,19 +615,17 @@ function TxnRow({
   cat,
   first,
   onEdit,
-  onRemove,
 }: {
   t: Transaction;
   cat: FinanceCategory | undefined;
   first: boolean;
   onEdit: () => void;
-  onRemove: () => void;
 }) {
   const Icon = financeIcon(cat?.icon);
   const color = colorWithAlpha(catColor(cat), 1);
   const isIncome = t.type === "INCOME";
   return (
-    <li className={cn("group flex items-center gap-3 px-3 py-2.5", !first && "border-t border-border")}>
+    <li className={cn("flex items-center gap-3 px-3 py-2.5", !first && "border-t border-border")}>
       <button onClick={onEdit} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <span
           className="grid size-9 shrink-0 place-items-center rounded-lg"
@@ -651,13 +645,6 @@ function TxnRow({
         {isIncome ? "+" : "−"}
         {formatSom(t.amount)}
       </span>
-      <button
-        onClick={onRemove}
-        aria-label="O'chirish"
-        className="grid size-7 shrink-0 place-items-center rounded-md text-faint opacity-0 transition-opacity hover:bg-hover hover:text-foreground group-hover:opacity-100"
-      >
-        <Trash2 className="size-3.5" />
-      </button>
     </li>
   );
 }
@@ -777,8 +764,13 @@ function CategoriesTab({
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
             <CategoryForm
               type={type}
+              showLimit={type === "EXPENSE"}
               onCancel={() => setCreating(false)}
-              onSubmit={(input) => { onAddCategory({ type, ...input }); setCreating(false); }}
+              onSubmit={({ limit, ...input }) => {
+                const id = onAddCategory({ type, ...input });
+                if (limit != null) onSetBudget(id, limit);
+                setCreating(false);
+              }}
             />
           </motion.div>
         )}
@@ -882,23 +874,10 @@ function CategoryManageRow({
   onRemoveBudget: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [limitEditing, setLimitEditing] = useState(false);
-  const [amountStr, setAmountStr] = useState("");
   const Icon = financeIcon(cat.icon);
   const color = colorWithAlpha(cat.color, 1);
   const pct = limit && limit > 0 ? total / limit : 0;
   const typeColor = cat.type === "INCOME" ? INCOME_COLOR : EXPENSE_COLOR;
-
-  function startLimitEdit() {
-    setAmountStr(limit ? String(limit) : "");
-    setLimitEditing(true);
-  }
-  function saveLimit() {
-    const amount = Number(amountStr || "0");
-    if (amount <= 0) return;
-    onSetBudget(amount);
-    setLimitEditing(false);
-  }
 
   if (editing) {
     return (
@@ -906,9 +885,18 @@ function CategoryManageRow({
         <CategoryForm
           type={cat.type}
           initial={{ label: cat.label, icon: cat.icon, color: cat.color }}
+          showLimit={hasLimit}
+          initialLimit={limit}
           submitLabel="Saqlash"
           onCancel={() => setEditing(false)}
-          onSubmit={(input) => { onUpdate(input); setEditing(false); }}
+          onSubmit={({ limit: nextLimit, ...patch }) => {
+            onUpdate(patch);
+            if (hasLimit) {
+              if (nextLimit != null) onSetBudget(nextLimit);
+              else onRemoveBudget();
+            }
+            setEditing(false);
+          }}
         />
       </li>
     );
@@ -921,41 +909,19 @@ function CategoryManageRow({
           <Icon className="size-[18px]" strokeWidth={2} />
         </span>
         <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{cat.label}</span>
-        {!limitEditing && (
-          <span className="shrink-0 text-[12.5px] tabular-nums">
-            <span className="font-semibold" style={{ color: hasLimit && limit != null ? budgetColor(pct) : typeColor }}>
-              {formatSom(total)}
-            </span>
-            {hasLimit && limit != null && <span className="text-faint">{" / "}{formatSom(limit)}</span>}
+        <span className="shrink-0 text-[12.5px] tabular-nums">
+          <span className="font-semibold" style={{ color: hasLimit && limit != null ? budgetColor(pct) : typeColor }}>
+            {formatSom(total)}
           </span>
-        )}
+          {hasLimit && limit != null && <span className="text-faint">{" / "}{formatSom(limit)}</span>}
+        </span>
         <button onClick={() => setEditing(true)} aria-label="Tahrirlash" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><Pencil className="size-3.5" /></button>
         <button onClick={onRemove} aria-label="O'chirish" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><Trash2 className="size-3.5" /></button>
       </div>
 
       {hasLimit && (
-        limitEditing ? (
-          <div className="mt-2.5 flex items-center gap-2">
-            <div className="flex flex-1 items-baseline gap-1.5 rounded-lg border border-border bg-subtle/30 px-2.5 py-2 focus-within:border-foreground/30">
-              <input
-                autoFocus
-                inputMode="numeric"
-                value={amountStr ? formatSom(Number(amountStr)) : ""}
-                onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
-                onFocus={ensureVisibleOnFocus}
-                onKeyDown={(e) => { if (e.key === "Enter") saveLimit(); }}
-                placeholder="Oylik limit"
-                className="min-w-0 flex-1 bg-transparent text-[14px] font-medium tabular-nums outline-none placeholder:text-faint/50"
-              />
-              <span className="shrink-0 text-[12px] text-faint">so&apos;m</span>
-            </div>
-            {limit != null && (
-              <button onClick={() => { onRemoveBudget(); setLimitEditing(false); }} aria-label="Limitni o'chirish" className="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-faint hover:bg-hover hover:text-foreground"><Trash2 className="size-4" /></button>
-            )}
-            <button onClick={saveLimit} disabled={Number(amountStr || "0") <= 0} className="grid size-9 shrink-0 place-items-center rounded-lg bg-foreground text-background disabled:opacity-40"><Check className="size-4" /></button>
-          </div>
-        ) : limit != null ? (
-          <button onClick={startLimitEdit} className="mt-2.5 block w-full">
+        limit != null ? (
+          <button onClick={() => setEditing(true)} className="mt-2.5 block w-full">
             <ProgressBar pct={pct} />
             {pct > 1 && (
               <p className="mt-1 text-left text-[11.5px]" style={{ color: EXPENSE_COLOR }}>
@@ -964,7 +930,7 @@ function CategoryManageRow({
             )}
           </button>
         ) : (
-          <button onClick={startLimitEdit} className="mt-2 flex items-center gap-1 text-[12.5px] text-faint transition-colors hover:text-foreground">
+          <button onClick={() => setEditing(true)} className="mt-2 flex items-center gap-1 text-[12.5px] text-faint transition-colors hover:text-foreground">
             <Plus className="size-3.5" />
             Limit qo&apos;shish
           </button>
@@ -1603,22 +1569,12 @@ function TxnDialog({
 
         <div className="shrink-0 border-t border-border px-4 py-3">
           {isView ? (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => { onRemove(editing!.id); onClose(); }}
-                aria-label="O'chirish"
-                title="O'chirish"
-                className="flex shrink-0 items-center justify-center rounded-lg border border-border px-3 py-2.5 text-faint transition-colors hover:border-danger hover:bg-danger-soft hover:text-danger"
-              >
-                <Trash2 className="size-4" />
-              </button>
-              <button
-                onClick={onClose}
-                className="flex-1 rounded-lg bg-foreground py-2.5 text-[14px] font-medium text-background transition-opacity hover:opacity-90"
-              >
-                Yopish
-              </button>
-            </div>
+            <button
+              onClick={onClose}
+              className="w-full rounded-lg bg-foreground py-2.5 text-[14px] font-medium text-background transition-opacity hover:opacity-90"
+            >
+              Yopish
+            </button>
           ) : editing ? (
             <div className="flex items-center gap-2">
               <button
@@ -1657,24 +1613,30 @@ function TxnDialog({
 function CategoryForm({
   type,
   initial,
+  showLimit = false,
+  initialLimit = null,
   submitLabel,
   onCancel,
   onSubmit,
 }: {
   type: TransactionType;
   initial?: { label: string; icon: string; color: CategoryColor };
+  showLimit?: boolean;
+  initialLimit?: number | null;
   submitLabel?: string;
   onCancel: () => void;
-  onSubmit: (input: { label: string; icon: string; color: CategoryColor }) => void;
+  onSubmit: (input: { label: string; icon: string; color: CategoryColor; limit: number | null }) => void;
 }) {
   const [label, setLabel] = useState(initial?.label ?? "");
   const [icon, setIcon] = useState(initial?.icon ?? FINANCE_ICON_KEYS[0]);
   const [color, setColor] = useState<CategoryColor>(initial?.color ?? "indigo");
+  const [limitStr, setLimitStr] = useState(initialLimit ? String(initialLimit) : "");
 
   function submit() {
     const l = label.trim();
     if (!l) return;
-    onSubmit({ label: l, icon, color });
+    const limitNum = Number(limitStr || "0");
+    onSubmit({ label: l, icon, color, limit: showLimit && limitNum > 0 ? limitNum : null });
   }
 
   return (
@@ -1729,6 +1691,25 @@ function CategoryForm({
           </button>
         ))}
       </div>
+
+      {/* Oylik limit (faqat chiqim kategoriyalari uchun) */}
+      {showLimit && (
+        <div className="mb-3">
+          <p className="mb-1.5 text-[12px] text-faint">Oylik limit (ixtiyoriy)</p>
+          <div className="flex items-baseline gap-1.5 rounded-md border border-border bg-surface px-2.5 py-2 focus-within:border-foreground/30">
+            <input
+              inputMode="numeric"
+              value={limitStr ? formatSom(Number(limitStr)) : ""}
+              onChange={(e) => setLimitStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+              onFocus={ensureVisibleOnFocus}
+              onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+              placeholder="Limit belgilanmagan"
+              className="min-w-0 flex-1 bg-transparent text-[13px] font-medium tabular-nums outline-none placeholder:text-faint/50"
+            />
+            <span className="shrink-0 text-[12px] text-faint">so&apos;m</span>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2">
         <button

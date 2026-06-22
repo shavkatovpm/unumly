@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   Check,
+  ChevronDown,
   Clock,
   Coffee,
   Pencil,
@@ -16,6 +17,10 @@ import {
   X,
 } from "lucide-react";
 import { useHydrated, usePlans } from "@/lib/plans-store";
+import { useDebts } from "@/lib/debts-store";
+import { debtRemindersForToday } from "@/lib/debt-reminders";
+import { DebtReminderRow } from "./widgets/debt-reminder-row";
+import { useRejaCategoryMap } from "@/lib/use-reja-category";
 import { useDragReorder } from "@/lib/use-drag-reorder";
 import {
   formatDateLong,
@@ -29,6 +34,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { Plan } from "@/lib/types";
 import { TaskRow } from "./widgets/task-row";
+import { TaskAnalytics } from "./widgets/task-analytics";
 import { TimePickerPopover } from "./widgets/time-picker-popover";
 import { TaskDetail } from "./widgets/task-detail";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
@@ -37,13 +43,24 @@ import { useScrollLock } from "@/lib/use-scroll-lock";
 
 export function BugunView() {
   const { plans, create, update, toggleStatus, remove } = usePlans();
+  const rejaCatMap = useRejaCategoryMap();
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [analyticsLabel, setAnalyticsLabel] = useState("Haftalik analitika");
   const hydrated = useHydrated();
+
   const { askRemove, confirmEl } = useConfirmRemove(plans, remove, {
     description:
       '"{title}" o\'chiriladi va 30 kun davomida "O\'chirilgan" bo\'limida saqlanadi.',
   });
   const today = useMemo(() => startOfDay(), []);
   const todayIso = useMemo(() => toDateInputValue(today), [today]);
+
+  // Qarz muddati eslatmalari — Bugun'da ko'rinadi (hal qilinsa yo'qoladi).
+  const { debts, setSettled: settleDebt, snoozeDebt } = useDebts();
+  const debtReminders = useMemo(
+    () => debtRemindersForToday(debts, todayIso),
+    [debts, todayIso]
+  );
 
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -98,25 +115,36 @@ export function BugunView() {
   const active = todays.filter((p) => p.status !== "DONE");
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
+  // Card sarlavhasi — analitika ochiq bo'lsa tanlangan davr nomiga o'zgaradi.
+  const cardTitle = !hydrated
+    ? "Bugungi rejalar"
+    : total === 0
+    ? "Birinchi rejangizni yozing"
+    : analyticsOpen
+    ? analyticsLabel
+    : "Bugungi rejalar";
+
   const nowMin = now ? now.getHours() * 60 + now.getMinutes() : null;
 
   function bucketOf(p: Plan): "overdue" | "midnight" | "morning" | "noon" | "evening" | "anytime" {
     // Overdue = timed undone task whose moment is already in the past:
     //   - scheduled for a previous day, OR
-    //   - scheduled for today but the clock passed its time.
+    //   - scheduled for today but the clock passed its time + duration.
+    // Task vaqti kelganda emas, balki belgilangan davomiyligi ham tugagach
+    // kechikkan bo'ladi (1 soatlik task faqat 1 soat o'tgach qizil bo'ladi).
     // Untimed past-day undone tasks → flow into "anytime" naturally.
     if (p.time) {
       if (p.scheduledFor < todayIso) return "overdue";
       if (p.scheduledFor === todayIso && nowMin !== null) {
-        if (parseTimeToMinutes(p.time) < nowMin) return "overdue";
+        if (parseTimeToMinutes(p.time) + (p.duration ?? 0) < nowMin) return "overdue";
       }
     }
     if (!p.time) return "anytime";
     const h = Number(p.time.split(":")[0]);
-    if (h < 4)  return "midnight";   // 00:00 – 03:59
-    if (h < 12) return "morning";    // 04:00 – 11:59
-    if (h < 17) return "noon";       // 12:00 – 16:59
-    return "evening";                // 17:00 – 23:59
+    if (h < 5)  return "midnight";   // 00:00 – 04:59
+    if (h < 12) return "morning";    // 05:00 – 11:59
+    if (h < 18) return "noon";       // 12:00 – 17:59
+    return "evening";                // 18:00 – 23:59
   }
 
   const blocks: {
@@ -243,11 +271,11 @@ export function BugunView() {
   return (
     <div
       data-scroll-lock-on-focus
-      className="flex flex-col overflow-y-auto"
+      className="flex flex-col overflow-y-auto [scrollbar-gutter:stable]"
       style={{ height: "var(--tg-vh, 100vh)" }}
     >
       {/* Header */}
-      <header className="flex h-12 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
         <div className="flex min-w-0 items-center gap-2">
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Bugun</h1>
           <span className="truncate text-[13px] text-faint sm:text-[12px]">{formatUzDate(today)}</span>
@@ -261,44 +289,98 @@ export function BugunView() {
 
       {/* Content */}
       <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:pb-8">
-        {/* Greeting block — bitta tortburchak ichida, bir qatorda */}
-        <div className="rise-in flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 sm:px-5 sm:py-3.5">
-          <h2 className="min-w-0 truncate text-[16px] font-semibold leading-tight tracking-[-0.02em] text-foreground sm:text-[18px]">
-            {!hydrated ? "Bugungi rejalar" : total === 0 ? "Birinchi rejangizni yozing" : "Bugungi rejalar"}
-          </h2>
-          {total > 0 && (
-            <div className="flex shrink-0 items-center gap-2.5">
-              <div className="leading-none text-right">
-                <p className="font-mono text-[16px] font-semibold tabular-nums leading-none sm:text-[18px]">
-                  {pct}%
-                </p>
-                <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-faint">
-                  {done}/{total}
-                </p>
-              </div>
-              <div className="relative grid size-10 place-items-center">
-                <svg viewBox="0 0 36 36" className="-rotate-90">
-                  <circle cx="18" cy="18" r="15" fill="none" stroke="var(--subtle)" strokeWidth="3" />
-                  <circle
-                    cx="18" cy="18" r="15"
-                    fill="none"
-                    stroke="var(--accent)"
-                    strokeWidth="3"
-                    strokeDasharray={`${(pct / 100) * 94.2} 94.2`}
-                    strokeLinecap="round"
-                    className="transition-[stroke-dasharray] duration-500 ease-out"
-                  />
-                </svg>
-                {pct === 100 && (
-                  <Check className="absolute size-4 text-accent check-pop" strokeWidth={5} />
-                )}
-              </div>
+        {/* Greeting block — foiz halqasi bosilganda analitika ochiladi */}
+        <div className="rise-in overflow-hidden rounded-lg border border-border bg-surface">
+          <div
+            className={cn(
+              "flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-3.5",
+              total > 0 && "cursor-pointer select-none transition-colors hover:bg-hover/40"
+            )}
+            onClick={total > 0 ? () => setAnalyticsOpen((v) => !v) : undefined}
+            role={total > 0 ? "button" : undefined}
+            tabIndex={total > 0 ? 0 : undefined}
+            aria-expanded={total > 0 ? analyticsOpen : undefined}
+            onKeyDown={
+              total > 0
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setAnalyticsOpen((v) => !v);
+                    }
+                  }
+                : undefined
+            }
+          >
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.h2
+                  key={cardTitle}
+                  initial={{ opacity: 0, y: 7 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -7 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className="truncate text-[16px] font-semibold leading-tight tracking-[-0.02em] text-foreground sm:text-[18px]"
+                >
+                  {cardTitle}
+                </motion.h2>
+              </AnimatePresence>
             </div>
-          )}
+            {total > 0 && (
+              <div data-coach="analytics" className="flex shrink-0 items-center gap-2">
+                <div className="leading-none text-right">
+                  <p className="font-mono text-[16px] font-semibold tabular-nums leading-none sm:text-[18px]">
+                    {pct}%
+                  </p>
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-faint">
+                    {done}/{total}
+                  </p>
+                </div>
+                <div className="relative grid size-10 place-items-center">
+                  <svg viewBox="0 0 36 36" className="-rotate-90">
+                    <circle cx="18" cy="18" r="15" fill="none" stroke="var(--subtle)" strokeWidth="3" />
+                    <circle
+                      cx="18" cy="18" r="15"
+                      fill="none"
+                      stroke="var(--accent)"
+                      strokeWidth="3"
+                      strokeDasharray={`${(pct / 100) * 94.2} 94.2`}
+                      strokeLinecap="round"
+                      className="transition-[stroke-dasharray] duration-500 ease-out"
+                    />
+                  </svg>
+                  {pct === 100 && (
+                    <Check className="absolute size-4 text-accent check-pop" strokeWidth={5} />
+                  )}
+                </div>
+                <ChevronDown
+                  className={cn(
+                    "size-4 text-faint transition-transform duration-300",
+                    analyticsOpen && "rotate-180"
+                  )}
+                />
+              </div>
+            )}
+          </div>
+
+          <AnimatePresence initial={false}>
+            {analyticsOpen && total > 0 && (
+              <motion.div
+                key="analytics"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden border-t border-border bg-subtle/30"
+              >
+                <TaskAnalytics plans={plans} today={today} onRangeLabelChange={setAnalyticsLabel} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Add task — desktop only (mobile uses FAB at bottom-right) */}
         <form
+          data-coach="add"
           onSubmit={submit}
           className="rise-in mt-8 hidden overflow-hidden rounded-lg border border-border bg-surface shadow-[0_1px_0_var(--border)] transition-colors focus-within:border-border-strong md:block"
           style={{ animationDelay: "60ms" }}
@@ -329,6 +411,7 @@ export function BugunView() {
             </button>
             <button
               ref={timeBtnRef}
+              data-coach="time"
               type="button"
               onClick={() => setShowTime((v) => !v)}
               className={cn(
@@ -364,6 +447,21 @@ export function BugunView() {
           }
           occupiedSlots={occupiedTimeSlots(plans, todayIso)}
         />
+
+        {/* Qarz muddati eslatmalari */}
+        {debtReminders.length > 0 && (
+          <div className="rise-in mt-6 space-y-2" style={{ animationDelay: "80ms" }}>
+            {debtReminders.map((r) => (
+              <DebtReminderRow
+                key={r.debt.id}
+                reminder={r}
+                today={todayIso}
+                onSettle={() => settleDebt(r.debt.id, true)}
+                onSnooze={(untilIso) => snoozeDebt(r.debt.id, untilIso)}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Tasks list */}
         <div
@@ -446,6 +544,15 @@ export function BugunView() {
                               isOverdue && p.scheduledFor < todayIso
                                 ? formatDateLong(fromDateInputValue(p.scheduledFor))
                                 : undefined;
+                            // Faol oyna: vaqti kelgan, lekin davomiyligi hali
+                            // tugamagan, bajarilmagan bugungi task → ko'k.
+                            const isActiveNow =
+                              !!p.time &&
+                              p.scheduledFor === todayIso &&
+                              p.status !== "DONE" &&
+                              nowMin !== null &&
+                              parseTimeToMinutes(p.time) <= nowMin &&
+                              nowMin <= parseTimeToMinutes(p.time) + (p.duration ?? 0);
                             if (!isAnytime) {
                               return (
                                 <TaskRow
@@ -456,7 +563,9 @@ export function BugunView() {
                                   onOpen={setDetailId}
                                   isNew={p.id === justCreatedId}
                                   overdue={isOverdue}
+                                  active={isActiveNow}
                                   overdueDateLabel={overdueDateLabel}
+                                  rejaCategory={rejaCatMap.get(p.id)}
                                 />
                               );
                             }
@@ -489,6 +598,7 @@ export function BugunView() {
                                       ? formatDateLong(fromDateInputValue(p.scheduledFor))
                                       : undefined
                                   }
+                                  rejaCategory={rejaCatMap.get(p.id)}
                                 />
                               </div>
                             );
@@ -526,6 +636,7 @@ export function BugunView() {
       {/* Mobile FAB — bottom-right circular "+" button */}
       <button
         type="button"
+        data-coach="add"
         onClick={() => setMobileSheet(true)}
         aria-label="Yangi reja qo'shish"
         className={cn(

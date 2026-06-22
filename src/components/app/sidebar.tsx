@@ -52,6 +52,12 @@ export function Sidebar({
 
   // Settings dialog
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Command palette'dagi "Sozlamalar" buyrug'i shu hodisa orqali ochadi.
+  useEffect(() => {
+    const onOpen = () => setSettingsOpen(true);
+    window.addEventListener("unumly:open-settings", onOpen);
+    return () => window.removeEventListener("unumly:open-settings", onOpen);
+  }, []);
 
   // Arxiv section collapsible — default closed, persisted.
   // Auto-closes when user navigates away from an Arxiv route.
@@ -103,7 +109,7 @@ export function Sidebar({
   }
 
   // Boshqaruv section collapsible — default closed, persisted.
-  // Auto-closes when user navigates away from a Boshqaruv route.
+  // Bir marta ochilgach faqat user o'zi yopadi (navigatsiyada avtomatik yopilmaydi).
   const [boshqaruvOpen, setBoshqaruvOpen] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -114,28 +120,6 @@ export function Sidebar({
       /* ignore */
     }
   }, []);
-
-  const onBoshqaruvRoute =
-    pathname === "/odat" || pathname.startsWith("/odat/") ||
-    pathname === "/maqsad" || pathname.startsWith("/maqsad/") ||
-    pathname === "/reja" || pathname.startsWith("/reja/") ||
-    pathname === "/tezkor" || pathname.startsWith("/tezkor/");
-
-  // When user navigates away from a Boshqaruv route, collapse the section.
-  useEffect(() => {
-    if (!onBoshqaruvRoute && boshqaruvOpen) {
-      setBoshqaruvOpen(false);
-      try {
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(STORAGE_BOSHQARUV_OPEN, "0");
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-    // We only want to react to pathname changes, not to boshqaruvOpen toggles.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
 
   function toggleBoshqaruv() {
     setBoshqaruvOpen((v) => {

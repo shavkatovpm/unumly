@@ -1,18 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, Reorder, motion } from "framer-motion";
 import {
   ArrowDown,
   ArrowUp,
   Check,
+  CheckCheck,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleDashed,
+  Combine,
+  Flag,
   LayoutGrid,
   Layers,
+  ListChecks,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -29,13 +33,27 @@ import { Dialog } from "./widgets/dialog";
 import { ConfirmDialog, useConfirmRemove } from "./widgets/confirm-dialog";
 import { IdeaDetail } from "./widgets/idea-detail";
 import { ListLoader } from "./widgets/list-loader";
+import { makeSubtaskId } from "./widgets/subtask-ui";
+
+/* ─── Tanlash (select) konteksti — bir nechta vazifani belgilab birlashtirish.
+   Prop threading o'rniga context bilan IdeaRowLinear'ga uzatiladi. ─── */
+type RejaSelection = {
+  active: boolean;
+  selected: Set<string>;
+  toggle: (id: string) => void;
+};
+const RejaSelectCtx = createContext<RejaSelection>({
+  active: false,
+  selected: new Set(),
+  toggle: () => {},
+});
 
 const DONE_DELAY_MS = 700;
 const VIEW_KEY = "unumly:reja:view";
 const SORT_KEY = "unumly:reja:sort";
 const NEW_ITEM_MS = 500;
 
-type SortOrder = "new" | "old";
+type SortOrder = "new" | "old" | "priority";
 
 function colorAlpha(c: string, a: number) {
   return c.replace(")", ` / ${a})`);
@@ -79,7 +97,7 @@ export function RejaView() {
       if (v === "tab" || v === "kanban") setView(v);
     }
     const s = window.localStorage.getItem(SORT_KEY);
-    if (s === "new" || s === "old") setSortOrder(s);
+    if (s === "new" || s === "old" || s === "priority") setSortOrder(s);
   }, []);
   function setViewPersist(v: "tab" | "kanban") {
     setView(v);
@@ -118,6 +136,45 @@ export function RejaView() {
   const total = boardIdeas.length;
   const done = boardIdeas.filter((i) => i.done).length;
 
+  // ─── Tanlash rejimi — bir nechta vazifani belgilab bitta umumiy task ichiga
+  //     subtask qilib birlashtirish ───
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [mergeOpen, setMergeOpen] = useState(false);
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function exitSelect() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setMergeOpen(false);
+  }
+  const selectedList = useMemo(
+    () => boardIdeas.filter((i) => selectedIds.has(i.id)),
+    [boardIdeas, selectedIds]
+  );
+  function doMerge(name: string) {
+    const sel = selectedList;
+    if (sel.length < 2) return;
+    const parentId = create({
+      title: name.trim() || "Yangi vazifa",
+      categoryId: sel[0].categoryId,
+    });
+    update(parentId, {
+      subtasks: sel.map((i) => ({ id: makeSubtaskId(), title: i.title, done: i.done })),
+    });
+    for (const i of sel) remove(i.id);
+    exitSelect();
+    setDetailId(parentId); // vaqt/jadval belgilash uchun ochamiz
+  }
+
+  const selection: RejaSelection = { active: selectMode, selected: selectedIds, toggle: toggleSelect };
+
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
@@ -126,13 +183,51 @@ export function RejaView() {
           <ViewSwitcher value={view} onChange={setViewPersist} />
           <SortToggle value={sortOrder} onChange={setSortPersist} />
         </div>
-        {total > 0 && (
-          <p className="font-mono text-[11px] tabular-nums text-faint">
-            {done}/{total}
-          </p>
-        )}
+        <div className="flex items-center gap-2">
+          {selectMode ? (
+            <>
+              <span className="font-mono text-[11px] tabular-nums text-faint">
+                {selectedIds.size} tanlandi
+              </span>
+              <button
+                onClick={() => setMergeOpen(true)}
+                disabled={selectedIds.size < 2}
+                className="inline-flex items-center gap-1 rounded-md bg-foreground px-2.5 py-1 text-[11.5px] font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+              >
+                <Combine className="size-3.5" /> Birlashtir
+              </button>
+              <button
+                onClick={exitSelect}
+                className="rounded-md border border-border bg-surface px-2 py-1 text-[11.5px] text-muted transition-colors hover:bg-hover hover:text-foreground"
+              >
+                Bekor
+              </button>
+            </>
+          ) : (
+            <>
+              {total > 0 && (
+                <p className="font-mono text-[11px] tabular-nums text-faint">
+                  {done}/{total}
+                </p>
+              )}
+              {total >= 2 && (
+                <button
+                  onClick={() => setSelectMode(true)}
+                  title="Vazifalarni belgilab birlashtirish"
+                  className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-1.5 py-1 text-[11px] text-muted transition-colors hover:bg-hover hover:text-foreground sm:px-2"
+                >
+                  <CheckCheck className="size-3.5" />
+                  <span className="hidden font-mono uppercase tracking-wider sm:inline">
+                    Tanlash
+                  </span>
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </header>
 
+      <RejaSelectCtx.Provider value={selection}>
       {!catsHydrated && categories.length === 0 ? (
         <ListLoader label="Yuklanmoqda…" />
       ) : categories.length === 0 ? (
@@ -170,6 +265,15 @@ export function RejaView() {
           onCategoryReorder={(d, b) => reorderCategories(categories, d, b, updateCategory)}
         />
       )}
+      </RejaSelectCtx.Provider>
+
+      <MergeDialog
+        open={mergeOpen}
+        count={selectedIds.size}
+        items={selectedList}
+        onClose={() => setMergeOpen(false)}
+        onConfirm={doMerge}
+      />
 
       <CategoryDialog
         state={dialogState}
@@ -266,6 +370,18 @@ function ViewSwitcher({
   );
 }
 
+// Bitta toggle — bosganda 3 holat aylanadi: yangi → muhim → eski → …
+const SORT_NEXT: Record<SortOrder, SortOrder> = {
+  new: "priority",
+  priority: "old",
+  old: "new",
+};
+const SORT_META: Record<SortOrder, { label: string; title: string; icon: React.ReactNode }> = {
+  new: { label: "yangi", title: "Yangilari tepada", icon: <ArrowDown className="size-3" /> },
+  priority: { label: "muhim", title: "Muhimlari tepada", icon: <Flag className="size-3" /> },
+  old: { label: "eski", title: "Eskilari tepada", icon: <ArrowUp className="size-3" /> },
+};
+
 function SortToggle({
   value,
   onChange,
@@ -273,16 +389,17 @@ function SortToggle({
   value: SortOrder;
   onChange: (v: SortOrder) => void;
 }) {
+  const m = SORT_META[value];
   return (
     <button
-      onClick={() => onChange(value === "new" ? "old" : "new")}
-      title={value === "new" ? "Yangilari tepada" : "Eskilari tepada"}
-      aria-label={value === "new" ? "Yangilari tepada" : "Eskilari tepada"}
+      onClick={() => onChange(SORT_NEXT[value])}
+      title={m.title}
+      aria-label={m.title}
       className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-1.5 py-1 text-[11px] text-muted transition-colors hover:bg-hover hover:text-foreground sm:px-2"
     >
-      {value === "new" ? <ArrowDown className="size-3" /> : <ArrowUp className="size-3" />}
+      {m.icon}
       <span className="hidden font-mono uppercase tracking-wider sm:inline">
-        {value === "new" ? "yangi" : "eski"}
+        {m.label}
       </span>
     </button>
   );
@@ -302,6 +419,92 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         </button>
       </div>
     </div>
+  );
+}
+
+/* ─── Birlashtirish dialogi — tanlangan vazifalarni bitta umumiy task ichiga
+   subtask qilib birlashtirish (nom + ko'rib chiqish). ─── */
+function MergeDialog({
+  open,
+  count,
+  items,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  count: number;
+  items: Idea[];
+  onClose: () => void;
+  onConfirm: (name: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [lastOpen, setLastOpen] = useState(false);
+  if (open && !lastOpen) {
+    setLastOpen(true);
+    setName("");
+  }
+  if (!open && lastOpen) setLastOpen(false);
+
+  return (
+    <Dialog open={open} onClose={onClose} className="max-w-sm" mobilePlacement="center">
+      <div className="flex flex-col">
+        <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+          <p className="text-[15px] font-semibold">Vazifalarni birlashtirish</p>
+          <button
+            onClick={onClose}
+            aria-label="Yopish"
+            className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        </header>
+        <div className="px-4 py-4">
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && name.trim()) onConfirm(name);
+            }}
+            placeholder="Umumiy vazifa nomi (masalan: Bozorlik)"
+            className="w-full rounded-lg border border-border bg-subtle/30 px-3 py-2.5 text-[14px] outline-none placeholder:text-faint/50 focus:border-foreground/30"
+          />
+          <p className="mt-3 flex items-center gap-1.5 text-[12px] text-faint">
+            <ListChecks className="size-3.5" />
+            {count} ta vazifa ichki vazifa bo&apos;ladi:
+          </p>
+          <ul className="mt-1.5 max-h-40 space-y-1 overflow-y-auto">
+            {items.map((i) => (
+              <li
+                key={i.id}
+                className="flex items-center gap-2 rounded-md bg-subtle/40 px-2.5 py-1.5 text-[13px]"
+              >
+                <span className="size-1.5 shrink-0 rounded-full bg-faint" />
+                <span className="truncate">{i.title}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2.5 text-[11.5px] text-faint">
+            Birlashgach vaqt/jadval belgilashingiz uchun ochiladi.
+          </p>
+        </div>
+        <footer className="flex shrink-0 justify-end gap-2 border-t border-border px-4 py-3">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border px-3 py-2 text-[13px] text-muted transition-colors hover:bg-hover"
+          >
+            Bekor
+          </button>
+          <button
+            onClick={() => onConfirm(name)}
+            disabled={!name.trim()}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-4 py-2 text-[13px] font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            <Combine className="size-3.5" /> Birlashtir
+          </button>
+        </footer>
+      </div>
+    </Dialog>
   );
 }
 
@@ -325,8 +528,16 @@ type ViewProps = {
   onCategoryReorder?: (draggedId: string, beforeId: string | null) => void;
 };
 
+const PRIORITY_RANK: Record<string, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+
 function sortIdeas(arr: Idea[], order: SortOrder): Idea[] {
   return [...arr].sort((a, b) => {
+    if (order === "priority") {
+      const pa = a.priority ? PRIORITY_RANK[a.priority] ?? 0 : 0;
+      const pb = b.priority ? PRIORITY_RANK[b.priority] ?? 0 : 0;
+      if (pb !== pa) return pb - pa; // muhimi tepada
+      return -a.createdAt.localeCompare(b.createdAt); // teng bo'lsa — yangisi tepada
+    }
     const cmp = a.createdAt.localeCompare(b.createdAt);
     return order === "new" ? -cmp : cmp;
   });
@@ -1292,6 +1503,9 @@ function IdeaRowLinear({
 }) {
   const color = CATEGORY_PALETTE[cat.color].oklch;
   const done = idea.done;
+  const sel = useContext(RejaSelectCtx);
+  const selecting = sel.active;
+  const isSelected = sel.selected.has(idea.id);
   const [pendingDone, setPendingDone] = useState(false);
   const timerRef = useRef<number | null>(null);
 
@@ -1356,8 +1570,10 @@ function IdeaRowLinear({
     <article
       className={cn(
         "group grid items-start gap-2 overflow-hidden border-b border-border/40 hover:bg-hover/40",
-        compact ? "grid-cols-[10px_1fr_24px_14px] px-3" : "grid-cols-[16px_1fr_50px_24px_16px] px-5",
-        isNew && !pendingDone && "task-pop"
+        compact ? "grid-cols-[10px_1fr_14px] px-3" : "grid-cols-[16px_1fr_50px_16px] px-5",
+        isNew && !pendingDone && "task-pop",
+        selecting && "cursor-pointer",
+        selecting && isSelected && "bg-accent-soft/70 hover:bg-accent-soft/70"
       )}
       style={articleStyle}
     >
@@ -1385,7 +1601,7 @@ function IdeaRowLinear({
       )}
 
       <button
-        onClick={() => onOpen?.()}
+        onClick={() => (selecting ? sel.toggle(idea.id) : onOpen?.())}
         className={cn(
           "min-w-0 flex-1 cursor-pointer truncate text-left leading-snug",
           compact ? "text-[13.5px] sm:text-[12px]" : "text-[14.5px] sm:text-[13px]",
@@ -1401,17 +1617,26 @@ function IdeaRowLinear({
         </span>
       )}
 
-      <button
-        onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        aria-label="O'chirish"
-        className="grid size-5 shrink-0 place-items-center rounded text-faint opacity-0 transition-colors hover:bg-danger-soft hover:text-danger group-hover:opacity-100"
-      >
-        <Trash2 className="size-3" />
-      </button>
-
-      <button onClick={handleToggle} className="mt-0.5">
-        <CheckBox visualDone={visualDone} color={color} small={compact} />
-      </button>
+      {selecting ? (
+        <button onClick={() => sel.toggle(idea.id)} aria-label="Tanlash" className="mt-0.5">
+          <span
+            className={cn(
+              "grid place-items-center rounded-md border transition-all duration-200",
+              compact ? "size-[14px]" : "size-[16px]",
+              isSelected ? "border-transparent" : "border-border-strong hover:border-accent"
+            )}
+            style={isSelected ? { background: "var(--accent)", borderColor: "var(--accent)" } : undefined}
+          >
+            {isSelected && (
+              <Check className={cn("text-accent-ink", compact ? "size-2" : "size-2.5")} strokeWidth={4} />
+            )}
+          </span>
+        </button>
+      ) : (
+        <button onClick={handleToggle} className="mt-0.5">
+          <CheckBox visualDone={visualDone} color={color} small={compact} />
+        </button>
+      )}
     </article>
   );
 }

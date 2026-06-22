@@ -190,4 +190,10 @@ export type Debt = {
   note?: string;
   settledAt?: string;     // ISO — to'liq hal qilingan bo'lsa
   order: number;
+  /** Muddat kelganda Agenda/Bugun'da eslatma sifatida ko'rsatish (ixtiyoriy). */
+  agendaReminder?: boolean;
+  /** Muddatdan necha kun oldin ko'rina boshlasin (0 = aynan muddat kuni). */
+  reminderLeadDays?: number;
+  /** YYYY-MM-DD — kechiktirilgan bo'lsa, shu kungача Agenda'da yashiriladi. */
+  snoozedUntil?: string;
 };
