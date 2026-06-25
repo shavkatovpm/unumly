@@ -180,12 +180,16 @@ export type FinancialGoal = {
 /** BORROWED — men oldim (qarzdorman); LENT — men berdim (menga qarzdor). */
 export type DebtType = "BORROWED" | "LENT";
 
+/** Qarz valyutasi. UZS — so'm (asosiy), USD — dollar, EUR — yevro. */
+export type Currency = "UZS" | "USD" | "EUR";
+
 export type Debt = {
   id: string;
   type: DebtType;
   counterparty: string;   // kim bilan
-  amount: number;         // umumiy summa (so'm)
-  paidAmount: number;     // qaytarilgan qism (so'm)
+  amount: number;         // umumiy summa
+  paidAmount: number;     // qaytarilgan qism
+  currency: Currency;     // valyuta (UZS default)
   dueDate?: string;       // YYYY-MM-DD
   note?: string;
   settledAt?: string;     // ISO — to'liq hal qilingan bo'lsa

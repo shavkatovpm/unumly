@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Check, Clock, HandCoins, Wallet } from "lucide-react";
 import type { DebtReminder } from "@/lib/debt-reminders";
 import { shiftIso } from "@/lib/debt-reminders";
-import { formatSom } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 const SNOOZE_OPTS = [
@@ -56,9 +56,9 @@ export function DebtReminderRow({
         <p className="truncate text-[14px] font-medium sm:text-[13px]">
           {debt.counterparty}
           <span className="ml-1.5 font-mono text-[12.5px] tabular-nums" style={{ color: accent }}>
-            {formatSom(outstanding)}
+            {formatMoney(outstanding, debt.currency)}
           </span>
-          <span className="text-[11.5px] text-faint"> so&apos;m {borrowed ? "qaytarish" : "olish"}</span>
+          <span className="text-[11.5px] text-faint"> {borrowed ? "qaytarish" : "olish"}</span>
         </p>
         <p className="mt-0.5 text-[11px]" style={{ color: overdue ? accent : "var(--muted)" }}>
           {overdue ? "Muddat o'tgan" : "Muddat — bugun/yaqin"} · qarz eslatmasi

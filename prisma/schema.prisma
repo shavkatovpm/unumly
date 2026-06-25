@@ -529,8 +529,9 @@ model Debt {
 
   type         DebtType
   counterparty String    // kim bilan (ism)
-  amount       BigInt    // umumiy summa (so'm)
+  amount       BigInt    // umumiy summa
   paidAmount   BigInt    @default(0) // qaytarilgan qism
+  currency     String    @default("UZS") // UZS | USD | EUR
 
   dueDate      String?   @db.VarChar(10) // YYYY-MM-DD — ixtiyoriy muddat
   note         String?

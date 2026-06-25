@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import type { Debt, DebtType } from "@/lib/types";
+import type { Currency, Debt, DebtType } from "@/lib/types";
 import * as actions from "@/lib/finance-debts-actions";
 
 /* Qarzdorlik — in-memory cache backed by server actions (goals-store pattern).
@@ -58,6 +58,7 @@ export function addDebt(input: {
   type: DebtType;
   counterparty: string;
   amount: number;
+  currency?: Currency;
   dueDate?: string | null;
   note?: string;
   agendaReminder?: boolean;
@@ -70,6 +71,7 @@ export function addDebt(input: {
     counterparty: input.counterparty.trim(),
     amount: Math.round(input.amount),
     paidAmount: 0,
+    currency: input.currency ?? "UZS",
     dueDate: input.dueDate ?? undefined,
     note: input.note?.trim() || undefined,
     order: memoryState.length,
@@ -91,6 +93,7 @@ export function updateDebt(
   patch: {
     counterparty?: string;
     amount?: number;
+    currency?: Currency;
     dueDate?: string | null;
     note?: string;
     agendaReminder?: boolean;
@@ -106,6 +109,7 @@ export function updateDebt(
           ...d,
           ...(patch.counterparty !== undefined && { counterparty: patch.counterparty }),
           ...(patch.amount !== undefined && { amount: Math.round(patch.amount) }),
+          ...(patch.currency !== undefined && { currency: patch.currency }),
           ...(patch.dueDate !== undefined && { dueDate: patch.dueDate ?? undefined }),
           ...(patch.note !== undefined && { note: patch.note.trim() || undefined }),
           ...(patch.agendaReminder !== undefined && { agendaReminder: patch.agendaReminder }),

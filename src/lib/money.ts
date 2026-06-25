@@ -1,3 +1,5 @@
+import type { Currency } from "./types";
+
 /** So'm summasini bo'shliq bilan guruhlab formatlaydi: 1250000 → "1 250 000". */
 export function formatSom(n: number): string {
   const sign = n < 0 ? "-" : "";
@@ -8,6 +10,16 @@ export function formatSom(n: number): string {
 /** "1 250 000 so'm" — to'liq yorliq. */
 export function formatSomLabel(n: number): string {
   return `${formatSom(n)} so'm`;
+}
+
+/** Valyuta belgilari. */
+export const CURRENCY_LABEL: Record<Currency, string> = { UZS: "so'm", USD: "$", EUR: "€" };
+export const CURRENCIES: Currency[] = ["UZS", "USD", "EUR"];
+
+/** Summani valyuta bilan formatlaydi: so'm → "1 000 so'm", $/€ → "$1 000". */
+export function formatMoney(n: number, currency: Currency = "UZS"): string {
+  const num = formatSom(n);
+  return currency === "UZS" ? `${num} so'm` : `${CURRENCY_LABEL[currency]}${num}`;
 }
 
 /** "YYYY-MM" — joriy oy kaliti (Date'dan). */

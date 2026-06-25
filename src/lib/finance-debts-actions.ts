@@ -4,7 +4,12 @@ import type { Debt as DbDebt } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import type { Debt, DebtType } from "@/lib/types";
+import type { Currency, Debt, DebtType } from "@/lib/types";
+
+const CURRENCIES: Currency[] = ["UZS", "USD", "EUR"];
+function toCurrency(v: string | null | undefined): Currency {
+  return CURRENCIES.includes(v as Currency) ? (v as Currency) : "UZS";
+}
 
 function toDebt(d: DbDebt): Debt {
   return {
@@ -13,6 +18,7 @@ function toDebt(d: DbDebt): Debt {
     counterparty: d.counterparty,
     amount: Number(d.amount),
     paidAmount: Number(d.paidAmount),
+    currency: toCurrency(d.currency),
     dueDate: d.dueDate ?? undefined,
     note: d.note ?? undefined,
     settledAt: d.settledAt?.toISOString() ?? undefined,
@@ -55,6 +61,7 @@ export type CreateDebtInput = {
   type: DebtType;
   counterparty: string;
   amount: number;
+  currency?: Currency;
   dueDate?: string | null;
   note?: string;
   agendaReminder?: boolean;
@@ -78,6 +85,7 @@ export async function createDebt(input: CreateDebtInput): Promise<Debt> {
       type: input.type,
       counterparty: input.counterparty.trim(),
       amount: amountToBig(input.amount),
+      currency: toCurrency(input.currency),
       dueDate: input.dueDate ?? null,
       note: input.note?.trim() || null,
       notifyAt: computeNotifyAt(input.dueDate),
@@ -92,6 +100,7 @@ export async function createDebt(input: CreateDebtInput): Promise<Debt> {
 export type UpdateDebtPatch = Partial<{
   counterparty: string;
   amount: number;
+  currency: Currency;
   dueDate: string | null;
   note: string;
   agendaReminder: boolean;
@@ -113,6 +122,7 @@ export async function updateDebt(id: string, patch: UpdateDebtPatch): Promise<De
     data: {
       ...(patch.counterparty !== undefined && { counterparty: patch.counterparty.trim() }),
       ...(patch.amount !== undefined && { amount: amountToBig(patch.amount) }),
+      ...(patch.currency !== undefined && { currency: toCurrency(patch.currency) }),
       ...(patch.note !== undefined && { note: patch.note.trim() || null }),
       ...(patch.dueDate !== undefined && { dueDate: patch.dueDate }),
       ...(dueChanged && { notifyAt: computeNotifyAt(patch.dueDate), notifiedAt: null }),

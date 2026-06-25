@@ -14,9 +14,9 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Debt, DebtType } from "@/lib/types";
+import type { Currency, Debt, DebtType } from "@/lib/types";
 import { useDebts, useHydratedDebts } from "@/lib/debts-store";
-import { dateKey, formatSom } from "@/lib/money";
+import { dateKey, formatSom, formatMoney, CURRENCY_LABEL, CURRENCIES } from "@/lib/money";
 import { debtLeadOptions, daysBetween } from "@/lib/debt-reminders";
 import { ensureVisibleOnFocus } from "@/lib/ensure-visible";
 import { Dialog } from "./widgets/dialog";
@@ -48,15 +48,19 @@ export function QarzPanel() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Debt | null>(null);
 
-  const totals = useMemo(() => {
-    let lent = 0;
-    let borrowed = 0;
+  // Jami — har valyuta alohida (kurs o'zgaruvchan, aralashtirilmaydi).
+  const totalsByCurrency = useMemo(() => {
+    const map = new Map<Currency, { lent: number; borrowed: number }>();
     for (const d of debts) {
       if (d.settledAt) continue;
-      if (d.type === "LENT") lent += outstanding(d);
-      else borrowed += outstanding(d);
+      const cur = d.currency ?? "UZS";
+      const e = map.get(cur) ?? { lent: 0, borrowed: 0 };
+      if (d.type === "LENT") e.lent += outstanding(d);
+      else e.borrowed += outstanding(d);
+      map.set(cur, e);
     }
-    return { lent, borrowed, net: lent - borrowed };
+    // Belgilangan tartibda (so'm, $, €), faqat mavjudlari.
+    return CURRENCIES.filter((c) => map.has(c)).map((c) => ({ currency: c, ...map.get(c)! }));
   }, [debts]);
 
   const active = useMemo(() => debts.filter((d) => !d.settledAt), [debts]);
@@ -72,7 +76,7 @@ export function QarzPanel() {
   );
 
   const confirmItems = useMemo(
-    () => debts.map((d) => ({ id: d.id, title: `${d.counterparty} — ${formatSom(d.amount)} so'm` })),
+    () => debts.map((d) => ({ id: d.id, title: `${d.counterparty} — ${formatMoney(d.amount, d.currency)}` })),
     [debts]
   );
   const { askRemove, confirmEl } = useConfirmRemove(confirmItems, removeDebt, { itemLabel: "Qarzni" });
@@ -81,26 +85,20 @@ export function QarzPanel() {
 
   return (
     <>
-      {/* Summary */}
+      {/* Summary — har valyuta alohida qator */}
       <div className="mb-4 grid grid-cols-2 gap-2">
-        <div className="rounded-xl border border-border bg-surface p-3">
-          <div className="flex items-center gap-1.5 text-[11.5px] text-faint">
-            <ArrowDownLeft className="size-3.5" style={{ color: LENT_COLOR }} />
-            Menga qarzdor
-          </div>
-          <p className="mt-0.5 text-[16px] font-semibold tabular-nums" style={{ color: LENT_COLOR }}>
-            {formatSom(totals.lent)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-border bg-surface p-3">
-          <div className="flex items-center gap-1.5 text-[11.5px] text-faint">
-            <ArrowUpRight className="size-3.5" style={{ color: BORROWED_COLOR }} />
-            Men qarzdorman
-          </div>
-          <p className="mt-0.5 text-[16px] font-semibold tabular-nums" style={{ color: BORROWED_COLOR }}>
-            {formatSom(totals.borrowed)}
-          </p>
-        </div>
+        <SummaryCard
+          label="Menga qarzdor"
+          icon={<ArrowDownLeft className="size-3.5" style={{ color: LENT_COLOR }} />}
+          color={LENT_COLOR}
+          rows={totalsByCurrency.filter((t) => t.lent > 0).map((t) => ({ currency: t.currency, amount: t.lent }))}
+        />
+        <SummaryCard
+          label="Men qarzdorman"
+          icon={<ArrowUpRight className="size-3.5" style={{ color: BORROWED_COLOR }} />}
+          color={BORROWED_COLOR}
+          rows={totalsByCurrency.filter((t) => t.borrowed > 0).map((t) => ({ currency: t.currency, amount: t.borrowed }))}
+        />
       </div>
 
       {/* Filter */}
@@ -179,6 +177,39 @@ export function QarzPanel() {
   );
 }
 
+/** Jami karta — har valyuta uchun alohida qator. Bo'sh bo'lsa "0 so'm". */
+function SummaryCard({
+  label,
+  icon,
+  color,
+  rows,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  rows: { currency: Currency; amount: number }[];
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-3">
+      <div className="flex items-center gap-1.5 text-[11.5px] text-faint">
+        {icon}
+        {label}
+      </div>
+      {rows.length === 0 ? (
+        <p className="mt-0.5 text-[16px] font-semibold tabular-nums text-faint">0 so&apos;m</p>
+      ) : (
+        <div className="mt-0.5 space-y-0.5">
+          {rows.map((r) => (
+            <p key={r.currency} className="text-[16px] font-semibold leading-tight tabular-nums" style={{ color }}>
+              {formatMoney(r.amount, r.currency)}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FilterButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
@@ -240,8 +271,8 @@ function DebtCard({
           {debt.note && <p className="mt-0.5 truncate text-[12px] text-faint">{debt.note}</p>}
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-[15px] font-semibold tabular-nums">{formatSom(left)}</p>
-          <p className="text-[10.5px] text-faint">so&apos;m{partial && ` / ${formatSom(debt.amount)}`}</p>
+          <p className="text-[15px] font-semibold tabular-nums">{formatMoney(left, debt.currency)}</p>
+          {partial && <p className="text-[10.5px] text-faint">/ {formatMoney(debt.amount, debt.currency)}</p>}
         </div>
       </div>
 
@@ -283,10 +314,10 @@ function DebtCard({
                   onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
                   onFocus={ensureVisibleOnFocus}
                   onKeyDown={(e) => { if (e.key === "Enter") pay(); }}
-                  placeholder={`Qaytarilgan summa (qoldi: ${formatSom(left)})`}
+                  placeholder={`Qaytarilgan summa (qoldi: ${formatMoney(left, debt.currency)})`}
                   className="min-w-0 flex-1 bg-transparent text-[14px] font-medium tabular-nums outline-none placeholder:text-faint/50"
                 />
-                <span className="shrink-0 text-[12px] text-faint">so&apos;m</span>
+                <span className="shrink-0 text-[12px] text-faint">{CURRENCY_LABEL[debt.currency]}</span>
               </div>
               <button onClick={pay} disabled={Number(amountStr || "0") <= 0} aria-label="Qo'shish" className="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-foreground hover:bg-hover disabled:opacity-40"><Check className="size-4" /></button>
               <button onClick={onSettle} className="grid h-9 shrink-0 place-items-center rounded-lg bg-foreground px-3 text-[12.5px] font-medium text-background">To&apos;liq</button>
@@ -308,7 +339,7 @@ function SettledCard({ debt, onReopen, onRemove }: { debt: Debt; onReopen: () =>
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13.5px] font-medium line-through decoration-faint/60">{debt.counterparty}</p>
-        <p className="text-[11px] text-faint">{isLent ? "Menga qarzdor edi" : "Qarzdor edim"} · {formatSom(debt.amount)} so&apos;m</p>
+        <p className="text-[11px] text-faint">{isLent ? "Menga qarzdor edi" : "Qarzdor edim"} · {formatMoney(debt.amount, debt.currency)}</p>
       </div>
       <button onClick={onReopen} aria-label="Qayta ochish" className="grid size-7 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><RotateCcw className="size-3.5" /></button>
       <button onClick={onRemove} aria-label="O'chirish" className="grid size-7 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><Trash2 className="size-3.5" /></button>
@@ -327,12 +358,13 @@ function DebtDialog({
   open: boolean;
   editing: Debt | null;
   onClose: () => void;
-  onCreate: (input: { type: DebtType; counterparty: string; amount: number; dueDate?: string | null; note?: string; agendaReminder?: boolean; reminderLeadDays?: number }) => void;
-  onUpdate: (id: string, patch: { counterparty: string; amount: number; dueDate: string | null; note: string; agendaReminder: boolean; reminderLeadDays: number }) => void;
+  onCreate: (input: { type: DebtType; counterparty: string; amount: number; currency: Currency; dueDate?: string | null; note?: string; agendaReminder?: boolean; reminderLeadDays?: number }) => void;
+  onUpdate: (id: string, patch: { counterparty: string; amount: number; currency: Currency; dueDate: string | null; note: string; agendaReminder: boolean; reminderLeadDays: number }) => void;
 }) {
   const [type, setType] = useState<DebtType>("BORROWED");
   const [counterparty, setCounterparty] = useState("");
   const [amountStr, setAmountStr] = useState("");
+  const [currency, setCurrency] = useState<Currency>("UZS");
   const [dueDate, setDueDate] = useState("");
   const [note, setNote] = useState("");
   const [agendaReminder, setAgendaReminder] = useState(false);
@@ -345,6 +377,7 @@ function DebtDialog({
       setType(editing.type);
       setCounterparty(editing.counterparty);
       setAmountStr(String(editing.amount));
+      setCurrency(editing.currency ?? "UZS");
       setDueDate(editing.dueDate ?? "");
       setNote(editing.note ?? "");
       setAgendaReminder(editing.agendaReminder ?? false);
@@ -353,6 +386,7 @@ function DebtDialog({
       setType("BORROWED");
       setCounterparty("");
       setAmountStr("");
+      setCurrency("UZS");
       setDueDate("");
       setNote("");
       setAgendaReminder(false);
@@ -371,9 +405,9 @@ function DebtDialog({
   function save() {
     if (!valid) return;
     if (editing) {
-      onUpdate(editing.id, { counterparty: counterparty.trim(), amount, dueDate: dueDate || null, note, agendaReminder: remindOn, reminderLeadDays });
+      onUpdate(editing.id, { counterparty: counterparty.trim(), amount, currency, dueDate: dueDate || null, note, agendaReminder: remindOn, reminderLeadDays });
     } else {
-      onCreate({ type, counterparty: counterparty.trim(), amount, dueDate: dueDate || null, note: note || undefined, agendaReminder: remindOn, reminderLeadDays });
+      onCreate({ type, counterparty: counterparty.trim(), amount, currency, dueDate: dueDate || null, note: note || undefined, agendaReminder: remindOn, reminderLeadDays });
     }
   }
 
@@ -421,7 +455,7 @@ function DebtDialog({
           className="mb-3 w-full rounded-lg border border-border bg-subtle/30 px-3 py-2.5 text-[14px] outline-none placeholder:text-faint/50 focus:border-foreground/30"
         />
 
-        <div className="mb-3 flex items-baseline gap-2 rounded-lg border border-border bg-subtle/30 px-3 py-2.5 focus-within:border-foreground/30">
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-subtle/30 px-3 py-2 focus-within:border-foreground/30">
           <input
             inputMode="numeric"
             value={amountStr ? formatSom(amount) : ""}
@@ -429,7 +463,23 @@ function DebtDialog({
             placeholder="Summa"
             className="min-w-0 flex-1 bg-transparent text-[18px] font-semibold tabular-nums outline-none placeholder:text-faint/50"
           />
-          <span className="shrink-0 text-[13px] text-faint">so&apos;m</span>
+          {/* Valyuta tanlash — segmentli toggle (so'm / $ / €) */}
+          <div className="flex shrink-0 items-center gap-0.5 rounded-md bg-subtle p-0.5">
+            {CURRENCIES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCurrency(c)}
+                aria-pressed={currency === c}
+                className={cn(
+                  "min-w-[26px] rounded px-1.5 py-1 text-center text-[12.5px] font-semibold leading-none transition-colors",
+                  currency === c ? "bg-accent text-accent-ink shadow-sm" : "text-faint hover:text-foreground"
+                )}
+              >
+                {CURRENCY_LABEL[c]}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="mb-3">
