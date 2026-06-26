@@ -34,17 +34,3 @@ export const MODULES: ModuleDef[] = [
   { key: "moliya", icon: Wallet },
 ];
 
-export type PlanKey = "free" | "pro";
-
-export type PlanDef = {
-  key: PlanKey;
-  featured: boolean;
-  promo: boolean;
-  href: string;
-};
-
-// Narx/matn i18n.tsx dagi `pricing` dan olinadi
-export const PLANS: PlanDef[] = [
-  { key: "free", featured: false, promo: false, href: "/bugun" },
-  { key: "pro", featured: true, promo: true, href: "/bugun" },
-];

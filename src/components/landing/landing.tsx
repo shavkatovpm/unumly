@@ -3,15 +3,19 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUpRight, Check, Menu, X, ChevronRight } from "lucide-react";
+import { ArrowUpRight, Menu, X, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/wordmark";
 import { Reveal } from "./reveal";
-import { Hero } from "./hero";
+import dynamic from "next/dynamic";
+const Hero = dynamic(() => import("./hero").then((m) => ({ default: m.Hero })), {
+  ssr: false,
+  loading: () => <div className="h-40 sm:h-52" />,
+});
 import { BugunHead, BugunBody } from "./app-mockup";
 import { FinanceHead, FinanceBody } from "./finance-mockup";
 import { StickyShowcase } from "./showcase";
-import { MODULES, PLANS } from "./data";
+import { MODULES } from "./data";
 import { useT, useLang, LANGS } from "./i18n";
 import { useStart } from "./start-modal";
 
@@ -61,7 +65,6 @@ export function Landing() {
 
   const mobileLinks = [
     { label: t.nav.features, href: "#imkoniyatlar", route: false },
-    { label: t.nav.price, href: "#narx", route: false },
     { label: t.nav.blog, href: "/blog", route: true },
     { label: t.nav.about, href: "/haqida", route: true },
   ];
@@ -115,12 +118,6 @@ export function Landing() {
               className="text-[13px] text-muted transition-colors hover:text-foreground"
             >
               {t.nav.features}
-            </a>
-            <a
-              href="#narx"
-              className="text-[13px] text-muted transition-colors hover:text-foreground"
-            >
-              {t.nav.price}
             </a>
             <Link
               href="/blog"
@@ -325,108 +322,27 @@ export function Landing() {
           </div>
         </section>
 
-        {/* Narx */}
-        <section id="narx" className="scroll-mt-20 pb-24">
-          <Reveal className="mx-auto max-w-2xl text-center">
-            <p className="font-mono text-[10.5px] uppercase tracking-[0.24em] text-faint">
-              {t.pricing.eyebrow}
-            </p>
-            <h2 className="mt-4 text-[clamp(1.5rem,4vw,2.25rem)] font-medium tracking-[-0.02em]">
-              {t.pricing.title}
-            </h2>
-            <p className="mx-auto mt-5 flex w-fit items-center gap-2 rounded-full border border-accent/40 bg-accent-soft px-4 py-1.5 text-[12.5px] font-medium text-foreground">
-              <span className="relative flex size-1.5">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent opacity-60" />
-                <span className="relative inline-flex size-1.5 rounded-full bg-accent" />
-              </span>
-              {t.pricing.promoBanner}
-            </p>
+        {/* CTA */}
+        <section className="pb-24 sm:pb-32">
+          <Reveal className="relative mx-auto max-w-xl">
+            <div className="pointer-events-none absolute inset-x-8 top-1/2 h-32 -translate-y-1/2 rounded-full bg-accent/20 blur-3xl" />
+            <div className="relative overflow-hidden rounded-3xl border border-accent/25 bg-surface px-8 py-14 text-center sm:px-14">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
+              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-faint">
+                {t.ctaSec.eyebrow}
+              </p>
+              <h2 className="mt-4 text-[clamp(1.6rem,4vw,2.4rem)] font-medium tracking-[-0.025em]">
+                {t.ctaSec.title}
+              </h2>
+              <Link
+                href="/bugun"
+                onClick={handleStart}
+                className="mt-8 inline-flex items-center gap-2 rounded-xl bg-accent px-8 py-3.5 text-[15px] font-medium text-accent-ink shadow-[0_8px_32px_-8px] shadow-accent/50 transition-all duration-200 hover:opacity-90 hover:shadow-[0_8px_40px_-8px] hover:shadow-accent/70"
+              >
+                {t.ctaSec.cta} <ArrowUpRight className="size-4" />
+              </Link>
+            </div>
           </Reveal>
-
-          <div className="mx-auto mt-12 grid max-w-3xl gap-5 sm:grid-cols-2">
-            {PLANS.map((plan, i) => {
-              const pl = plan.key === "pro" ? t.pricing.pro : t.pricing.free;
-              return (
-                <Reveal
-                  key={plan.key}
-                  delay={i * 90}
-                  className={cn(
-                    "relative flex flex-col rounded-2xl border bg-background p-7",
-                    plan.featured
-                      ? "border-accent/50 ring-1 ring-accent/25"
-                      : "border-border"
-                  )}
-                >
-                  {(plan.promo || plan.featured) && (
-                    <span className="absolute -top-3 left-7 rounded-full bg-accent px-3 py-1 font-mono text-[9.5px] uppercase tracking-[0.16em] text-accent-ink">
-                      {plan.promo
-                        ? t.pricing.pro.promoLabel
-                        : t.pricing.recommended}
-                    </span>
-                  )}
-                  <h3 className="text-[15px] font-medium">{pl.name}</h3>
-
-                  {plan.promo ? (
-                    <>
-                      <div className="mt-4 flex items-baseline gap-2">
-                        <span className="text-[32px] font-medium leading-none tracking-[-0.03em]">
-                          {t.pricing.pro.promoPrice}
-                        </span>
-                        <span className="text-[14px] text-faint line-through">
-                          {t.pricing.proPrice} {t.pricing.unit}/
-                          {t.pricing.periodMonthly}
-                        </span>
-                      </div>
-                      <p className="mt-1.5 text-[12px] text-muted">
-                        {t.pricing.pro.note}
-                      </p>
-                    </>
-                  ) : (
-                    <div className="mt-4 flex items-baseline gap-1.5">
-                      <span className="text-[32px] font-medium leading-none tracking-[-0.03em]">
-                        {t.pricing.priceFree}
-                      </span>
-                      <span className="text-[13px] text-muted">
-                        {t.pricing.unit} / {t.pricing.periodForever}
-                      </span>
-                    </div>
-                  )}
-
-                  <ul className="mt-6 flex flex-1 flex-col gap-2.5">
-                    {pl.features.map((feat) => (
-                      <li
-                        key={feat}
-                        className="flex items-start gap-2.5 text-[13px]"
-                      >
-                        <Check
-                          className={cn(
-                            "mt-0.5 size-4 shrink-0",
-                            plan.featured ? "text-accent" : "text-muted"
-                          )}
-                          strokeWidth={2.25}
-                        />
-                        <span className="leading-snug text-foreground/90">
-                          {feat}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    href={plan.href}
-                    onClick={handleStart}
-                    className={cn(
-                      "mt-7 inline-flex items-center justify-center gap-2 rounded-md px-5 py-3 text-[14px] font-medium transition-opacity hover:opacity-90",
-                      plan.featured
-                        ? "bg-accent text-accent-ink"
-                        : "border border-border-strong text-foreground hover:bg-subtle"
-                    )}
-                  >
-                    {pl.cta} <ArrowUpRight className="size-4" />
-                  </Link>
-                </Reveal>
-              );
-            })}
-          </div>
         </section>
       </main>
 

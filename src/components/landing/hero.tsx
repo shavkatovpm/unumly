@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { useT, useLang } from "./i18n";
@@ -15,7 +15,7 @@ export function Hero() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const h1Ref = useRef<HTMLHeadingElement>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const wrap = wrapRef.current;
     const h1 = h1Ref.current;
     if (!wrap || !h1) return;
@@ -37,7 +37,6 @@ export function Hero() {
     ro.observe(wrap);
     document.fonts?.ready?.then(fit).catch(() => {});
     return () => ro.disconnect();
-    // til o'zgarganda matn (en) o'zgaradi → qayta o'lchaymiz
   }, [lang]);
 
   return (
