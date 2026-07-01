@@ -544,25 +544,32 @@ Gugurt`}</pre>
             belgilangan bo&apos;lsa, Telegram bot eslatmasi ham keladi. O&apos;sha
             kundagi vazifa vaqtini Agenda/Bugun&apos;da o&apos;zgartirsangiz —{" "}
             <strong>faqat o&apos;sha kunga</strong> ta&apos;sir qiladi, odatning
-            umumiy jadvali o&apos;zgarmaydi.
+            umumiy jadvali o&apos;zgarmaydi. Agenda&apos;dagi odat vazifalari fon
+            rangi bilan ham biroz farqlanadi.
+          </p>
+          <p>
+            Har bir odat uchun <strong>&quot;Agendada ko&apos;rinsin&quot;</strong>{" "}
+            toggle&apos;i bor (yaratishda va tahrirlashda): o&apos;chirilsa, o&apos;sha
+            odat Agenda ro&apos;yxatida chiqmaydi, lekin Bugun va Kalendar&apos;da
+            baribir kuzatiladi.
           </p>
 
           <h3>Ikki bo&apos;lim</h3>
-          <h4>Odatlar (boshqaruv)</h4>
-          <ul>
-            <li>Odatlar toifalar (ikonali) bo&apos;yicha guruhlanadi; tepada &quot;Barchasi&quot; + toifa tablari</li>
-            <li>Yangi odat: nom, toifa (majburiy yoki &quot;Toifasiz&quot;), qaysi kunlari, ixtiyoriy vaqt</li>
-            <li>Odatni ochib tahrirlash: nom, toifa, kunlar, vaqt &mdash; <strong>Saqlash</strong> bilan</li>
-            <li>Toifa qo&apos;shish; toifani tahrirlash/o&apos;chirish: faol tab&apos;ni qayta bosib</li>
-            <li>Arxivlash (vaqtincha to&apos;xtatish) va qaytarish; o&apos;chirish &mdash; tasdiq bilan</li>
-          </ul>
-
           <h4>Kalendar (kuzatuv)</h4>
           <ul>
             <li><strong>Hafta</strong> / <strong>Oy</strong> ko&apos;rinishi, oldingi/keyingi davrga o&apos;tish</li>
             <li>Kunni bosib o&apos;sha kun odatlarini belgilash; o&apos;tib ketgan kunlarni ham to&apos;ldirish mumkin</li>
             <li>Kelajak kunlarni ko&apos;rish va odat qo&apos;shish mumkin, lekin bajarish faqat o&apos;tmish/bugun</li>
             <li>Pastda katta halqa: o&apos;sha hafta yoki oy bajarilish foizi</li>
+          </ul>
+
+          <h4>Odatlar (boshqaruv)</h4>
+          <ul>
+            <li>Odatlar toifalar (ikonali) bo&apos;yicha guruhlanadi; tepada &quot;Barchasi&quot; + toifa tablari</li>
+            <li>Yangi odat: nom, toifa (majburiy yoki &quot;Toifasiz&quot;), qaysi kunlari, ixtiyoriy vaqt, Agendada ko&apos;rinish toggle&apos;i</li>
+            <li>Odatni ochib tahrirlash: nom, toifa, kunlar, vaqt, Agendada ko&apos;rinish &mdash; <strong>Saqlash</strong> bilan</li>
+            <li>Toifa qo&apos;shish; toifani tahrirlash/o&apos;chirish: faol tab&apos;ni qayta bosib</li>
+            <li>Arxivlash (vaqtincha to&apos;xtatish) va qaytarish; o&apos;chirish &mdash; tasdiq bilan</li>
           </ul>
         </Section>
 

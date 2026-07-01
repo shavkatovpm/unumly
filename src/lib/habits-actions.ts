@@ -17,6 +17,7 @@ function toHabit(h: DbHabit): Habit {
     notifyLeadMin: h.notifyLeadMin ?? undefined,
     order: h.order,
     archivedAt: h.archivedAt ? h.archivedAt.toISOString() : undefined,
+    showInAgenda: h.showInAgenda,
   };
 }
 
@@ -59,6 +60,7 @@ export type CreateHabitInput = {
   days: number[];
   time?: string;
   notifyLeadMin?: number;
+  showInAgenda?: boolean;
 };
 
 export async function createHabit(input: CreateHabitInput): Promise<Habit> {
@@ -74,6 +76,7 @@ export async function createHabit(input: CreateHabitInput): Promise<Habit> {
       time: input.time,
       notifyLeadMin: input.notifyLeadMin,
       order: (last?.order ?? -1) + 1,
+      showInAgenda: input.showInAgenda ?? true,
     },
   });
   return toHabit(row);
@@ -87,6 +90,7 @@ export type UpdateHabitPatch = Partial<{
   notifyLeadMin: number | null;
   order: number;
   archivedAt: string | null;
+  showInAgenda: boolean;
 }>;
 
 export async function updateHabit(id: string, patch: UpdateHabitPatch): Promise<Habit> {
@@ -104,6 +108,7 @@ export async function updateHabit(id: string, patch: UpdateHabitPatch): Promise<
       ...(patch.notifyLeadMin !== undefined && { notifyLeadMin: patch.notifyLeadMin }),
       ...(patch.order !== undefined && { order: patch.order }),
       ...(patch.archivedAt !== undefined && { archivedAt: patch.archivedAt ? new Date(patch.archivedAt) : null }),
+      ...(patch.showInAgenda !== undefined && { showInAgenda: patch.showInAgenda }),
     },
   });
 

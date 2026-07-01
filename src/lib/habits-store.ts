@@ -55,7 +55,7 @@ function rowsEqual(a: State, b: State) {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
     const x = a[i], y = b[i];
-    if (x.id !== y.id || x.title !== y.title || x.categoryId !== y.categoryId || x.time !== y.time || x.order !== y.order || x.archivedAt !== y.archivedAt || x.days.join(",") !== y.days.join(",")) return false;
+    if (x.id !== y.id || x.title !== y.title || x.categoryId !== y.categoryId || x.time !== y.time || x.order !== y.order || x.archivedAt !== y.archivedAt || x.showInAgenda !== y.showInAgenda || x.days.join(",") !== y.days.join(",")) return false;
   }
   return true;
 }
@@ -68,14 +68,14 @@ function getSnapshot() { return memoryState; }
 const EMPTY: State = [];
 function getServerSnapshot() { return EMPTY; }
 
-export type CreateHabitInput = { title: string; categoryId: string | null; days: number[]; time?: string; notifyLeadMin?: number };
+export type CreateHabitInput = { title: string; categoryId: string | null; days: number[]; time?: string; notifyLeadMin?: number; showInAgenda?: boolean };
 
 export function createHabit(input: CreateHabitInput): string {
   const id = nextId();
-  const habit: Habit = { id, title: input.title.trim(), categoryId: input.categoryId, days: [...input.days], time: input.time, notifyLeadMin: input.notifyLeadMin, order: memoryState.length };
+  const habit: Habit = { id, title: input.title.trim(), categoryId: input.categoryId, days: [...input.days], time: input.time, notifyLeadMin: input.notifyLeadMin, order: memoryState.length, showInAgenda: input.showInAgenda ?? true };
   memoryState = [...memoryState, habit];
   emit();
-  void withPending(actions.createHabit({ id, title: habit.title, categoryId: habit.categoryId, days: habit.days, time: habit.time, notifyLeadMin: habit.notifyLeadMin })
+  void withPending(actions.createHabit({ id, title: habit.title, categoryId: habit.categoryId, days: habit.days, time: habit.time, notifyLeadMin: habit.notifyLeadMin, showInAgenda: habit.showInAgenda })
     .then((server) => { memoryState = memoryState.map((h) => (h.id === id ? server : h)); emit(); return syncOccurrences(); })
     .catch(() => { memoryState = memoryState.filter((h) => h.id !== id); emit(); }));
   return id;
@@ -94,6 +94,7 @@ export function updateHabit(id: string, patch: Partial<Habit>): void {
     ...(patch.notifyLeadMin !== undefined && { notifyLeadMin: patch.notifyLeadMin ?? null }),
     ...(patch.order !== undefined && { order: patch.order }),
     ...(patch.archivedAt !== undefined && { archivedAt: patch.archivedAt ?? null }),
+    ...(patch.showInAgenda !== undefined && { showInAgenda: patch.showInAgenda }),
   }).then((server) => { memoryState = memoryState.map((h) => (h.id === id ? server : h)); emit(); return syncOccurrences(); })
     .catch(() => { memoryState = memoryState.map((h) => (h.id === id ? prev : h)); emit(); }));
 }

@@ -52,6 +52,8 @@ export type Habit = {
   notifyLeadMin?: number;
   order: number;
   archivedAt?: string;     // ISO datetime when archived
+  /** Whether occurrences of this habit show up in the Agenda list (still tracked in Bugun/Kalendar either way). */
+  showInAgenda: boolean;
 };
 
 export type CategoryColor =

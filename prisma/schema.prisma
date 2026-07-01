@@ -221,6 +221,11 @@ model Habit {
   order      Int      @default(0)
   archivedAt DateTime?
 
+  // Whether this habit's occurrences show up in the Agenda list. They still
+  // materialise as Plan rows and remain visible/trackable in Bugun/Kalendar
+  // either way — this only controls Agenda visibility.
+  showInAgenda Boolean @default(true)
+
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

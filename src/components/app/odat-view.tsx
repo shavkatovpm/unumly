@@ -80,7 +80,7 @@ function occupiedForDays(plans: Plan[], days: number[], excludeHabitId?: string)
 
 type Tab = "habits" | "calendar";
 
-const TAB_ORDER: Tab[] = ["habits", "calendar"];
+const TAB_ORDER: Tab[] = ["calendar", "habits"];
 
 // Swipe / gorizontal scroll bilan tab almashtirish animatsiyasi
 const SWIPE_VARIANTS = {
@@ -91,7 +91,7 @@ const SWIPE_VARIANTS = {
 const SWIPE_THRESHOLD = 56;
 
 export function OdatView() {
-  const [tab, setTab] = useState<Tab>("habits");
+  const [tab, setTab] = useState<Tab>("calendar");
   const [dir, setDir] = useState(0); // swipe animatsiya yo'nalishi
   const { categories: cats, create: createCat, update: updateCat, remove: removeCat } = useHabitCategories();
   const { habits, archived, create, update, archive, restore, remove } = useHabits();
@@ -121,7 +121,7 @@ export function OdatView() {
   }, [plans]);
 
   function toggleDay(h: Habit, d: Date) { const pid = occById.get(`${h.id}|${iso(d)}`); if (pid) toggleStatus(pid); else void markHabitDay(h.id, iso(d)); }
-  function saveHabit(id: string, patch: { title: string; categoryId: string | null; days: number[]; time: string | undefined }) { update(id, patch); setDetailId(null); }
+  function saveHabit(id: string, patch: { title: string; categoryId: string | null; days: number[]; time: string | undefined; showInAgenda: boolean }) { update(id, patch); setDetailId(null); }
   function addHabitWeekday(id: string, weekday: number) { const h = habits.find((x) => x.id === id); if (!h || h.days.includes(weekday)) return; update(id, { days: [...h.days, weekday].sort((a, b) => a - b) }); }
   function newHabitForDay(weekday: number) { setAddCat(undefined); setAddDaysPreset([weekday]); setShowAdd(true); }
   function askRemoveHabit(id: string) { const h = habits.find((x) => x.id === id); setPending({ kind: "habit", id, name: h?.title ?? "" }); }
@@ -202,7 +202,7 @@ export function OdatView() {
           <button type="button" onClick={() => { setAddCat(undefined); setAddDaysPreset(undefined); setShowAdd(true); }} className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground" aria-label="Yangi odat"><Plus className="size-4" /></button>
         </div>
         <div className="mx-auto flex max-w-xl gap-6 px-5 md:px-6">
-          {([["habits", "Odatlar"], ["calendar", "Kalendar"]] as [Tab, string][]).map(([v, label]) => (
+          {([["calendar", "Kalendar"], ["habits", "Odatlar"]] as [Tab, string][]).map(([v, label]) => (
             <button key={v} type="button" onClick={() => selectTab(v)} className={cn("relative py-2.5 text-[13px] font-medium transition-colors", tab === v ? "text-foreground" : "text-faint hover:text-muted")}>
               {label}{tab === v && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-foreground" />}
             </button>
@@ -541,21 +541,23 @@ function DayCircle({ day, ratio, due, future, isToday }: { day: number; ratio: n
 
 /* ════════ Odat detali ════════ */
 function HabitDetailSheet({ cats, plans, habit, onClose, onArchive, onRemove, onSave, onCreateCategory }: {
-  cats: HabitCategory[]; plans: Plan[]; habit: Habit; onClose: () => void; onArchive: (id: string) => void; onRemove: (id: string) => void; onSave: (id: string, patch: { title: string; categoryId: string | null; days: number[]; time: string | undefined }) => void; onCreateCategory: (input: { label: string; icon: string }) => string;
+  cats: HabitCategory[]; plans: Plan[]; habit: Habit; onClose: () => void; onArchive: (id: string) => void; onRemove: (id: string) => void; onSave: (id: string, patch: { title: string; categoryId: string | null; days: number[]; time: string | undefined; showInAgenda: boolean }) => void; onCreateCategory: (input: { label: string; icon: string }) => string;
 }) {
   const [title, setTitle] = useState(habit.title);
   const [categoryId, setCategoryId] = useState<string | null>(habit.categoryId);
   const [days, setDays] = useState<number[]>([...habit.days]);
   const [time, setTime] = useState(habit.time ?? "");
+  const [showInAgenda, setShowInAgenda] = useState(habit.showInAgenda);
   const [catCreating, setCatCreating] = useState(false); const [newLabel, setNewLabel] = useState(""); const [newIcon, setNewIcon] = useState<IconKey>(randomIcon);
   const daily = days.length >= 7;
   const cat = cats.find((c) => c.id === categoryId);
   const dirty = title.trim() !== habit.title
     || categoryId !== habit.categoryId
     || time !== (habit.time ?? "")
+    || showInAgenda !== habit.showInAgenda
     || [...days].sort((a, b) => a - b).join(",") !== [...habit.days].sort((a, b) => a - b).join(",");
   function createCatNow() { if (!newLabel.trim()) return; const id = onCreateCategory({ label: newLabel.trim(), icon: newIcon }); setCategoryId(id); setCatCreating(false); setNewLabel(""); setNewIcon(randomIcon()); }
-  function save() { if (!title.trim() || days.length === 0 || !dirty) return; onSave(habit.id, { title: title.trim(), categoryId, days: [...days].sort((a, b) => a - b), time: time || undefined }); onClose(); }
+  function save() { if (!title.trim() || days.length === 0 || !dirty) return; onSave(habit.id, { title: title.trim(), categoryId, days: [...days].sort((a, b) => a - b), time: time || undefined, showInAgenda }); onClose(); }
   return (
     <Dialog open onClose={onClose} mobilePlacement="bottom">
       <header className="flex shrink-0 items-start justify-between border-b border-border px-5 py-4">
@@ -584,6 +586,7 @@ function HabitDetailSheet({ cats, plans, habit, onClose, onArchive, onRemove, on
           <div className="flex gap-1.5">{WEEK_FROM_MON.map((idx) => { const on = days.includes(idx); return <button key={idx} type="button" onClick={() => setDays((p) => on ? p.filter((x) => x !== idx) : [...p, idx])} className={cn("flex-1 rounded-md border py-2 text-[12px] font-medium transition-colors", on ? "border-accent bg-accent text-accent-ink" : "border-border text-faint hover:border-border-strong")}>{UZ_DAYS_SHORT[idx]}</button>; })}</div>
         </div>
         <div><Lbl>Eslatma vaqti</Lbl><TimeField value={time} occupiedSlots={occupiedForDays(plans, days, habit.id)} onChange={(t) => setTime(t ?? "")} /></div>
+        <div className="border-t border-border pt-5"><AgendaToggle checked={showInAgenda} onChange={setShowInAgenda} /></div>
         <div className="flex gap-4 border-t border-border pt-5 text-[13px]"><button type="button" onClick={() => onArchive(habit.id)} className="inline-flex items-center gap-1.5 text-muted hover:text-foreground"><Archive className="size-4" /> Arxivlash</button><button type="button" onClick={() => onRemove(habit.id)} className="inline-flex items-center gap-1.5 text-faint hover:text-danger"><Trash2 className="size-4" /> O&apos;chirish</button></div>
       </div>
       <div className="shrink-0 border-t border-border px-5 py-4"><button type="button" onClick={save} disabled={!title.trim() || days.length === 0 || !dirty} className="w-full rounded-lg bg-foreground py-3 text-[14px] font-medium text-background transition-opacity disabled:opacity-30">Saqlash</button></div>
@@ -592,13 +595,14 @@ function HabitDetailSheet({ cats, plans, habit, onClose, onArchive, onRemove, on
 }
 
 /* ════════ Modallar ════════ */
-function AddHabitModal({ cats, plans, initialCategory, initialDays, onClose, onAdd, onCreateCategory }: { cats: HabitCategory[]; plans: Plan[]; initialCategory?: string | null; initialDays?: number[]; onClose: () => void; onAdd: (input: { title: string; categoryId: string | null; days: number[]; time?: string }) => void; onCreateCategory: (input: { label: string; icon: string }) => string }) {
+function AddHabitModal({ cats, plans, initialCategory, initialDays, onClose, onAdd, onCreateCategory }: { cats: HabitCategory[]; plans: Plan[]; initialCategory?: string | null; initialDays?: number[]; onClose: () => void; onAdd: (input: { title: string; categoryId: string | null; days: number[]; time?: string; showInAgenda: boolean }) => void; onCreateCategory: (input: { label: string; icon: string }) => string }) {
   const [title, setTitle] = useState(""); const [categoryId, setCategoryId] = useState<string | null | undefined>(initialCategory); const [days, setDays] = useState<number[]>(initialDays && initialDays.length ? [...initialDays] : [...ALL_DAYS]); const [time, setTime] = useState("");
+  const [showInAgenda, setShowInAgenda] = useState(true);
   const [creating, setCreating] = useState(false); const [newLabel, setNewLabel] = useState(""); const [newIcon, setNewIcon] = useState<IconKey>(randomIcon);
   const daily = days.length >= 7;
   const chosen = categoryId !== undefined; // toifa (yoki Toifasiz) tanlangan
   function createNow() { if (!newLabel.trim()) return; const id = onCreateCategory({ label: newLabel.trim(), icon: newIcon }); setCategoryId(id); setCreating(false); setNewLabel(""); setNewIcon(randomIcon()); }
-  function submit() { if (!title.trim() || categoryId === undefined) return; onAdd({ title: title.trim(), categoryId, days: [...days].sort((a, b) => a - b), time: time || undefined }); onClose(); }
+  function submit() { if (!title.trim() || categoryId === undefined) return; onAdd({ title: title.trim(), categoryId, days: [...days].sort((a, b) => a - b), time: time || undefined, showInAgenda }); onClose(); }
   return (
     <Dialog open onClose={onClose} mobilePlacement="center">
       <header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4"><p className="text-[16px] font-semibold tracking-[-0.01em]">Yangi odat</p><button type="button" onClick={onClose} aria-label="Yopish" className="-mr-1 grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><X className="size-4" /></button></header>
@@ -624,6 +628,7 @@ function AddHabitModal({ cats, plans, initialCategory, initialDays, onClose, onA
           <div><Lbl>Nomi</Lbl><input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Masalan: Suv ichish" className="mt-2 w-full border-b border-border bg-transparent pb-2.5 text-[20px] outline-none placeholder:text-faint focus:border-foreground" /></div>
           <div><div className="mb-3 flex items-center justify-between"><Lbl>Qaysi kunlari</Lbl><button type="button" onClick={() => setDays(daily ? [] : [...ALL_DAYS])} className={cn("text-[14px] font-medium transition-colors", daily ? "text-foreground" : "text-faint hover:text-muted")}>Har kuni</button></div><div className="flex gap-1.5">{WEEK_FROM_MON.map((idx) => { const on = days.includes(idx); return <button key={idx} type="button" onClick={() => setDays((p) => on ? p.filter((x) => x !== idx) : [...p, idx])} className={cn("flex-1 rounded-md border py-2.5 text-[15px] font-medium transition-colors", on ? "border-accent bg-accent text-accent-ink" : "border-border text-faint hover:border-border-strong")}>{UZ_DAYS_SHORT[idx]}</button>; })}</div></div>
           <div><Lbl>Eslatma vaqti (ixtiyoriy)</Lbl><div className="mt-2"><TimeField value={time} occupiedSlots={occupiedForDays(plans, days)} onChange={(t) => setTime(t ?? "")} big /></div></div>
+          <div className="border-t border-border pt-5"><AgendaToggle checked={showInAgenda} onChange={setShowInAgenda} /></div>
         </>}
       </div>
       <div className="shrink-0 border-t border-border px-5 py-4"><button type="button" onClick={submit} disabled={!chosen || !title.trim() || days.length === 0} className="w-full rounded-lg bg-foreground py-3.5 text-[16px] font-medium text-background transition-opacity disabled:opacity-30">Qo&apos;shish</button></div>
@@ -662,6 +667,34 @@ function EditCategoryModal({ cat, onClose, onSave }: { cat: HabitCategory; onClo
 }
 
 function Lbl({ children }: { children: React.ReactNode }) { return <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-faint">{children}</p>; }
+
+function AgendaToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex cursor-pointer select-none items-center justify-between gap-3">
+      <div>
+        <p className="text-[13.5px] font-medium text-foreground">Agendada ko&apos;rinsin</p>
+        <p className="mt-0.5 text-[11.5px] text-faint">Yoqilsa, bu odat Agenda ro&apos;yxatida ham chiqadi.</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={cn(
+          "relative h-5 w-9 shrink-0 rounded-full transition-colors",
+          checked ? "bg-accent" : "bg-border-strong"
+        )}
+      >
+        <span
+          className={cn(
+            "absolute left-0.5 top-0.5 size-4 rounded-full bg-background transition-transform",
+            checked && "translate-x-4"
+          )}
+        />
+      </button>
+    </label>
+  );
+}
 
 /* Ikona tanlash — ixcham (8 ustun, kichik), uzun scroll bo'lmasligi uchun. */
 function IconPicker({ value, onChange, big }: { value: string; onChange: (k: IconKey) => void; big?: boolean }) {

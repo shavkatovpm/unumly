@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Calendar as CalendarIcon, Check, Clock, Pencil, Plus, Repeat, Tag, X } from "lucide-react";
 import { useHydrated, usePlans } from "@/lib/plans-store";
+import { useHabits } from "@/lib/habits-store";
 import { useRejaCategoryMap } from "@/lib/use-reja-category";
 import { useDragReorder } from "@/lib/use-drag-reorder";
 import { useBlurInputOnScrollOut } from "@/lib/use-blur-on-scroll-out";
@@ -105,6 +106,7 @@ function AgendaRow({
       onClick={() => onOpen(plan.id)}
       className={cn(
         "group flex cursor-pointer items-center gap-3 overflow-hidden border-b border-border/70 px-3 last:border-b-0 hover:bg-hover/60",
+        plan.habitId && !visualDone && "bg-accent-soft/40",
         visualDone && "bg-subtle/30",
         isNew && "task-pop",
         !pendingDone && "max-h-[78px] py-3 sm:max-h-[64px] sm:py-2"
@@ -221,6 +223,11 @@ function shortDateLabel(date: Date, today: Date): string {
 
 export function AgendaView() {
   const { plans, create, update, toggleStatus, remove } = usePlans();
+  const { habits } = useHabits();
+  const hiddenHabitIds = useMemo(
+    () => new Set(habits.filter((h) => !h.showInAgenda).map((h) => h.id)),
+    [habits]
+  );
   const rejaCatMap = useRejaCategoryMap();
   const hydrated = useHydrated();
   const { askRemove, confirmEl } = useConfirmRemove(plans, remove, {
@@ -330,7 +337,8 @@ export function AgendaView() {
         (p) =>
           p.scope === "DAILY" &&
           p.scheduledFor > todayIso &&
-          p.status !== "DONE"
+          p.status !== "DONE" &&
+          !(p.habitId && hiddenHabitIds.has(p.habitId))
       )
       .sort((a, b) => {
         if (a.scheduledFor !== b.scheduledFor) {
@@ -345,7 +353,7 @@ export function AgendaView() {
         if (a.order !== b.order) return b.order - a.order;
         return a.createdAt.localeCompare(b.createdAt);
       });
-  }, [plans, todayIso]);
+  }, [plans, todayIso, hiddenHabitIds]);
 
   const groups = useMemo(() => {
     const map = new Map<string, Plan[]>();
