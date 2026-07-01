@@ -122,7 +122,6 @@ export async function sendOnboardingComplete(
  */
 export async function sendTaskReminder(opts: {
   chatId: number | string;
-  planId: string;
   title: string;
   time?: string | null;
   priority?: "LOW" | "MEDIUM" | "HIGH" | null;
@@ -153,9 +152,10 @@ export async function sendTaskReminder(opts: {
       text: `⏰ *Eslatma*${timeText}${leadText}\n\n${icon ? icon + " " : ""}${escapeMarkdown(opts.title)}`,
       parse_mode: "Markdown",
       reply_markup: {
+        // Faqat "Kirish" tugmasi — foydalanuvchi ilova orqali bajarishga
+        // undaladi (bot ichidan to'g'ridan-to'g'ri bajarish yo'q).
         inline_keyboard: [[
-          { text: "✓ Bajardim",  callback_data: `done:${opts.planId}` },
-          { text: "→ Kirish",    web_app: { url: opts.appUrl } },
+          { text: "→ Kirish", web_app: { url: opts.appUrl } },
         ]],
       },
     }),

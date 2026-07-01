@@ -1,12 +1,12 @@
 /** Allowed lead-time presets (minutes before the task). 0 = at the
  *  scheduled time exactly ("O'z vaqtida").
  *
- *  Presets are multiples of 10 to match the 10-minute notify cron grid:
- *  for a round task time (e.g. 17:00) every preset lands exactly on a cron
- *  tick, so the reminder fires on time instead of up to a tick late. */
-export const LEAD_MIN_OPTIONS = [0, 10, 20, 30] as const;
+ *  The notify cron now runs every 1 minute (moved off Neon's compute-based
+ *  billing onto a DO droplet), so presets no longer need to be multiples of
+ *  10 to land on a cron tick — back to the original, more granular set. */
+export const LEAD_MIN_OPTIONS = [0, 5, 15, 30] as const;
 export type LeadMin = (typeof LEAD_MIN_OPTIONS)[number];
-export const DEFAULT_LEAD_MIN: LeadMin = 10;
+export const DEFAULT_LEAD_MIN: LeadMin = 5;
 
 /** Clamp arbitrary input to a valid LeadMin (falls back to default). */
 export function sanitizeLeadMin(v: number | null | undefined): LeadMin {

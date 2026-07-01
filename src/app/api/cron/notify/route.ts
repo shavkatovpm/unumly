@@ -88,7 +88,6 @@ export async function GET(req: Request) {
         : undefined;
       const messageId = await sendTaskReminder({
         chatId,
-        planId: plan.id,
         title: plan.title,
         time: plan.time,
         priority: plan.priority,
