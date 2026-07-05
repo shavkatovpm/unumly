@@ -289,6 +289,8 @@ export function MoliyaView() {
                   budgets={budgets}
                   totalByCat={totalByCat}
                   uncategorized={uncategorizedByType[catType]}
+                  txns={monthTxns}
+                  onEditTxn={openEdit}
                   onAddCategory={addCategory}
                   onUpdateCategory={updateCategory}
                   onRemoveCategory={removeCategory}
@@ -562,6 +564,14 @@ function Donut({
    Tranzaksiyalar
    ════════════════════════════════════════════════════════════ */
 
+type TxnFilter = "ALL" | TransactionType;
+
+const TXN_FILTERS: { key: TxnFilter; label: string; icon?: typeof ArrowUpRight; color?: string }[] = [
+  { key: "ALL",     label: "Umumiy" },
+  { key: "INCOME",  label: "Kirim",  icon: ArrowDownLeft, color: INCOME_COLOR },
+  { key: "EXPENSE", label: "Chiqim", icon: ArrowUpRight,  color: EXPENSE_COLOR },
+];
+
 function TransactionsTab({
   txns,
   catMap,
@@ -571,41 +581,99 @@ function TransactionsTab({
   catMap: Map<string, FinanceCategory>;
   onEdit: (t: Transaction) => void;
 }) {
+  const [filter, setFilter] = useState<TxnFilter>("ALL");
+
+  const totals = useMemo(() => {
+    let income = 0, expense = 0;
+    for (const t of txns) {
+      if (t.type === "INCOME") income += t.amount;
+      else expense += t.amount;
+    }
+    return { income, expense, balance: income - expense };
+  }, [txns]);
+
+  const filtered = useMemo(
+    () => (filter === "ALL" ? txns : txns.filter((t) => t.type === filter)),
+    [txns, filter]
+  );
+
   // Sana bo'yicha guruhlash
   const groups = useMemo(() => {
     const m = new Map<string, Transaction[]>();
-    for (const t of txns) {
+    for (const t of filtered) {
       const arr = m.get(t.date) ?? [];
       arr.push(t);
       m.set(t.date, arr);
     }
     return [...m.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
-  }, [txns]);
+  }, [filtered]);
 
-  if (txns.length === 0) {
-    return <p className="py-10 text-center text-[13px] text-faint">Bu oyda yozuv yo&apos;q</p>;
-  }
+  const summaryLabel =
+    filter === "INCOME" ? "Bu oy — jami kirim" : filter === "EXPENSE" ? "Bu oy — jami chiqim" : "Bu oy — balans";
+  const summaryValue = filter === "INCOME" ? totals.income : filter === "EXPENSE" ? totals.expense : totals.balance;
+  const summaryColor =
+    filter === "INCOME" ? INCOME_COLOR : filter === "EXPENSE" ? EXPENSE_COLOR : totals.balance < 0 ? EXPENSE_COLOR : undefined;
+
+  const emptyText =
+    filter === "INCOME" ? "Bu oyda kirim yo'q" : filter === "EXPENSE" ? "Bu oyda chiqim yo'q" : "Bu oyda yozuv yo'q";
 
   return (
     <div className="space-y-4">
-      {groups.map(([date, items]) => (
-        <div key={date}>
-          <p className="mb-1.5 px-1 text-[11.5px] font-medium uppercase tracking-wide text-faint">
-            {formatDayLabel(date)}
-          </p>
-          <ul className="overflow-hidden rounded-xl border border-border bg-surface">
-            {items.map((t, i) => (
-              <TxnRow
-                key={t.id}
-                t={t}
-                cat={t.categoryId ? catMap.get(t.categoryId) : undefined}
-                first={i === 0}
-                onEdit={() => onEdit(t)}
-              />
-            ))}
-          </ul>
+      {/* Umumiy / Kirim / Chiqim filter */}
+      <div className="grid grid-cols-3 gap-1 rounded-lg bg-subtle/60 p-1 text-[12.5px]">
+        {TXN_FILTERS.map((f) => {
+          const active = filter === f.key;
+          const Icon = f.icon;
+          return (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFilter(f.key)}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-md py-2 font-medium transition-all",
+                active ? "bg-surface shadow-sm" : "text-faint hover:text-muted"
+              )}
+              style={active ? { color: f.color ?? "var(--foreground)" } : undefined}
+            >
+              {Icon && <Icon className="size-3.5" />}
+              {f.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tanlangan filter bo'yicha jami */}
+      {txns.length > 0 && (
+        <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-3.5 py-2.5">
+          <span className="text-[12.5px] text-faint">{summaryLabel}</span>
+          <span className="text-[15px] font-semibold tabular-nums" style={{ color: summaryColor }}>
+            {formatSom(summaryValue)}
+          </span>
         </div>
-      ))}
+      )}
+
+      {filtered.length === 0 ? (
+        <p className="py-10 text-center text-[13px] text-faint">{emptyText}</p>
+      ) : (
+        groups.map(([date, items]) => (
+          <div key={date}>
+            <p className="mb-1.5 px-1 text-[11.5px] font-medium uppercase tracking-wide text-faint">
+              {formatDayLabel(date)}
+            </p>
+            <ul className="overflow-hidden rounded-xl border border-border bg-surface">
+              {items.map((t, i) => (
+                <TxnRow
+                  key={t.id}
+                  t={t}
+                  cat={t.categoryId ? catMap.get(t.categoryId) : undefined}
+                  first={i === 0}
+                  onEdit={() => onEdit(t)}
+                />
+              ))}
+            </ul>
+          </div>
+        ))
+      )}
     </div>
   );
 }
@@ -668,6 +736,8 @@ function CategoriesTab({
   budgets,
   totalByCat,
   uncategorized,
+  txns,
+  onEditTxn,
   onAddCategory,
   onUpdateCategory,
   onRemoveCategory,
@@ -680,6 +750,8 @@ function CategoriesTab({
   budgets: Budget[];
   totalByCat: Map<string, number>;
   uncategorized: number;
+  txns: Transaction[];
+  onEditTxn: (t: Transaction) => void;
   onAddCategory: (input: { type: TransactionType; label: string; icon: string; color: CategoryColor }) => string;
   onUpdateCategory: (id: string, patch: { label?: string; icon?: string; color?: CategoryColor }) => void;
   onRemoveCategory: (id: string) => void;
@@ -687,6 +759,21 @@ function CategoriesTab({
   onRemoveBudget: (categoryId: string) => void;
 }) {
   const [creating, setCreating] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailCat, setDetailCat] = useState<FinanceCategory | null>(null);
+  function openDetail(cat: FinanceCategory | null) {
+    setDetailCat(cat);
+    setDetailOpen(true);
+  }
+  const detailTxns = useMemo(
+    () =>
+      detailOpen
+        ? txns
+            .filter((t) => t.type === type && (detailCat ? t.categoryId === detailCat.id : !t.categoryId))
+            .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+        : [],
+    [txns, detailOpen, detailCat, type]
+  );
 
   const typeCats = useMemo(
     () =>
@@ -811,6 +898,7 @@ function CategoriesTab({
                 hasLimit={type === "EXPENSE"}
                 limit={budgetMap.get(r.cat.id) ?? null}
                 total={r.total}
+                onOpen={() => openDetail(r.cat)}
                 onUpdate={(patch) => onUpdateCategory(r.cat.id, patch)}
                 onRemove={() => askRemove(r.cat.id)}
                 onSetBudget={(amount) => onSetBudget(r.cat.id, amount)}
@@ -818,7 +906,7 @@ function CategoriesTab({
               />
             ) : (
               <li key="__uncategorized" className="rounded-xl border border-dashed border-border bg-surface p-3">
-                <div className="flex items-center gap-3">
+                <button type="button" onClick={() => openDetail(null)} className="flex w-full items-center gap-3 text-left">
                   <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-subtle text-faint">
                     <Minus className="size-[18px]" strokeWidth={2} />
                   </span>
@@ -831,13 +919,21 @@ function CategoriesTab({
                   >
                     {formatSom(r.total)}
                   </span>
-                </div>
+                </button>
               </li>
             )
           )}
         </ul>
       )}
       {confirmEl}
+      <CategoryDetailSheet
+        open={detailOpen}
+        cat={detailCat}
+        type={type}
+        txns={detailTxns}
+        onClose={() => setDetailOpen(false)}
+        onEditTxn={onEditTxn}
+      />
     </div>
   );
 }
@@ -859,6 +955,7 @@ function CategoryManageRow({
   hasLimit,
   limit,
   total,
+  onOpen,
   onUpdate,
   onRemove,
   onSetBudget,
@@ -868,6 +965,7 @@ function CategoryManageRow({
   hasLimit: boolean;
   limit: number | null;
   total: number;
+  onOpen: () => void;
   onUpdate: (patch: { label?: string; icon?: string; color?: CategoryColor }) => void;
   onRemove: () => void;
   onSetBudget: (amount: number) => void;
@@ -905,10 +1003,12 @@ function CategoryManageRow({
   return (
     <li className="rounded-xl border border-border bg-surface p-3">
       <div className="flex items-center gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg" style={{ background: colorWithAlpha(cat.color, 0.14), color }}>
-          <Icon className="size-[18px]" strokeWidth={2} />
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{cat.label}</span>
+        <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg" style={{ background: colorWithAlpha(cat.color, 0.14), color }}>
+            <Icon className="size-[18px]" strokeWidth={2} />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{cat.label}</span>
+        </button>
         <span className="shrink-0 text-[12.5px] tabular-nums">
           <span className="font-semibold" style={{ color: hasLimit && limit != null ? budgetColor(pct) : typeColor }}>
             {formatSom(total)}
@@ -937,6 +1037,99 @@ function CategoryManageRow({
         )
       )}
     </li>
+  );
+}
+
+/** Kategoriya ustiga bosilganda ochiladigan sheet — o'sha kategoriyaga
+ *  tegishli shu oydagi yozuvlarni (izoh, summa, sana) ko'rsatadi. Yozuv
+ *  ustiga bosilsa — asosiy tahrirlash dialogi (TxnDialog) ochiladi. */
+function CategoryDetailSheet({
+  open,
+  cat,
+  type,
+  txns,
+  onClose,
+  onEditTxn,
+}: {
+  open: boolean;
+  cat: FinanceCategory | null;
+  type: TransactionType;
+  txns: Transaction[];
+  onClose: () => void;
+  onEditTxn: (t: Transaction) => void;
+}) {
+  const Icon = cat ? financeIcon(cat.icon) : Minus;
+  const total = useMemo(() => txns.reduce((s, t) => s + t.amount, 0), [txns]);
+  const groups = useMemo(() => {
+    const m = new Map<string, Transaction[]>();
+    for (const t of txns) {
+      const arr = m.get(t.date) ?? [];
+      arr.push(t);
+      m.set(t.date, arr);
+    }
+    return [...m.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  }, [txns]);
+  const typeColor = type === "INCOME" ? INCOME_COLOR : EXPENSE_COLOR;
+
+  return (
+    <Dialog open={open} onClose={onClose} mobilePlacement="bottom">
+      <header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
+        <div className="flex items-center gap-2.5">
+          <span
+            className="grid size-9 place-items-center rounded-xl"
+            style={cat ? { background: colorWithAlpha(cat.color, 0.14), color: colorWithAlpha(cat.color, 1) } : { background: "var(--subtle)", color: "var(--faint)" }}
+          >
+            <Icon className="size-[18px]" strokeWidth={2} />
+          </span>
+          <div>
+            <p className="text-[16px] font-semibold tracking-[-0.01em]">{cat?.label ?? "Kategoriyasiz"}</p>
+            <p className="mt-0.5 text-[12px] text-faint">
+              Bu oy — <span className="font-medium" style={{ color: typeColor }}>{formatSom(total)} so&apos;m</span>
+            </p>
+          </div>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Yopish" className="-mr-1 grid size-8 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
+          <X className="size-4" />
+        </button>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        {txns.length === 0 ? (
+          <p className="py-10 text-center text-[13px] text-faint">Bu oyda yozuv yo&apos;q</p>
+        ) : (
+          <div className="space-y-4">
+            {groups.map(([date, items]) => (
+              <div key={date}>
+                <p className="mb-1.5 px-1 text-[11.5px] font-medium uppercase tracking-wide text-faint">
+                  {formatDayLabel(date)}
+                </p>
+                <ul className="overflow-hidden rounded-xl border border-border bg-surface">
+                  {items.map((t, i) => (
+                    <li key={t.id} className={cn(i !== 0 && "border-t border-border")}>
+                      <button
+                        type="button"
+                        onClick={() => onEditTxn(t)}
+                        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left"
+                      >
+                        <span className="min-w-0 flex-1 truncate text-[14px] font-medium">
+                          {t.note || "Izohsiz"}
+                        </span>
+                        <span
+                          className="shrink-0 text-[14px] font-semibold tabular-nums"
+                          style={{ color: type === "INCOME" ? INCOME_COLOR : undefined }}
+                        >
+                          {type === "INCOME" ? "+" : "−"}
+                          {formatSom(t.amount)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Dialog>
   );
 }
 

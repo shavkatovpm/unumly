@@ -71,7 +71,7 @@ function occupiedForDays(plans: Plan[], days: number[], excludeHabitId?: string)
   for (let off = 0; off < 7; off++) {
     const d = addDays(TODAY, off);
     if (!days.includes(d.getDay())) continue;
-    for (const s of occupiedTimeSlots(base, iso(d))) set.add(s);
+    for (const s of occupiedTimeSlots(base, iso(d))) set.add(s.time);
   }
   return [...set];
 }
@@ -733,7 +733,7 @@ function TimeField({ value, onChange, occupiedSlots, big }: { value: string; onC
         open={open}
         triggerRef={ref}
         value={value}
-        occupiedSlots={occupiedSlots}
+        occupiedSlots={occupiedSlots?.map((s) => ({ time: s, title: "" }))}
         onChange={(v) => onChange(v)}
         onClear={() => { onChange(undefined); setOpen(false); }}
         onClose={() => setOpen(false)}

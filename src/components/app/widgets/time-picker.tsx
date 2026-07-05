@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Clock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { OccupiedSlot } from "@/lib/dates";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = [0, 15, 30, 45];
@@ -32,13 +33,24 @@ export function TimePicker({
   onClear?: () => void;
   /** HH:MM — slots strictly less than this are unselectable (shown as past) */
   disableBefore?: string;
-  /** HH:MM slots already booked by other tasks (shown as busy) */
-  occupiedSlots?: string[];
+  /** HH:MM slots already booked by other tasks (shown as busy, but still
+   *  selectable — picking one schedules a parallel task at the same time). */
+  occupiedSlots?: OccupiedSlot[];
 }) {
-  const occupiedSet = useMemo(() => new Set(occupiedSlots ?? []), [occupiedSlots]);
+  const occupied = useMemo(() => {
+    const set = new Set<string>();
+    const titles = new Map<string, string[]>();
+    for (const o of occupiedSlots ?? []) {
+      set.add(o.time);
+      if (!o.title) continue;
+      const arr = titles.get(o.time) ?? [];
+      arr.push(o.title);
+      titles.set(o.time, arr);
+    }
+    return { set, titles };
+  }, [occupiedSlots]);
   const current = nowSlot();
-  const currentDisabled =
-    (!!disableBefore && current < disableBefore) || occupiedSet.has(current);
+  const currentDisabled = !!disableBefore && current < disableBefore;
   const listRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
 
@@ -94,8 +106,11 @@ export function TimePicker({
           const active = slot === value;
           const isCurrent = slot === current;
           const isPast = !!disableBefore && slot < disableBefore;
-          const isBusy = !isPast && occupiedSet.has(slot);
-          const disabled = isPast || isBusy;
+          const isBusy = !isPast && occupied.set.has(slot);
+          // Busy slots stay selectable — picking one schedules a parallel
+          // task at the same time as whatever already occupies it.
+          const disabled = isPast;
+          const busyTitle = isBusy ? occupied.titles.get(slot)?.join(", ") : undefined;
           // Anchor scroll to selected value if any; otherwise to first
           // selectable slot near "now".
           const isScrollAnchor =
@@ -112,17 +127,23 @@ export function TimePicker({
               disabled={disabled}
               onClick={() => onChange(slot)}
               className={cn(
-                "flex w-full items-center justify-between px-3 py-1.5 text-left font-mono text-[12.5px] tabular-nums transition-colors",
+                "flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left font-mono text-[12.5px] tabular-nums transition-colors",
                 isPast && "cursor-not-allowed text-faint/45 line-through",
-                isBusy && "cursor-not-allowed bg-subtle/60 text-faint",
+                !isPast && isBusy && "bg-subtle/60 text-muted hover:bg-hover",
                 !disabled && active && "bg-accent text-accent-ink",
-                !disabled && !active && "text-foreground hover:bg-hover"
+                !disabled && !isBusy && !active && "text-foreground hover:bg-hover"
               )}
               title={
-                isPast ? "O'tib ketgan vaqt" : isBusy ? "Boshqa reja band qilgan" : undefined
+                isPast
+                  ? "O'tib ketgan vaqt"
+                  : isBusy
+                  ? busyTitle
+                    ? `Band: ${busyTitle} — bosib parallel task qo'shishingiz mumkin`
+                    : "Boshqa reja band qilgan — bosib parallel task qo'shishingiz mumkin"
+                  : undefined
               }
             >
-              <span>{slot}</span>
+              <span className="shrink-0">{slot}</span>
               {isCurrent && !active && !disabled && (
                 <span className="rounded bg-current-time/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-current-time">
                   hozir
@@ -134,8 +155,15 @@ export function TimePicker({
                 </span>
               )}
               {isBusy && (
-                <span className="font-mono text-[9px] uppercase tracking-wider text-muted">
-                  band
+                <span className="flex min-w-0 items-center gap-1 overflow-hidden">
+                  <span className="shrink-0 font-mono text-[9px] uppercase tracking-wider text-faint">
+                    band
+                  </span>
+                  {busyTitle && (
+                    <span className="truncate text-[10.5px] normal-case tracking-normal text-faint">
+                      · {busyTitle}
+                    </span>
+                  )}
                 </span>
               )}
             </button>

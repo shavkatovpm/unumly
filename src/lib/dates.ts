@@ -150,17 +150,21 @@ export function fromDateInputValue(iso: string): Date {
   return new Date(y, (m || 1) - 1, d || 1);
 }
 
+export type OccupiedSlot = { time: string; title: string };
+
 /**
  * Returns every 15-minute HH:MM slot occupied by the given plans on the given
- * date. Pass `excludeId` to skip a plan (useful when editing — so the plan
- * does not block its own time).
+ * date, together with the title of the plan occupying it (so the time
+ * picker can show *what* is already scheduled there). Pass `excludeId` to
+ * skip a plan (useful when editing — so the plan does not block its own
+ * time).
  */
 export function occupiedTimeSlots(
-  plans: { id: string; scope?: string; status?: string; scheduledFor?: string; time?: string; duration?: number }[],
+  plans: { id: string; scope?: string; status?: string; scheduledFor?: string; time?: string; duration?: number; title?: string }[],
   dateIso: string,
   excludeId?: string
-): string[] {
-  const out: string[] = [];
+): OccupiedSlot[] {
+  const out: OccupiedSlot[] = [];
   for (const p of plans) {
     if (p.scope !== "DAILY") continue;
     if (p.scheduledFor !== dateIso) continue;
@@ -174,7 +178,7 @@ export function occupiedTimeSlots(
     for (let t = start; t < start + dur; t += 15) {
       const sh = Math.floor(t / 60);
       const sm = t % 60;
-      out.push(`${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}`);
+      out.push({ time: `${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}`, title: p.title ?? "" });
     }
   }
   return out;

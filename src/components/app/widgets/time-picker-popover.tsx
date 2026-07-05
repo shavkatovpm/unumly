@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { TimePicker } from "./time-picker";
+import type { OccupiedSlot } from "@/lib/dates";
 
 const POPOVER_WIDTH = 280;
 const POPOVER_HEIGHT_APPROX = 340;
@@ -27,8 +28,8 @@ export function TimePickerPopover({
   onClose: () => void;
   /** HH:MM — slots strictly less than this are unselectable */
   disableBefore?: string;
-  /** HH:MM slots already occupied by other tasks (shown as "band") */
-  occupiedSlots?: string[];
+  /** Slots already occupied by other tasks (shown as "band", still selectable) */
+  occupiedSlots?: OccupiedSlot[];
 }) {
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);

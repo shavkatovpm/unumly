@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Check, X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon, Pencil, ListChecks } from "lucide-react";
+import { Bell, Check, X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon, Pencil, ListChecks, Tag } from "lucide-react";
 import type { Plan, PlanPriority, Subtask } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useRejaCategoryMap } from "@/lib/use-reja-category";
 import {
   formatUzDate,
   fromDateInputValue,
@@ -73,6 +74,7 @@ export function TaskDetail({
   draft?: boolean;
   onCreate?: (input: Omit<Plan, "id" | "createdAt" | "order" | "status">) => string;
 }) {
+  const rejaCategoryMap = useRejaCategoryMap();
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
@@ -360,6 +362,7 @@ export function TaskDetail({
             selectedDate={selectedDate}
             isDateInPast={isDateInPast}
             isTimePast={isTimePast}
+            rejaCategory={plan ? rejaCategoryMap.get(plan.id) : undefined}
           />
         ) : (
 
@@ -633,6 +636,7 @@ function ViewBody({
   selectedDate,
   isDateInPast,
   isTimePast,
+  rejaCategory,
 }: {
   title: string;
   notes: string;
@@ -645,6 +649,8 @@ function ViewBody({
   selectedDate: Date;
   isDateInPast: boolean;
   isTimePast: boolean;
+  /** Set when this task originated from a Reja (idea) — shows which reja category it came from. */
+  rejaCategory?: { label: string; color: string };
 }) {
   const trimmedNotes = notes.trim();
   const pri = PRIORITY_DISPLAY[priority];
@@ -656,6 +662,19 @@ function ViewBody({
       <h2 className="text-[22px] font-semibold leading-tight tracking-[-0.015em] text-foreground sm:text-[24px]">
         {title || "Sarlavhasiz"}
       </h2>
+
+      {/* Manba reja — faqat Reja'dan o'tgan tasklarda ko'rinadi */}
+      {rejaCategory && (
+        <Row label="Reja" icon={<Tag className="size-3" />}>
+          <span
+            className="inline-flex items-center gap-1.5 text-[15px] font-medium sm:text-[14px]"
+            style={{ color: rejaCategory.color }}
+          >
+            <Tag className="size-3.5" />
+            {rejaCategory.label}
+          </span>
+        </Row>
+      )}
 
       {/* Sana */}
       <Row label="Sana" icon={<CalendarIcon className="size-3" />}>

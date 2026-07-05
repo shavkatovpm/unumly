@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { useGoals, useGoalById, useHydratedGoals, goalProgress } from "@/lib/goals-store";
 import { usePlans } from "@/lib/plans-store";
 import { usePointerReorder } from "@/lib/use-pointer-reorder";
-import { occupiedTimeSlots } from "@/lib/dates";
+import { occupiedTimeSlots, type OccupiedSlot } from "@/lib/dates";
 import { ensureVisibleOnFocus } from "@/lib/ensure-visible";
 import type { Goal, SubGoal, GoalStep } from "@/lib/types";
 import { Dialog } from "./widgets/dialog";
@@ -531,7 +531,7 @@ function DateField({ valueIso, plans, onChange, onClear, placeholder }: { valueI
 function Lbl({ children }: { children: React.ReactNode }) { return <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-faint">{children}</p>; }
 
 /* Vaqt tanlash — boshqa tasklardagidek (TimePickerPopover). */
-function TimeField({ value, onChange, occupiedSlots }: { value: string; onChange: (v: string | undefined) => void; occupiedSlots?: string[] }) {
+function TimeField({ value, onChange, occupiedSlots }: { value: string; onChange: (v: string | undefined) => void; occupiedSlots?: OccupiedSlot[] }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   return (
