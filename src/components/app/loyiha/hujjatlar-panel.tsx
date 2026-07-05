@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import dynamic from "next/dynamic";
-import {
-  ChevronDown, ChevronRight, FileText, Plus, Trash2, ArrowLeft,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ArrowLeft, ChevronRight, FileText, Plus, Trash2, X } from "lucide-react";
 import { usePages } from "@/lib/pages-store";
 import type { Page } from "@/lib/types";
 import type { PartialBlock } from "@blocknote/core";
+import { Dialog } from "../widgets/dialog";
 import { ListLoader } from "../widgets/list-loader";
 import { useConfirmRemove } from "../widgets/confirm-dialog";
 
@@ -19,235 +17,213 @@ const BlockNoteEditor = dynamic(
   { ssr: false, loading: () => <div className="h-40 animate-pulse rounded-lg bg-subtle/60" /> }
 );
 
-type TreeNode = { page: Page; children: TreeNode[] };
-
-function buildTree(pages: Page[]): TreeNode[] {
-  const byParent = new Map<string | null, Page[]>();
-  for (const p of pages) {
-    const arr = byParent.get(p.parentId) ?? [];
-    arr.push(p);
-    byParent.set(p.parentId, arr);
-  }
-  function attach(parentId: string | null): TreeNode[] {
-    return (byParent.get(parentId) ?? [])
-      .sort((a, b) => a.order - b.order)
-      .map((page) => ({ page, children: attach(page.id) }));
-  }
-  return attach(null);
-}
-
-/** Loyihaning "Hujjatlar" ko'rinishi — cheksiz ichma-ich sahifalar daraxti,
- *  har biri BlockNote bilan tahrirlanadigan erkin hujjat (TZ, checklist,
- *  jadval — hammasi bitta joyda). */
+/** Loyihaning "Hujjatlar" ko'rinishi — cheksiz ichma-ich sahifalar, har biri
+ *  BlockNote bilan tahrirlanadigan erkin hujjat (TZ, checklist, jadval —
+ *  hammasi bitta joyda). Notion'dagi doimiy chap-panel/daraxt o'rniga —
+ *  ilovaning o'z uslubi: kartalar ro'yxati + to'liq ekran sheet (xuddi
+ *  TaskDetail/HabitDetailSheet kabi). Bo'lim sahifalar sheet ichida kichik
+ *  kartalar sifatida ko'rinadi; ustiga bosilsa ichma-ich sheet ochiladi. */
 export function HujjatlarPanel({ projectId }: { projectId: string }) {
   const { pages, hydrated, create, update, remove } = usePages(projectId);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [mobileView, setMobileView] = useState<"tree" | "editor">("tree");
+  const [openId, setOpenId] = useState<string | null>(null);
 
-  const tree = useMemo(() => buildTree(pages), [pages]);
-  const selected = pages.find((p) => p.id === selectedId) ?? null;
+  const roots = pages.filter((p) => !p.parentId).sort((a, b) => a.order - b.order);
+  const open = pages.find((p) => p.id === openId) ?? null;
 
   const confirmItems = pages.map((p) => ({ id: p.id, title: p.title }));
   const { askRemove, confirmEl } = useConfirmRemove(confirmItems, remove, {
     itemLabel: "Sahifani",
-    description: '"{title}" va uning ichidagi barcha bola sahifalar o\'chiriladi.',
+    description: '"{title}" va uning ichidagi barcha bo\'lim sahifalar o\'chiriladi.',
   });
 
-  // Birinchi marta ochilganda — birinchi ildiz sahifani tanlaymiz va (agar
-  // biror sahifa bo'lsa) mobil'da ham to'g'ridan-to'g'ri muharrirni ochamiz,
-  // aks holda ro'yxatda "tanlangan" ko'rinib, lekin ochilmagan holat paydo bo'lardi.
-  useEffect(() => {
-    if (!hydrated) return;
-    if (selectedId && pages.some((p) => p.id === selectedId)) return;
-    const firstId = tree[0]?.page.id ?? null;
-    setSelectedId(firstId);
-    if (firstId) setMobileView("editor");
-  }, [hydrated, tree, pages, selectedId]);
-
-  function toggleExpand(id: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+  function childCount(id: string) {
+    return pages.filter((p) => p.parentId === id).length;
   }
 
-  function addPage(parentId: string | null) {
-    const id = create({ parentId, title: "Nomsiz" });
-    if (parentId) setExpanded((prev) => new Set(prev).add(parentId));
-    setSelectedId(id);
-    setMobileView("editor");
+  function addRootPage() {
+    const id = create({ parentId: null, title: "Nomsiz" });
+    setOpenId(id);
   }
 
   if (!hydrated) return <ListLoader />;
 
   return (
-    <div className="flex h-full min-h-0 flex-1 overflow-hidden">
-      {/* Sahifalar daraxti */}
-      <div
-        className={cn(
-          "flex w-full shrink-0 flex-col overflow-y-auto border-border sm:w-64 sm:border-r",
-          mobileView === "editor" && "hidden sm:flex"
-        )}
-      >
-        <div className="flex items-center justify-between px-3 py-2.5">
-          <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-faint">Hujjatlar</p>
+    <div className="mx-auto max-w-2xl px-4 py-5 sm:px-6 sm:py-6">
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-faint">Hujjatlar</p>
+        <button
+          type="button"
+          onClick={addRootPage}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-[12.5px] font-medium text-faint transition-colors hover:bg-hover hover:text-foreground"
+        >
+          <Plus className="size-3.5" /> Yangi sahifa
+        </button>
+      </div>
+
+      {roots.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
+          <FileText className="mx-auto size-7 text-faint" />
+          <p className="mt-3 text-[13.5px] font-medium text-foreground">Hali sahifa yo&apos;q</p>
+          <p className="mx-auto mt-1 max-w-xs text-[12.5px] text-muted">
+            TZ, mavzular ro&apos;yxati, checklist, jadval — hammasi shu yerda.
+          </p>
           <button
             type="button"
-            onClick={() => addPage(null)}
-            aria-label="Yangi sahifa"
-            className="grid size-6 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-foreground"
+            onClick={addRootPage}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-foreground px-4 py-2 text-[13px] font-medium text-background transition-opacity hover:opacity-90"
           >
-            <Plus className="size-3.5" />
+            <Plus className="size-3.5" /> Birinchi sahifa
           </button>
         </div>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {roots.map((p) => {
+            const count = childCount(p.id);
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setOpenId(p.id)}
+                className="flex items-center gap-3 rounded-xl border border-border bg-surface px-3.5 py-3 text-left transition-colors hover:border-border-strong hover:bg-hover"
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-subtle text-faint">
+                  <FileText className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-medium">{p.title || "Nomsiz"}</span>
+                  {count > 0 && (
+                    <span className="text-[11.5px] text-faint">{count} bo&apos;lim sahifa</span>
+                  )}
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-faint" />
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-        {tree.length === 0 ? (
-          <div className="px-3 py-6 text-center">
-            <p className="text-[12.5px] text-faint">Hali sahifa yo&apos;q</p>
-            <button
-              type="button"
-              onClick={() => addPage(null)}
-              className="mt-2 inline-flex items-center gap-1 text-[12.5px] font-medium text-foreground hover:opacity-70"
-            >
-              <Plus className="size-3.5" /> Birinchi sahifa
-            </button>
-          </div>
-        ) : (
-          <ul className="px-1.5 pb-2">
-            {tree.map((node) => (
-              <PageTreeItem
-                key={node.page.id}
-                node={node}
-                depth={0}
-                selectedId={selectedId}
-                expanded={expanded}
-                onToggleExpand={toggleExpand}
-                onSelect={(id) => { setSelectedId(id); setMobileView("editor"); }}
-                onAddChild={addPage}
-                onRemove={askRemove}
-              />
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {/* Tanlangan sahifa muharriri */}
-      <div className={cn("min-w-0 flex-1 overflow-y-auto", mobileView === "tree" && "hidden sm:block")}>
-        {selected ? (
-          <div key={selected.id} className="mx-auto max-w-2xl px-4 py-5 sm:px-8">
-            <button
-              type="button"
-              onClick={() => setMobileView("tree")}
-              className="mb-3 flex items-center gap-1 text-[12.5px] text-faint hover:text-foreground sm:hidden"
-            >
-              <ArrowLeft className="size-3.5" /> Hujjatlar
-            </button>
-            <input
-              value={selected.title}
-              onChange={(e) => update(selected.id, { title: e.target.value })}
-              placeholder="Nomsiz"
-              className="w-full bg-transparent text-[26px] font-semibold tracking-[-0.015em] text-foreground outline-none placeholder:text-faint"
-            />
-            <div className="mt-4">
-              <BlockNoteEditor
-                key={selected.id}
-                initialContent={selected.content as PartialBlock[] | null}
-                onChange={(blocks) => update(selected.id, { content: blocks as unknown[] })}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-            <FileText className="size-8 text-faint" />
-            <p className="mt-3 text-[13.5px] text-muted">Sahifa tanlang yoki yangisini yarating</p>
-          </div>
-        )}
-      </div>
+      {open && (
+        <PageSheet
+          page={open}
+          pages={pages}
+          onClose={() => setOpenId(null)}
+          onUpdate={update}
+          onCreateChild={create}
+          onRemove={askRemove}
+        />
+      )}
       {confirmEl}
     </div>
   );
 }
 
-function PageTreeItem({
-  node,
-  depth,
-  selectedId,
-  expanded,
-  onToggleExpand,
-  onSelect,
-  onAddChild,
+function PageSheet({
+  page,
+  pages,
+  onClose,
+  onUpdate,
+  onCreateChild,
   onRemove,
 }: {
-  node: TreeNode;
-  depth: number;
-  selectedId: string | null;
-  expanded: Set<string>;
-  onToggleExpand: (id: string) => void;
-  onSelect: (id: string) => void;
-  onAddChild: (parentId: string) => void;
+  page: Page;
+  pages: Page[];
+  onClose: () => void;
+  onUpdate: (id: string, patch: Partial<Page>) => void;
+  onCreateChild: (input: { parentId?: string | null; title?: string }) => string;
   onRemove: (id: string) => void;
 }) {
-  const { page, children } = node;
-  const hasChildren = children.length > 0;
-  const isOpen = expanded.has(page.id);
-  const active = page.id === selectedId;
+  const [openChildId, setOpenChildId] = useState<string | null>(null);
+  const children = pages.filter((p) => p.parentId === page.id).sort((a, b) => a.order - b.order);
+  const openChild = children.find((c) => c.id === openChildId) ?? null;
+
+  function addChild() {
+    const id = onCreateChild({ parentId: page.id, title: "Nomsiz" });
+    setOpenChildId(id);
+  }
 
   return (
-    <li>
-      <div
-        className={cn(
-          "group flex items-center gap-1 rounded-md py-1.5 pr-1.5 text-[13.5px] transition-colors",
-          active ? "bg-subtle text-foreground" : "text-muted hover:bg-hover hover:text-foreground"
-        )}
-        style={{ paddingLeft: 6 + depth * 16 }}
-      >
+    <Dialog open onClose={onClose} mobilePlacement="bottom" className="max-w-2xl sm:min-h-[75vh]">
+      <header className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
         <button
           type="button"
-          onClick={() => onToggleExpand(page.id)}
-          className={cn("grid size-4 shrink-0 place-items-center rounded text-faint", !hasChildren && "invisible")}
+          onClick={onClose}
+          className="flex items-center gap-1.5 text-[12.5px] text-faint transition-colors hover:text-foreground"
         >
-          {isOpen ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+          <ArrowLeft className="size-3.5" /> Orqaga
         </button>
-        <button type="button" onClick={() => onSelect(page.id)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
-          <FileText className="size-3.5 shrink-0 text-faint" />
-          <span className="truncate">{page.title || "Nomsiz"}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onAddChild(page.id)}
-          aria-label="Bola sahifa qo'shish"
-          className="grid size-5 shrink-0 place-items-center rounded text-faint opacity-0 transition-opacity hover:bg-hover hover:text-foreground group-hover:opacity-100"
-        >
-          <Plus className="size-3" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onRemove(page.id)}
-          aria-label="O'chirish"
-          className="grid size-5 shrink-0 place-items-center rounded text-faint opacity-0 transition-opacity hover:bg-hover hover:text-danger group-hover:opacity-100"
-        >
-          <Trash2 className="size-3" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onRemove(page.id)}
+            aria-label="O'chirish"
+            className="grid size-7 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-danger"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Yopish"
+            className="grid size-7 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-8">
+        <input
+          value={page.title}
+          onChange={(e) => onUpdate(page.id, { title: e.target.value })}
+          placeholder="Nomsiz"
+          className="w-full bg-transparent text-[24px] font-semibold tracking-[-0.015em] text-foreground outline-none placeholder:text-faint"
+        />
+        <div className="mt-4">
+          <BlockNoteEditor
+            key={page.id}
+            initialContent={page.content as PartialBlock[] | null}
+            onChange={(blocks) => onUpdate(page.id, { content: blocks as unknown[] })}
+          />
+        </div>
+
+        <div className="mt-8 border-t border-border pt-4">
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.15em] text-faint">
+            Bo&apos;lim sahifalar
+          </p>
+          <div className="space-y-1.5">
+            {children.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setOpenChildId(c.id)}
+                className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface px-3 py-2.5 text-left transition-colors hover:border-border-strong hover:bg-hover"
+              >
+                <FileText className="size-3.5 shrink-0 text-faint" />
+                <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{c.title || "Nomsiz"}</span>
+                <ChevronRight className="size-3.5 shrink-0 text-faint" />
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={addChild}
+              className="flex w-full items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 text-[12.5px] text-faint transition-colors hover:border-border-strong hover:text-foreground"
+            >
+              <Plus className="size-3.5" /> Bo&apos;lim sahifa qo&apos;shish
+            </button>
+          </div>
+        </div>
       </div>
-      {hasChildren && isOpen && (
-        <ul>
-          {children.map((child) => (
-            <PageTreeItem
-              key={child.page.id}
-              node={child}
-              depth={depth + 1}
-              selectedId={selectedId}
-              expanded={expanded}
-              onToggleExpand={onToggleExpand}
-              onSelect={onSelect}
-              onAddChild={onAddChild}
-              onRemove={onRemove}
-            />
-          ))}
-        </ul>
+
+      {openChild && (
+        <PageSheet
+          page={openChild}
+          pages={pages}
+          onClose={() => setOpenChildId(null)}
+          onUpdate={onUpdate}
+          onCreateChild={onCreateChild}
+          onRemove={onRemove}
+        />
       )}
-    </li>
+    </Dialog>
   );
 }

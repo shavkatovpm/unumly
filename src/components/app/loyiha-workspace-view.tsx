@@ -85,13 +85,11 @@ export function LoyihaWorkspaceView({ projectId }: { projectId: string }) {
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {tab === "hujjatlar" ? (
           <HujjatlarPanel projectId={project.id} />
         ) : (
-          <div className="h-full overflow-y-auto">
-            <JadvalPanel projectId={project.id} />
-          </div>
+          <JadvalPanel projectId={project.id} />
         )}
       </div>
     </div>

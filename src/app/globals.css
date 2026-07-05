@@ -537,3 +537,75 @@ textarea,
     overflow: hidden !important;
   }
 }
+
+/* ─── BlockNote (Loyiha > Hujjatlar) ───────────────────────────────────────
+   block-note-editor.tsx theme prop'i faqat ranglarni moslaydi — shakl/hajm/
+   shrift BlockNote'ning o'z (Notion uslubidagi) qiymatlarida qolib ketardi.
+   Bu yerda ".unumly-bn" ostida qolganini ilovaning o'z popover/tugma tiliga
+   moslaymiz (TimePickerPopover va boshqa dialoglar bilan bir xil radius/
+   shadow/shrift o'lchamlari). `!important` ataylab — vendor stylesheet
+   yuklanish tartibi kafolatlanmagani uchun. */
+.unumly-bn .bn-editor {
+  font-size: 15px !important;
+  line-height: 1.65 !important;
+}
+
+.unumly-bn .bn-editor [data-content-type="heading"] {
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* Slash-menyu / formatlash paneli / tooltip — ilovaning o'z popover ko'rinishi */
+.unumly-bn .bn-suggestion-menu,
+.unumly-bn .bn-toolbar,
+.unumly-bn .bn-panel-popover,
+.unumly-bn .bn-form-popover {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-lg) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.unumly-bn .bn-suggestion-menu-item {
+  height: auto !important;
+  padding: 6px 10px !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.unumly-bn .bn-mt-suggestion-menu-item-title {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+}
+
+.unumly-bn .bn-mt-suggestion-menu-item-subtitle {
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+  color: var(--faint) !important;
+}
+
+.unumly-bn .bn-suggestion-menu-label {
+  font-size: 10.5px !important;
+  font-weight: 500 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  color: var(--faint) !important;
+  padding: 6px 10px 2px !important;
+}
+
+/* Chap tomondagi drag-handle / "+" tugmalari — ilovaning ikon-tugma uslubi
+   (rounded-md, xira → hover'da to'liq rang) */
+.unumly-bn .bn-side-menu button {
+  border-radius: var(--radius-sm) !important;
+  color: var(--faint) !important;
+}
+
+.unumly-bn .bn-side-menu button:hover {
+  background: var(--hover) !important;
+  color: var(--foreground) !important;
+}
+
+.unumly-bn .bn-tooltip {
+  border-radius: var(--radius-sm) !important;
+  font-size: 11px !important;
+  box-shadow: var(--shadow-md) !important;
+}

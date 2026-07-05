@@ -121,7 +121,7 @@ export function JadvalPanel({ projectId }: { projectId: string }) {
                 type="button"
                 onClick={() => askRemove(t.id)}
                 aria-label="O'chirish"
-                className="grid size-8 shrink-0 place-items-center rounded-md text-faint opacity-0 transition-opacity hover:bg-hover hover:text-danger group-hover:opacity-100"
+                className="grid size-8 shrink-0 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-danger sm:opacity-0 sm:group-hover:opacity-100"
               >
                 <Trash2 className="size-3.5" />
               </button>

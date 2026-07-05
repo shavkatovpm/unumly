@@ -148,8 +148,8 @@ function ProjectRow({
         </span>
         <ChevronRight className="size-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5" />
       </button>
-      <button onClick={onEdit} aria-label="Tahrirlash" className="grid size-8 shrink-0 place-items-center rounded-md text-faint opacity-0 transition-opacity hover:bg-hover hover:text-foreground group-hover:opacity-100"><Pencil className="size-3.5" /></button>
-      <button onClick={onRemove} aria-label="O'chirish" className="grid size-8 shrink-0 place-items-center rounded-md text-faint opacity-0 transition-opacity hover:bg-hover hover:text-danger group-hover:opacity-100"><Trash2 className="size-3.5" /></button>
+      <button onClick={onEdit} aria-label="Tahrirlash" className="grid size-8 shrink-0 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"><Pencil className="size-3.5" /></button>
+      <button onClick={onRemove} aria-label="O'chirish" className="grid size-8 shrink-0 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-danger sm:opacity-0 sm:group-hover:opacity-100"><Trash2 className="size-3.5" /></button>
     </li>
   );
 }
