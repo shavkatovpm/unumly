@@ -1,0 +1,92 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import type { PlanPriority, ProjectTask } from "@/lib/types";
+import * as actions from "@/lib/project-tasks-actions";
+
+/* Loyiha tasklari (Jadval) — pages-store bilan bir xil naqsh: har bir loyiha
+   o'z tasklar ro'yxatini alohida, talab bo'yicha yuklanadigan keshda saqlaydi. */
+
+const cache = new Map<string, ProjectTask[]>();
+const listeners = new Map<string, Set<() => void>>();
+
+function emit(projectId: string) {
+  for (const l of listeners.get(projectId) ?? []) l();
+}
+function subscribe(projectId: string, cb: () => void) {
+  let set = listeners.get(projectId);
+  if (!set) { set = new Set(); listeners.set(projectId, set); }
+  set.add(cb);
+  return () => { set!.delete(cb); if (set!.size === 0) listeners.delete(projectId); };
+}
+function nextId() { return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36); }
+
+export function useProjectTasks(projectId: string | null) {
+  const [, forceRender] = useState(0);
+
+  useEffect(() => {
+    if (!projectId) return;
+    const unsub = subscribe(projectId, () => forceRender((n) => n + 1));
+    if (!cache.has(projectId)) {
+      void actions.listProjectTasks(projectId)
+        .then((rows) => { cache.set(projectId, rows); emit(projectId); })
+        .catch(() => { cache.set(projectId, cache.get(projectId) ?? []); emit(projectId); });
+    }
+    return unsub;
+  }, [projectId]);
+
+  const hydrated = projectId ? cache.has(projectId) : false;
+  const tasks = (projectId && cache.get(projectId)) || [];
+
+  const create = useCallback((input: { title: string; priority?: PlanPriority; dueDate?: string }): string => {
+    if (!projectId) return "";
+    const id = nextId();
+    const optimistic: ProjectTask = {
+      id, projectId, title: input.title.trim(), done: false,
+      priority: input.priority, dueDate: input.dueDate,
+      order: (cache.get(projectId) ?? []).length,
+      createdAt: new Date().toISOString(),
+    };
+    cache.set(projectId, [...(cache.get(projectId) ?? []), optimistic]);
+    emit(projectId);
+    void actions.createProjectTask({ id, projectId, title: optimistic.title, priority: input.priority, dueDate: input.dueDate })
+      .then((server) => {
+        cache.set(projectId, (cache.get(projectId) ?? []).map((t) => (t.id === id ? server : t)));
+        emit(projectId);
+      })
+      .catch(() => {
+        cache.set(projectId, (cache.get(projectId) ?? []).filter((t) => t.id !== id));
+        emit(projectId);
+      });
+    return id;
+  }, [projectId]);
+
+  const update = useCallback((id: string, patch: Partial<ProjectTask>) => {
+    if (!projectId) return;
+    const list = cache.get(projectId) ?? [];
+    const prev = list.find((t) => t.id === id);
+    if (!prev) return;
+    cache.set(projectId, list.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    emit(projectId);
+    void actions.updateProjectTask(id, {
+      ...(patch.title !== undefined && { title: patch.title }),
+      ...(patch.done !== undefined && { done: patch.done }),
+      ...(patch.priority !== undefined && { priority: patch.priority ?? null }),
+      ...(patch.dueDate !== undefined && { dueDate: patch.dueDate ?? null }),
+      ...(patch.order !== undefined && { order: patch.order }),
+    }).catch(() => {
+      cache.set(projectId, (cache.get(projectId) ?? []).map((t) => (t.id === id ? prev : t)));
+      emit(projectId);
+    });
+  }, [projectId]);
+
+  const remove = useCallback((id: string) => {
+    if (!projectId) return;
+    const prev = cache.get(projectId) ?? [];
+    cache.set(projectId, prev.filter((t) => t.id !== id));
+    emit(projectId);
+    void actions.removeProjectTask(id).catch(() => { cache.set(projectId, prev); emit(projectId); });
+  }, [projectId]);
+
+  return { tasks, hydrated, create, update, remove };
+}

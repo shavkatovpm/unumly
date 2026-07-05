@@ -32,6 +32,8 @@ export type Plan = {
   habitId?: string;
   /** Set when this plan is the scheduled occurrence of a Goal step (OKR qadami). */
   goalStepId?: string;
+  /** Set when this plan belongs to a Loyiha (Project) workspace, not the personal space. */
+  projectId?: string;
 };
 
 /* ─── Odat (Habits) ─── */
@@ -139,6 +141,48 @@ export type Goal = {
   archivedAt?: string;    // ISO datetime
   createdAt: string;      // ISO datetime
   subGoals: SubGoal[];
+  /** Set when this goal belongs to a Loyiha (Project) workspace, not the personal space. */
+  projectId?: string;
+};
+
+/* ─── Loyiha (Project workspace) ─── */
+
+export type Project = {
+  id: string;
+  title: string;
+  icon?: string;        // lucide key
+  color?: CategoryColor;
+  order: number;
+  archivedAt?: string;  // ISO datetime
+};
+
+/** Node in a project's page tree (Notion-style nested pages, arbitrary
+ *  depth via parentId). `content` is an opaque BlockNote document (array
+ *  of blocks) — typed loosely here so this shared file doesn't depend on
+ *  the editor library. */
+export type Page = {
+  id: string;
+  projectId: string;
+  parentId: string | null;
+  title: string;
+  icon?: string;
+  content: unknown[] | null;
+  order: number;
+  createdAt: string;    // ISO datetime
+  updatedAt: string;    // ISO datetime
+};
+
+/** Flat todo row for a Project's "Jadval" (table) view. Deliberately
+ *  separate from Plan — no mandatory scheduled date. */
+export type ProjectTask = {
+  id: string;
+  projectId: string;
+  title: string;
+  done: boolean;
+  priority?: PlanPriority;
+  dueDate?: string;  // YYYY-MM-DD
+  order: number;
+  createdAt: string; // ISO datetime
 };
 
 /* ─── Moliya (Finance) ─── */

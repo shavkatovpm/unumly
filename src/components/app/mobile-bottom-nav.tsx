@@ -340,7 +340,14 @@ function BoshqaruvSheet({
 
         {/* Maxsus — dropdown (Loyiha) */}
         <SheetCollapsible label="Maxsus" open={openSection === "maxsus"} onToggle={() => toggleSection("maxsus")}>
-          <SheetItem label="Loyiha" icon={Sparkles} badge="tez orada" secondary />
+          <SheetLink
+            href="/loyiha"
+            label="Loyiha"
+            icon={Sparkles}
+            active={isActive("/loyiha")}
+            onNavigate={onClose}
+            secondary
+          />
         </SheetCollapsible>
         </div>
 
@@ -427,39 +434,6 @@ function SheetLink({
       <span className="flex-1 text-left font-medium">{label}</span>
       <Icon className="size-[25px] shrink-0 text-faint" strokeWidth={2} />
     </Link>
-  );
-}
-
-function SheetItem({
-  label,
-  icon: Icon,
-  badge,
-  secondary = false,
-}: {
-  label: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  badge?: string;
-  secondary?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      disabled
-      className={cn(
-        "flex w-full cursor-not-allowed items-center border border-border bg-surface/50 text-left text-faint/80",
-        secondary
-          ? "gap-3 rounded-lg px-3.5 py-3 text-[15px]"
-          : "gap-3.5 rounded-xl px-[18px] py-[18px] text-[19px]"
-      )}
-    >
-      <span className="flex-1 text-left">{label}</span>
-      {badge && (
-        <span className="rounded bg-subtle px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-faint">
-          {badge}
-        </span>
-      )}
-      <Icon className={cn("shrink-0 text-faint/70", secondary ? "size-[19px]" : "size-[25px]")} strokeWidth={2} />
-    </button>
   );
 }
 

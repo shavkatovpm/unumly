@@ -16,30 +16,30 @@ datasource db {
 
 model User {
   // Internal id (used as foreign key everywhere)
-  id           String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Telegram identity — the only login method
-  telegramId   BigInt   @unique
-  username     String?            // @username (may change or be empty)
+  telegramId   BigInt  @unique
+  username     String? // @username (may change or be empty)
   firstName    String?
   lastName     String?
-  photoUrl     String?            // profile photo from Telegram
-  languageCode String?            // 2-letter code
+  photoUrl     String? // profile photo from Telegram
+  languageCode String? // 2-letter code
 
   // Phone number (E.164 format, e.g. +998901234567) — shared by user via bot
   // 'Share contact' button; used to send OTP codes for login.
-  phone        String?  @unique
+  phone String? @unique
 
   // Booleans we may use later (notification settings, premium status)
   isPremium           Boolean @default(false)
   notifyLow           Boolean @default(true)
   notifyMedium        Boolean @default(true)
   notifyHigh          Boolean @default(true)
-  notifyUnprioritized Boolean @default(true)   // tasks without a priority
+  notifyUnprioritized Boolean @default(true) // tasks without a priority
 
   // Minutes before a task's scheduled time the bot reminder fires.
   // Default 5; UI exposes 5 / 15 / 30 as quick options.
-  notifyLeadMin       Int     @default(5)
+  notifyLeadMin Int @default(5)
 
   // When set, the next plain-text bot message will be treated as the new
   // name for this QuickList (rather than as a list item). Cleared after
@@ -59,21 +59,22 @@ model User {
   // bir marta seed qilinadi.
   financeCategoriesSeeded Boolean @default(false)
 
-  createdAt    DateTime @default(now())
-  lastSeenAt   DateTime @default(now())
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
 
-  plans        Plan[]
-  quickLists   QuickList[]
-  categories   Category[]
-  ideas        Idea[]
-  habits          Habit[]
-  habitCategories HabitCategory[]
-  goals           Goal[]
+  plans             Plan[]
+  quickLists        QuickList[]
+  categories        Category[]
+  ideas             Idea[]
+  habits            Habit[]
+  habitCategories   HabitCategory[]
+  goals             Goal[]
   financeCategories FinanceCategory[]
   transactions      Transaction[]
   budgets           Budget[]
   financialGoals    FinancialGoal[]
   debts             Debt[]
+  projects          Project[]
 
   @@index([telegramId])
   @@index([phone])
@@ -83,8 +84,8 @@ model User {
 // requests OTP on the web; the bot delivers them via DM.
 model OtpCode {
   id        String   @id @default(cuid())
-  phone     String                          // E.164 format
-  codeHash  String                          // SHA-256 of the 6-digit code
+  phone     String // E.164 format
+  codeHash  String // SHA-256 of the 6-digit code
   expiresAt DateTime
   used      Boolean  @default(false)
   attempts  Int      @default(0)
@@ -100,7 +101,7 @@ model OtpCode {
 
 model AdminConfig {
   id           Int      @id @default(1)
-  passwordHash String   // "salt:hex" (scrypt 64-byte)
+  passwordHash String // "salt:hex" (scrypt 64-byte)
   updatedAt    DateTime @updatedAt
 }
 
@@ -127,23 +128,23 @@ enum PlanPriority {
 }
 
 model Plan {
-  id           String        @id @default(cuid())
-  userId       String
+  id     String @id @default(cuid())
+  userId String
 
-  title        String
-  notes        String?       @db.Text
+  title    String
+  notes    String?       @db.Text
   // Ichki vazifalar (sub-task'lar): [{ id, title, done }] — JSON sifatida.
-  subtasks     Json?
-  scope        PlanScope
-  status       PlanStatus    @default(TODO)
-  priority     PlanPriority?
+  subtasks Json?
+  scope    PlanScope
+  status   PlanStatus    @default(TODO)
+  priority PlanPriority?
 
   // Date stored as YYYY-MM-DD string — matches client-side type and
   // avoids timezone ambiguity (we filter by string equality / range).
-  scheduledFor String        @db.VarChar(10)
+  scheduledFor String @db.VarChar(10)
 
-  time         String?       @db.VarChar(5)  // "HH:MM"
-  duration     Int?                            // minutes (defaults to 60 visually)
+  time     String? @db.VarChar(5) // "HH:MM"
+  duration Int? // minutes (defaults to 60 visually)
 
   // Per-task override: minutes before the scheduled time when the reminder
   // should fire. NULL = fall back to the user's account-level default
@@ -153,38 +154,45 @@ model Plan {
   // Precomputed UTC instant when this plan should fire a Telegram reminder.
   // Set when both `scheduledFor` and `time` are present; null otherwise.
   // The cron query filters tasks by `notifyAt` to avoid scanning everything.
-  notifyAt     DateTime?
+  notifyAt DateTime?
 
   // Set when the reminder has actually been sent.
-  notifiedAt   DateTime?
+  notifiedAt DateTime?
 
-  completedAt  DateTime?
-  deletedAt    DateTime?     // soft delete; purged after 30 days
-  order        Int           @default(0)
+  completedAt DateTime?
+  deletedAt   DateTime? // soft delete; purged after 30 days
+  order       Int       @default(0)
 
   // When this plan is a generated occurrence of a recurring Habit, this links
   // back to it. Editing the plan's time/status affects only this day's
   // occurrence — the Habit's recurring schedule is untouched.
-  habitId      String?
+  habitId String?
 
   // When this plan is the scheduled occurrence of a Goal step (OKR qadami),
   // this links back to it. One-off: a step has at most one occurrence, so the
   // FK is unique. Toggling this plan's status syncs GoalStep.done.
-  goalStepId   String?       @unique
+  goalStepId String? @unique
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  // When set, this plan belongs to a Loyiha (Project) workspace rather than
+  // the personal space. NULL = personal. Deleting the project deletes all
+  // its scoped plans too (cascade).
+  projectId String?
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  habit        Habit?        @relation(fields: [habitId], references: [id], onDelete: Cascade)
-  goalStep     GoalStep?     @relation(fields: [goalStepId], references: [id], onDelete: Cascade)
-  botMessages  BotMessage[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@unique([habitId, scheduledFor])  // one occurrence per habit per day
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit       Habit?       @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  goalStep    GoalStep?    @relation(fields: [goalStepId], references: [id], onDelete: Cascade)
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  botMessages BotMessage[]
+
+  @@unique([habitId, scheduledFor]) // one occurrence per habit per day
   @@index([userId, scope, scheduledFor])
   @@index([userId, status])
   @@index([userId, deletedAt])
   @@index([notifyAt, notifiedAt, status])
+  @@index([projectId])
 }
 
 // ───────────────────────── Odat (Habits) ─────────────────────────
@@ -194,43 +202,43 @@ model Plan {
 // completion, bot reminders). Streaks/stats are computed from those plans.
 
 model HabitCategory {
-  id        String   @id @default(cuid())
-  userId    String
+  id     String @id @default(cuid())
+  userId String
 
-  label     String
-  icon      String   // lucide key (heart/dumbbell/book/...)
-  order     Int      @default(0)
+  label String
+  icon  String // lucide key (heart/dumbbell/book/...)
+  order Int    @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model Habit {
-  id         String   @id @default(cuid())
-  userId     String
+  id     String @id @default(cuid())
+  userId String
 
-  title      String
-  categoryId String?              // loose ref to HabitCategory (null = uncategorized)
-  days       Int[]                // scheduled weekdays, getDay() 0=Sun..6=Sat
-  time       String?  @db.VarChar(5)  // "HH:MM" — occurrence time / reminder
+  title         String
+  categoryId    String? // loose ref to HabitCategory (null = uncategorized)
+  days          Int[] // scheduled weekdays, getDay() 0=Sun..6=Sat
+  time          String?   @db.VarChar(5) // "HH:MM" — occurrence time / reminder
   notifyLeadMin Int?
-  order      Int      @default(0)
-  archivedAt DateTime?
+  order         Int       @default(0)
+  archivedAt    DateTime?
 
   // Whether this habit's occurrences show up in the Agenda list. They still
   // materialise as Plan rows and remain visible/trackable in Bugun/Kalendar
   // either way — this only controls Agenda visibility.
   showInAgenda Boolean @default(true)
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plans      Plan[]
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plans Plan[]
 
   @@index([userId])
 }
@@ -248,56 +256,138 @@ enum GoalStatus {
 }
 
 model Goal {
-  id         String     @id @default(cuid())
-  userId     String
+  id     String @id @default(cuid())
+  userId String
 
   title      String
-  icon       String?    // lucide key (target/rocket/...)
-  deadline   String?    @db.VarChar(10)  // YYYY-MM-DD — ixtiyoriy muddat
+  icon       String? // lucide key (target/rocket/...)
+  deadline   String?    @db.VarChar(10) // YYYY-MM-DD — ixtiyoriy muddat
   status     GoalStatus @default(ACTIVE)
   order      Int        @default(0)
   archivedAt DateTime?
 
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subGoals   SubGoal[]
-
-  @@index([userId])
-}
-
-model SubGoal {
-  id        String   @id @default(cuid())
-  goalId    String
-
-  title     String
-  order     Int      @default(0)
+  // When set, this goal belongs to a Loyiha (Project) workspace rather than
+  // the personal space. NULL = personal. Deleting the project deletes all
+  // its scoped goals too (cascade).
+  projectId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  goal      Goal       @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  steps     GoalStep[]
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project  Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subGoals SubGoal[]
+
+  @@index([userId])
+  @@index([projectId])
+}
+
+model SubGoal {
+  id     String @id @default(cuid())
+  goalId String
+
+  title String
+  order Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  goal  Goal       @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  steps GoalStep[]
 
   @@index([goalId])
 }
 
 model GoalStep {
-  id        String   @id @default(cuid())
+  id        String @id @default(cuid())
   subGoalId String
 
-  title     String
-  done      Boolean  @default(false)
-  order     Int      @default(0)
+  title String
+  done  Boolean @default(false)
+  order Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  subGoal   SubGoal  @relation(fields: [subGoalId], references: [id], onDelete: Cascade)
-  plan      Plan?    // scheduled one-off occurrence (Plan.goalStepId)
+  subGoal SubGoal @relation(fields: [subGoalId], references: [id], onDelete: Cascade)
+  plan    Plan? // scheduled one-off occurrence (Plan.goalStepId)
 
   @@index([subGoalId])
+}
+
+// ───────────────────────── Loyiha (Project workspace) ─────────────────────────
+// A focused workspace for a bounded, longer-running project (a content
+// series, a course, a business idea...). Scopes its own Plan/Goal occurrences
+// (via their optional projectId) and owns a tree of free-form Page documents
+// (BlockNote JSON) for specs/notes/checklists — a lightweight per-project
+// wiki. Deleting a Project cascades to everything it owns.
+
+model Project {
+  id     String @id @default(cuid())
+  userId String
+
+  title      String
+  icon       String? // lucide key
+  color      String? // CategoryColor key
+  order      Int       @default(0)
+  archivedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plans Plan[]
+  goals Goal[]
+  pages Page[]
+  tasks ProjectTask[]
+
+  @@index([userId])
+}
+
+// Simple flat todo row for a Project's "Jadval" (table) view — deliberately
+// separate from Plan: a project task has no mandatory scheduled date (unlike
+// Plan.scheduledFor) and doesn't participate in the reminder/notifyAt cron.
+model ProjectTask {
+  id        String @id @default(cuid())
+  projectId String
+
+  title    String
+  done     Boolean       @default(false)
+  priority PlanPriority?
+  dueDate  String?       @db.VarChar(10) // YYYY-MM-DD, ixtiyoriy
+  order    Int           @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+// A node in a Project's page tree (like a Notion page — can nest arbitrarily
+// deep via parentId). `content` is the BlockNote document: an array of
+// blocks (text/heading/checklist/table/...), stored as opaque JSON — the
+// editor owns its shape entirely client-side.
+model Page {
+  id        String  @id @default(cuid())
+  projectId String
+  parentId  String?
+
+  title   String
+  icon    String? // lucide key
+  content Json?
+  order   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent   Page?   @relation("PageToPage", fields: [parentId], references: [id], onDelete: Cascade)
+  children Page[]  @relation("PageToPage")
+
+  @@index([projectId])
+  @@index([parentId])
 }
 
 // Telegram messages we sent for a given plan (reminder + inline buttons).
@@ -311,7 +401,7 @@ model BotMessage {
   messageId Int
   createdAt DateTime @default(now())
 
-  plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
 
   @@unique([planId, chatId, messageId])
   @@index([planId])
@@ -325,14 +415,14 @@ model BotMessage {
 // the list and sends a summary message to the chat.
 
 model QuickList {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String   // default: "Ro'yhat — 23-may 14:30"
-  source      String   // "bot" | "app"
+  id     String @id @default(cuid())
+  userId String
+  name   String // default: "Ro'yhat — 23-may 14:30"
+  source String // "bot" | "app"
 
   // NULL = list is still accepting new bot items (within the 3-min window).
   // The cron tick sets this when it closes a list and sends the summary.
-  closedAt    DateTime?
+  closedAt DateTime?
 
   // Set when the user marks the entire list as "done" — it disappears
   // from the main Tezkor view and shows up in the Bajarilgan archive.
@@ -344,13 +434,13 @@ model QuickList {
   summaryMessageId Int?
 
   // Soft delete — purged after 30 days (mirrors Plan behaviour).
-  deletedAt   DateTime?
+  deletedAt DateTime?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items       QuickListItem[]
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items QuickListItem[]
 
   @@index([userId, deletedAt])
   // Used by the cron tick to find stale open lists per user.
@@ -358,16 +448,16 @@ model QuickList {
 }
 
 model QuickListItem {
-  id        String   @id @default(cuid())
-  listId    String
-  text      String
-  done      Boolean  @default(false)
-  order     Int      @default(0)
+  id     String  @id @default(cuid())
+  listId String
+  text   String
+  done   Boolean @default(false)
+  order  Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  list      QuickList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  list QuickList @relation(fields: [listId], references: [id], onDelete: Cascade)
 
   @@index([listId])
 }
@@ -379,44 +469,44 @@ model QuickListItem {
 // creates and first-login imports stay collision-safe.
 
 model Category {
-  id        String   @id @default(cuid())
-  userId    String
+  id     String @id @default(cuid())
+  userId String
 
-  label     String
-  color     String   // CategoryColor union (olive/emerald/.../gray)
-  order     Int      @default(0)
+  label String
+  color String // CategoryColor union (olive/emerald/.../gray)
+  order Int    @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model Idea {
-  id           String        @id @default(cuid())
-  userId       String
+  id     String @id @default(cuid())
+  userId String
 
-  title        String
-  notes        String?       @db.Text
-  categoryId   String        // references Category.id (loose, like Plan)
-  done         Boolean       @default(false)
-  completedAt  DateTime?     // bajarilgan vaqt — Arxiv "Bajarilganlar" uchun
-  subtasks     Json?         // ichki vazifalar: [{ id, title, done }]
-  order        Int           @default(0)
+  title       String
+  notes       String?   @db.Text
+  categoryId  String // references Category.id (loose, like Plan)
+  done        Boolean   @default(false)
+  completedAt DateTime? // bajarilgan vaqt — Arxiv "Bajarilganlar" uchun
+  subtasks    Json? // ichki vazifalar: [{ id, title, done }]
+  order       Int       @default(0)
 
   // Optional scheduling — when present, the idea is mirrored as a Plan
   // (with the same id) so it also shows up in Bugun/Agenda/Kalendar.
-  scheduledFor String?       @db.VarChar(10)  // YYYY-MM-DD
-  time         String?       @db.VarChar(5)   // HH:MM
-  duration     Int?                            // minutes
+  scheduledFor String?       @db.VarChar(10) // YYYY-MM-DD
+  time         String?       @db.VarChar(5) // HH:MM
+  duration     Int? // minutes
   priority     PlanPriority?
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -433,17 +523,17 @@ enum TransactionType {
 }
 
 model FinanceCategory {
-  id        String          @id @default(cuid())
-  userId    String
+  id     String @id @default(cuid())
+  userId String
 
-  type      TransactionType
-  label     String
-  icon      String          // lucide key (wallet/utensils/car/...)
-  color     String          // CategoryColor union (olive/emerald/.../gray)
-  order     Int             @default(0)
+  type  TransactionType
+  label String
+  icon  String // lucide key (wallet/utensils/car/...)
+  color String // CategoryColor union (olive/emerald/.../gray)
+  order Int             @default(0)
 
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
@@ -453,20 +543,20 @@ model FinanceCategory {
 }
 
 model Transaction {
-  id         String          @id @default(cuid())
-  userId     String
+  id     String @id @default(cuid())
+  userId String
 
   type       TransactionType
-  amount     BigInt          // so'm (butun son, tiyinsiz)
-  categoryId String?         // FinanceCategory.id — null = kategoriyasiz
+  amount     BigInt // so'm (butun son, tiyinsiz)
+  categoryId String? // FinanceCategory.id — null = kategoriyasiz
   note       String?
   // Sana YYYY-MM-DD string — Plan kabi (timezone aniqligi uchun).
   date       String          @db.VarChar(10)
 
-  deletedAt  DateTime?       // soft delete; 30 kundan keyin tozalanadi
+  deletedAt DateTime? // soft delete; 30 kundan keyin tozalanadi
 
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   // Kategoriya o'chsa tranzaksiya saqlanadi, faqat categoryId null bo'ladi.
@@ -480,13 +570,13 @@ model Transaction {
 // sarfi (Transaction yig'indisi) limitga nisbatan kuzatiladi. Bitta kategoriyaga
 // bitta limit. Kategoriya o'chsa limit ham o'chadi (cascade).
 model Budget {
-  id         String   @id @default(cuid())
+  id         String @id @default(cuid())
   userId     String
   categoryId String
-  amount     BigInt   // oylik limit (so'm)
+  amount     BigInt // oylik limit (so'm)
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   category FinanceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -499,20 +589,20 @@ model Budget {
 // orqali oshib boradi; bajarilgan holat hisoblanadi (savedAmount >= target).
 // OKR "Maqsad"dan alohida (ular vazifa/qadam asosli, bu — pul asosli).
 model FinancialGoal {
-  id           String   @id @default(cuid())
-  userId       String
+  id     String @id @default(cuid())
+  userId String
 
   title        String
-  icon         String?  // lucide key (ixtiyoriy)
-  targetAmount BigInt   // maqsad summa (so'm)
-  savedAmount  BigInt   @default(0) // yig'ilgan summa (so'm)
-  deadline     String?  @db.VarChar(10) // YYYY-MM-DD — ixtiyoriy muddat
-  order        Int      @default(0)
+  icon         String? // lucide key (ixtiyoriy)
+  targetAmount BigInt // maqsad summa (so'm)
+  savedAmount  BigInt  @default(0) // yig'ilgan summa (so'm)
+  deadline     String? @db.VarChar(10) // YYYY-MM-DD — ixtiyoriy muddat
+  order        Int     @default(0)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -525,38 +615,38 @@ model FinancialGoal {
 
 enum DebtType {
   BORROWED // men oldim — qarzdorman
-  LENT     // men berdim — menga qarzdor
+  LENT // men berdim — menga qarzdor
 }
 
 model Debt {
-  id           String    @id @default(cuid())
-  userId       String
+  id     String @id @default(cuid())
+  userId String
 
   type         DebtType
-  counterparty String    // kim bilan (ism)
-  amount       BigInt    // umumiy summa
-  paidAmount   BigInt    @default(0) // qaytarilgan qism
-  currency     String    @default("UZS") // UZS | USD | EUR
+  counterparty String // kim bilan (ism)
+  amount       BigInt // umumiy summa
+  paidAmount   BigInt   @default(0) // qaytarilgan qism
+  currency     String   @default("UZS") // UZS | USD | EUR
 
-  dueDate      String?   @db.VarChar(10) // YYYY-MM-DD — ixtiyoriy muddat
-  note         String?
+  dueDate String? @db.VarChar(10) // YYYY-MM-DD — ixtiyoriy muddat
+  note    String?
 
   // Bot eslatmasi (Plan kabi) — dueDate bo'yicha hisoblanadi.
-  notifyAt     DateTime?
-  notifiedAt   DateTime?
+  notifyAt   DateTime?
+  notifiedAt DateTime?
 
-  settledAt    DateTime? // to'liq hal qilingan
-  order        Int       @default(0)
+  settledAt DateTime? // to'liq hal qilingan
+  order     Int       @default(0)
 
   // Agenda/Bugun'da eslatma sifatida ko'rsatish (ixtiyoriy, toggle).
   agendaReminder   Boolean @default(false)
-  reminderLeadDays Int     @default(0)   // muddatdan necha kun oldin ko'rinsin
+  reminderLeadDays Int     @default(0) // muddatdan necha kun oldin ko'rinsin
   snoozedUntil     String? @db.VarChar(10) // YYYY-MM-DD — shu kungача yashir
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([notifyAt, notifiedAt, settledAt])

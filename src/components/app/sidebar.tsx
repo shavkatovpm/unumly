@@ -272,9 +272,15 @@ export function Sidebar({
           />
         </CollapsibleSection>
 
-        {/* ── Maxsus (to'liq workspace — hozircha tez orada) ── */}
+        {/* ── Maxsus (to'liq workspace: loyihalar) ── */}
         <Section label="Maxsus">
-          <SidebarItem label="Loyiha" icon={Sparkles} badge="tez orada" disabled />
+          <SidebarLink
+            href="/loyiha"
+            label="Loyiha"
+            icon={Sparkles}
+            active={isActive("/loyiha")}
+            onNavigate={closeOnMobile}
+          />
         </Section>
       </div>
 
@@ -421,39 +427,6 @@ function SidebarLink({
         </span>
       )}
     </Link>
-  );
-}
-
-/* Qulflangan element (hozircha tez orada bo'lgan bo'limlar uchun). */
-function SidebarItem({
-  label,
-  icon: Icon,
-  badge,
-  disabled,
-}: {
-  label: string;
-  icon: IconCmp;
-  badge?: string;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      title={disabled ? "Tez orada" : undefined}
-      className={cn(
-        "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[15.5px] transition-colors",
-        disabled ? "cursor-not-allowed text-faint/70" : "text-muted hover:bg-hover hover:text-foreground"
-      )}
-    >
-      <Icon className="size-3.5 shrink-0 text-faint/70" strokeWidth={2} />
-      <span className="flex-1">{label}</span>
-      {badge && (
-        <span className="rounded bg-subtle px-1.5 font-mono text-[9.5px] uppercase tracking-wider text-faint">
-          {badge}
-        </span>
-      )}
-    </button>
   );
 }
 
