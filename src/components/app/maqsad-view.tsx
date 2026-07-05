@@ -10,9 +10,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Archive, ArchiveRestore, ArrowLeft, BookOpen, Brain, Briefcase, Calendar as CalendarIcon, Check, ChevronRight, Clock,
-  Code, Compass, DollarSign, Dumbbell, Flag, Flame, GraduationCap, GripVertical, Heart, Home, Languages, Leaf, Lightbulb, MapPin,
-  Mountain, Orbit, Palette, Pencil, Plane, Plus, Rocket, Sparkles, Star, Target, Trash2, Trophy, X,
+  Archive, ArchiveRestore, ArrowLeft, Award, Backpack, Banknote, BookOpen, Brain, Briefcase, Building2,
+  Calendar as CalendarIcon, Camera, Check, ChevronRight, Clock, Code, Compass, Crown, DollarSign, Dumbbell,
+  Flag, Flame, Gem, Gift, Globe, GraduationCap, GripVertical, Handshake, Heart, Home, Key, Languages, Leaf,
+  Lightbulb, MapPin, Medal, Mountain, Music, Orbit, Palette, PenTool, Pencil, PiggyBank, Plane, Plus,
+  Rocket, Sparkles, Sprout, Star, Target, Trash2, TrendingUp, Trophy, Users, Wallet, X, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGoals, useGoalById, useHydratedGoals, goalProgress } from "@/lib/goals-store";
@@ -34,6 +36,10 @@ const ICONS = {
   dollar: DollarSign, grad: GraduationCap, heart: Heart, code: Code, languages: Languages,
   palette: Palette, saturn: Orbit, home: Home, leaf: Leaf,
   flame: Flame, bulb: Lightbulb, compass: Compass, plane: Plane,
+  award: Award, backpack: Backpack, banknote: Banknote, building: Building2, camera: Camera,
+  crown: Crown, gem: Gem, gift: Gift, globe: Globe, handshake: Handshake, key: Key, medal: Medal,
+  music: Music, pentool: PenTool, piggybank: PiggyBank, sprout: Sprout, trending: TrendingUp,
+  users: Users, wallet: Wallet, zap: Zap,
 } as const;
 type IconKey = keyof typeof ICONS;
 const ICON_CHOICES = Object.keys(ICONS) as IconKey[];

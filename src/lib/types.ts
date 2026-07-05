@@ -66,7 +66,15 @@ export type CategoryColor =
   | "stone"
   | "mocha"
   | "white"
-  | "gray";
+  | "gray"
+  | "red"
+  | "orange"
+  | "amber"
+  | "lime"
+  | "cyan"
+  | "blue"
+  | "violet"
+  | "magenta";
 
 export type Category = {
   id: string;

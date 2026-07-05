@@ -10,11 +10,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Activity, Apple, Archive, Bed, Bike, BookOpen, Brain, Briefcase, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Code,
-  Coffee, DollarSign, Droplet, Dumbbell, Flame, Folder, Footprints, GraduationCap, Hammer,
-  Headphones, Heart, Home, Languages, Leaf, Moon, Mountain, Music, Palette, Pencil,
-  Pill, Plus, Rocket, Salad, ShoppingCart, Smile, Sparkles, Sprout, Star, Sun, Target, Trash2, Users,
-  Wallet, X, Zap,
+  Activity, Apple, Archive, Bath, Bed, Bike, BookOpen, Brain, Briefcase, Cake, Camera, Car, Cat, Check,
+  ChevronDown, ChevronLeft, ChevronRight, Clock, Code, Coffee, Dog, DollarSign, Droplet, Dumbbell,
+  Feather, Flame, Folder, Footprints, Gamepad2, Gift, Glasses, GraduationCap, Guitar, Hammer,
+  Headphones, Heart, Home, Languages, Laptop, Leaf, MapPin, Medal, Moon, Mountain, Music, Notebook,
+  Paintbrush, Palette, PawPrint, Pencil, Phone, PiggyBank, Pill, Plane, Plus, Puzzle, Rocket, Salad,
+  ShoppingCart, ShowerHead, Smile, Sparkles, Sprout, Star, Sun, Target, Trash2, TreePine, Umbrella,
+  Users, Utensils, Wallet, Wind, Wrench, X, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHabits, useHydratedHabits, markHabitDay } from "@/lib/habits-store";
@@ -36,6 +38,11 @@ const ICONS = {
   grad: GraduationCap, briefcase: Briefcase, dollar: DollarSign, rocket: Rocket, wallet: Wallet,
   cart: ShoppingCart, home: Home, users: Users, smile: Smile, flame: Flame, mountain: Mountain,
   star: Star, zap: Zap, sprout: Sprout, hammer: Hammer,
+  bath: Bath, cake: Cake, camera: Camera, car: Car, cat: Cat, dog: Dog, feather: Feather,
+  gamepad: Gamepad2, gift: Gift, glasses: Glasses, guitar: Guitar, laptop: Laptop, mappin: MapPin,
+  medal: Medal, notebook: Notebook, paintbrush: Paintbrush, pawprint: PawPrint, phone: Phone,
+  piggybank: PiggyBank, plane: Plane, puzzle: Puzzle, shower: ShowerHead, tree: TreePine,
+  umbrella: Umbrella, utensils: Utensils, wind: Wind, wrench: Wrench,
 } as const;
 type IconKey = keyof typeof ICONS;
 const ICON_CHOICES = Object.keys(ICONS) as IconKey[];

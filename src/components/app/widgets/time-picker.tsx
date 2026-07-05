@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import { Clock, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Clock, TriangleAlert, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OccupiedSlot } from "@/lib/dates";
 
@@ -54,6 +54,18 @@ export function TimePicker({
   const listRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
 
+  // Set when the user picks a busy slot — asks for confirmation before
+  // scheduling a parallel task at that time, instead of applying it right away.
+  const [pendingBusy, setPendingBusy] = useState<{ slot: string; titles: string[] } | null>(null);
+
+  function pick(slot: string, isBusy: boolean) {
+    if (isBusy) {
+      setPendingBusy({ slot, titles: occupied.titles.get(slot) ?? [] });
+      return;
+    }
+    onChange(slot);
+  }
+
   // Auto-scroll to current value, or first selectable slot on open
   useEffect(() => {
     const el = activeRef.current;
@@ -68,7 +80,7 @@ export function TimePicker({
         <button
           type="button"
           disabled={currentDisabled}
-          onClick={() => onChange(current)}
+          onClick={() => pick(current, occupied.set.has(current))}
           className={cn(
             "flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[11px] tabular-nums transition-colors",
             currentDisabled
@@ -97,7 +109,42 @@ export function TimePicker({
         )}
       </div>
 
-      {/* Slot list */}
+      {/* Band slotga bosilganda — ro'yxat o'rniga tasdiqlash so'raladi */}
+      {pendingBusy ? (
+        <div className="rounded-md border border-border bg-surface p-3 text-center">
+          <p className="flex items-center justify-center gap-1.5 font-mono text-[13px] tabular-nums text-foreground">
+            <TriangleAlert className="size-3.5 text-warning" />
+            {pendingBusy.slot} band
+          </p>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
+            {pendingBusy.titles.length > 0 ? (
+              <>
+                <span className="font-medium text-foreground">{pendingBusy.titles.join(", ")}</span>{" "}
+                bilan bir vaqtga to&apos;g&apos;ri keladi.
+              </>
+            ) : (
+              "Boshqa reja shu vaqtga band qilingan."
+            )}
+            {" "}Baribir shu vaqtga qo&apos;yilsinmi?
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPendingBusy(null)}
+              className="flex-1 rounded-md border border-border py-1.5 text-[12px] font-medium text-muted transition-colors hover:bg-hover hover:text-foreground"
+            >
+              Bekor qilish
+            </button>
+            <button
+              type="button"
+              onClick={() => { onChange(pendingBusy.slot); setPendingBusy(null); }}
+              className="flex-1 rounded-md bg-accent py-1.5 text-[12px] font-medium text-accent-ink transition-opacity hover:opacity-90"
+            >
+              Ha, qo&apos;yish
+            </button>
+          </div>
+        </div>
+      ) : (
       <div
         ref={listRef}
         className="max-h-[240px] overflow-y-auto rounded-md border border-border bg-surface"
@@ -125,7 +172,7 @@ export function TimePicker({
               ref={isScrollAnchor ? activeRef : null}
               type="button"
               disabled={disabled}
-              onClick={() => onChange(slot)}
+              onClick={() => pick(slot, isBusy)}
               className={cn(
                 "flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left font-mono text-[12.5px] tabular-nums transition-colors",
                 isPast && "cursor-not-allowed text-faint/45 line-through",
@@ -170,6 +217,7 @@ export function TimePicker({
           );
         })}
       </div>
+      )}
     </div>
   );
 }
