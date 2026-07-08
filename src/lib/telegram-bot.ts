@@ -171,8 +171,9 @@ export async function sendTaskReminder(opts: {
 }
 
 /**
- * Qarz muddati eslatmasi. dueDate kuni cron tomonidan yuboriladi.
- * BORROWED — foydalanuvchi qaytarishi kerak; LENT — qaytarib olishi kerak.
+ * Qarz muddati eslatmasi. `leadDays` (0 = muddat kunining o'zi) kuni oldin
+ * cron tomonidan yuboriladi. BORROWED — foydalanuvchi qaytarishi kerak;
+ * LENT — qaytarib olishi kerak.
  */
 export async function sendDebtReminder(opts: {
   chatId: number | string;
@@ -180,15 +181,18 @@ export async function sendDebtReminder(opts: {
   counterparty: string;
   outstanding: number;
   dueDate?: string | null;
+  leadDays?: number;
   appUrl: string;
 }): Promise<void> {
   const fmt = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
   const who = escapeMarkdown(opts.counterparty);
   const sum = `*${fmt(opts.outstanding)} so'm*`;
+  const lead = opts.leadDays ?? 0;
+  const when = lead > 0 ? `muddatiga ${lead} kun qoldi` : "muddati bugun yetdi";
   const body =
     opts.type === "BORROWED"
-      ? `${who}dan olgan ${sum} qarz muddati bugun yetdi.\nQaytarishni unutmang.`
-      : `${who}ga bergan ${sum} qarzni qaytarib olish muddati bugun yetdi.`;
+      ? `${who}dan olgan ${sum} qarz ${when}.\nQaytarishni unutmang.`
+      : `${who}ga bergan ${sum} qarzni qaytarib olish ${when}.`;
 
   const res = await fetch(`${BASE}/bot${token()}/sendMessage`, {
     method: "POST",

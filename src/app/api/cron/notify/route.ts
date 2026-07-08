@@ -149,6 +149,7 @@ async function processDueDebts() {
     where: {
       settledAt: null,
       notifiedAt: null,
+      agendaReminder: true,
       notifyAt: { gt: earliest, lte: now },
     },
     include: { user: { select: { telegramId: true } } },
@@ -167,6 +168,7 @@ async function processDueDebts() {
           counterparty: d.counterparty,
           outstanding,
           dueDate: d.dueDate,
+          leadDays: d.reminderLeadDays,
           appUrl: DEBT_URL,
         });
         sent++;

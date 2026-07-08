@@ -306,7 +306,7 @@
 
   ::selection {
     background: var(--accent-soft);
-    color: var(--accent-ink);
+    color: var(--accent);
   }
 
   :focus-visible {
@@ -402,6 +402,17 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@utility shake {
+  animation: shake 0.4s var(--ease-out) both;
+}
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
 }
 
 @utility fade-in {
@@ -583,13 +594,41 @@ textarea,
   color: var(--faint) !important;
 }
 
+/* Guruh sarlavhalari ("Sarlavhalar" / "Asosiy bloklar" / "Kengaytirilgan")
+   kerak emas — menyu 3 ta variantga qisqargani uchun guruhlash ortiqcha. */
 .unumly-bn .bn-suggestion-menu-label {
-  font-size: 10.5px !important;
-  font-weight: 500 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.1em !important;
+  display: none !important;
+}
+
+/* Slash-menyu qatori — Notion'ning ikon atrofidagi kulrang "quti" foni
+   olib tashlanadi (eng ko'zga tashlanadigan Notion izi shu edi), qator
+   ilovaning boshqa joylaridagi (command-palette) ixcham ro'yxat uslubiga
+   moslashtiriladi. */
+.unumly-bn .bn-suggestion-menu-item {
+  height: auto !important;
+  padding: 7px 10px !important;
+}
+
+.unumly-bn .bn-mt-suggestion-menu-item-section[data-position="left"] {
+  background: transparent !important;
+  padding: 0 !important;
   color: var(--faint) !important;
-  padding: 6px 10px 2px !important;
+}
+
+.unumly-bn .bn-suggestion-menu-item[aria-selected="true"] .bn-mt-suggestion-menu-item-section[data-position="left"],
+.unumly-bn .bn-suggestion-menu-item:hover .bn-mt-suggestion-menu-item-section[data-position="left"] {
+  color: var(--foreground) !important;
+}
+
+/* O'ngdagi klaviatura yorlig'i belgisi (masalan "⌘-ALT-2") kerak emas. */
+.unumly-bn .bn-mt-suggestion-menu-item-section[data-position="right"] {
+  display: none !important;
+}
+
+/* Bo'sh blokdagi placeholder matni — kursiv emas, oddiy shrift, xiraroq */
+.unumly-bn .bn-block-content:has(.ProseMirror-trailingBreak:only-child)::after {
+  font-style: normal !important;
+  opacity: 0.5 !important;
 }
 
 /* Chap tomondagi drag-handle / "+" tugmalari — ilovaning ikon-tugma uslubi
@@ -608,4 +647,136 @@ textarea,
   border-radius: var(--radius-sm) !important;
   font-size: 11px !important;
   box-shadow: var(--shadow-md) !important;
+}
+
+/* "Belgilash" (checkListItem) qatoridagi checkbox — brauzer standart
+   ko'rinishi o'rniga ilovaning o'z uslubi (rounded-md, bo'sh holatda xira
+   ramka, belgilanganda accent fon + oq check belgisi — reja/odat
+   ro'yxatlaridagi "Bajarildi" tugmasi bilan bir xil til). */
+.unumly-bn .bn-block-content[data-content-type="checkListItem"] > div > input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 15px !important;
+  height: 15px !important;
+  margin: 4px 8px 0 2px !important;
+  border-radius: var(--radius-sm) !important;
+  border: 1.5px solid var(--border-strong) !important;
+  background: transparent !important;
+  position: relative;
+  transition: border-color 150ms, background-color 150ms, transform 100ms;
+}
+
+.unumly-bn .bn-block-content[data-content-type="checkListItem"] > div > input[type="checkbox"]:hover {
+  border-color: var(--accent) !important;
+}
+
+.unumly-bn .bn-block-content[data-content-type="checkListItem"] > div > input[type="checkbox"]:active {
+  transform: scale(0.9);
+}
+
+.unumly-bn .bn-block-content[data-content-type="checkListItem"] > div > input[type="checkbox"]:checked {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+
+.unumly-bn .bn-block-content[data-content-type="checkListItem"] > div > input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--accent-ink);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+/* Belgilangan qatordagi matn — chizib o'tish bilan birga xiraroq ham
+   ko'rinadi (faqat line-through emas), bajarilgan ish ekani yanada aniq. */
+.unumly-bn .bn-block-content[data-content-type="checkListItem"][data-checked="true"] .bn-inline-content {
+  color: var(--faint) !important;
+}
+
+/* "Belgilash ustuni" (jadval katagi) checkboxi — jadval katagi haqiqiy
+   checkbox holatini saqlay olmagani uchun (block-note-editor.tsx) bitta
+   bo'sh joy belgisi ustiga maxsus `textColor` uslub qiymati ("checkbox-off"/
+   "checkbox-on") qo'yiladi; BlockNote buni `data-value` atributi sifatida
+   chiqaradi. Haqiqiy matn butunlay yashirilib, yuqoridagi checkListItem
+   checkboxi bilan bir xil tilda (rounded-sm, border-strong/accent) o'z
+   qutimiz chiziladi. */
+.unumly-bn td span[data-style-type="textColor"][data-value^="checkbox-"],
+.unumly-bn th span[data-style-type="textColor"][data-value^="checkbox-"] {
+  /* `inline-block` (flex emas) — belgi (::after) checked bo'lganda paydo
+     bo'lganda ham qutining o'zi (layout/baseline) HECH QACHON o'zgarmasligi
+     kerak; aks holda checked bosilganda quti bir necha piksel pastga
+     "sirg'anib" ketardi (inline-flex, ichida haqiqiy kontent — checkmark —
+     paydo bo'lganda o'z qatorining baseline'ini o'zgartirar edi). */
+  position: relative;
+  display: inline-block;
+  width: 17px;
+  height: 17px;
+  vertical-align: -4px;
+  color: transparent !important;
+  cursor: pointer;
+  user-select: none;
+}
+
+.unumly-bn td span[data-value^="checkbox-"]::before,
+.unumly-bn th span[data-value^="checkbox-"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border-strong);
+  transition: border-color 150ms, background-color 150ms;
+}
+
+.unumly-bn td span[data-value^="checkbox-"]:hover::before,
+.unumly-bn th span[data-value^="checkbox-"]:hover::before {
+  border-color: var(--accent);
+}
+
+.unumly-bn td span[data-value="checkbox-on"]::before,
+.unumly-bn th span[data-value="checkbox-on"]::before {
+  border-color: var(--accent) !important;
+  background: var(--accent);
+  animation: check-fill 0.35s var(--ease-out) both;
+}
+
+.unumly-bn td span[data-value="checkbox-on"]::after,
+.unumly-bn th span[data-value="checkbox-on"]::after {
+  content: "";
+  /* `position: absolute` + `top/left: 50%` + `translate(-50%,-50%)` — bu
+     usul belgini har doim aniq markazlaydi VA qatlamdan (flow) butunlay
+     chiqarib tashlaydi, shu bilan checked/unchecked orasida quti hech qanday
+     joyi o'zgarmaydi (oldingi versiyada belgi haqiqiy flex-bola sifatida
+     paydo bo'lib, qatorning baseline'ini o'zgartirib, qutini pastga
+     "sirg'anib" ketishiga sabab bo'lgan edi). */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 9px;
+  border: solid var(--accent-ink);
+  border-width: 0 2px 2px 0;
+  /* Umumiy `check-pop` shu yerda ISHLATILMAYDI — u `rotate(0deg)` bilan
+     tugaydi va bu belgi shaklini (border-trick, doimiy 45deg burilish talab
+     qiladi) butunlay buzib qo'yardi ("hunuk" ko'rinishning aynan sababi shu
+     edi). O'z animatsiyasi 45deg'ni saqlab, faqat kattalik/shaffoflik bilan
+     "otiladi". */
+  animation: checkbox-mark-pop 0.4s var(--ease-out) both;
+}
+
+@keyframes checkbox-mark-pop {
+  0%   { opacity: 0; transform: translate(-50%, -60%) scale(0.2) rotate(45deg); }
+  55%  { opacity: 1; transform: translate(-50%, -60%) scale(1.5) rotate(45deg); }
+  100% { opacity: 1; transform: translate(-50%, -60%) scale(1) rotate(45deg); }
+}
+
+/* Belgilangan qatordagi boshqa katakchalar (`strike` uslubi — Tiptap buni
+   <s> tegi bilan chiqaradi) — chizib o'tish bilan birga xiraroq ham
+   ko'rinadi, checkListItem'dagi "bajarilgan" ko'rinishi bilan bir xil til. */
+.unumly-bn td s,
+.unumly-bn th s {
+  opacity: 0.55;
 }

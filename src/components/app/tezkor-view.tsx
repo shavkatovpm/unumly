@@ -66,7 +66,7 @@ export function TezkorView() {
       </header>
 
       {/* Content */}
-      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:pb-8">
+      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:pb-8 lg:max-w-3xl xl:max-w-4xl">
         {/* Intro / empty state */}
         {!hydrated && lists.length === 0 ? (
           <ListLoader />

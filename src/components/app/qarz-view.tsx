@@ -168,6 +168,7 @@ export function QarzPanel() {
       <DebtDialog
         open={dialogOpen}
         editing={editing}
+        defaultType={wantType}
         onClose={() => { setDialogOpen(false); setEditing(null); }}
         onCreate={(input) => { addDebt(input); setDialogOpen(false); }}
         onUpdate={(id, patch) => { updateDebt(id, patch); setDialogOpen(false); setEditing(null); }}
@@ -351,20 +352,24 @@ function SettledCard({ debt, onReopen, onRemove }: { debt: Debt; onReopen: () =>
 function DebtDialog({
   open,
   editing,
+  defaultType,
   onClose,
   onCreate,
   onUpdate,
 }: {
   open: boolean;
   editing: Debt | null;
+  defaultType: DebtType;
   onClose: () => void;
-  onCreate: (input: { type: DebtType; counterparty: string; amount: number; currency: Currency; dueDate?: string | null; note?: string; agendaReminder?: boolean; reminderLeadDays?: number }) => void;
-  onUpdate: (id: string, patch: { counterparty: string; amount: number; currency: Currency; dueDate: string | null; note: string; agendaReminder: boolean; reminderLeadDays: number }) => void;
+  onCreate: (input: { type: DebtType; counterparty: string; amount: number; currency: Currency; issuedDate: string; dueDate?: string | null; note?: string; agendaReminder?: boolean; reminderLeadDays?: number }) => void;
+  onUpdate: (id: string, patch: { counterparty: string; amount: number; currency: Currency; issuedDate: string; dueDate: string | null; note: string; agendaReminder: boolean; reminderLeadDays: number }) => void;
 }) {
   const [type, setType] = useState<DebtType>("BORROWED");
   const [counterparty, setCounterparty] = useState("");
   const [amountStr, setAmountStr] = useState("");
+  const [amountShake, setAmountShake] = useState(false);
   const [currency, setCurrency] = useState<Currency>("UZS");
+  const [issuedDate, setIssuedDate] = useState(() => dateKey());
   const [dueDate, setDueDate] = useState("");
   const [note, setNote] = useState("");
   const [agendaReminder, setAgendaReminder] = useState(false);
@@ -378,15 +383,17 @@ function DebtDialog({
       setCounterparty(editing.counterparty);
       setAmountStr(String(editing.amount));
       setCurrency(editing.currency ?? "UZS");
+      setIssuedDate(editing.issuedDate || dateKey());
       setDueDate(editing.dueDate ?? "");
       setNote(editing.note ?? "");
       setAgendaReminder(editing.agendaReminder ?? false);
       setReminderLeadDays(editing.reminderLeadDays ?? 0);
     } else {
-      setType("BORROWED");
+      setType(defaultType);
       setCounterparty("");
       setAmountStr("");
       setCurrency("UZS");
+      setIssuedDate(dateKey());
       setDueDate("");
       setNote("");
       setAgendaReminder(false);
@@ -397,6 +404,9 @@ function DebtDialog({
 
   const amount = Number(amountStr || "0");
   const valid = counterparty.trim().length > 0 && amount > 0;
+  const todayKey = dateKey();
+  const yesterdayKey = dateKey(new Date(Date.now() - 86400000));
+  const isCustomIssuedDate = issuedDate !== todayKey && issuedDate !== yesterdayKey;
   // Muddatga qancha kun qolgan — lead variantlari shunga moslashadi.
   const daysUntilDue = dueDate ? daysBetween(dateKey(), dueDate) : 0;
   const leadOptions = debtLeadOptions(daysUntilDue);
@@ -405,9 +415,9 @@ function DebtDialog({
   function save() {
     if (!valid) return;
     if (editing) {
-      onUpdate(editing.id, { counterparty: counterparty.trim(), amount, currency, dueDate: dueDate || null, note, agendaReminder: remindOn, reminderLeadDays });
+      onUpdate(editing.id, { counterparty: counterparty.trim(), amount, currency, issuedDate, dueDate: dueDate || null, note, agendaReminder: remindOn, reminderLeadDays });
     } else {
-      onCreate({ type, counterparty: counterparty.trim(), amount, currency, dueDate: dueDate || null, note: note || undefined, agendaReminder: remindOn, reminderLeadDays });
+      onCreate({ type, counterparty: counterparty.trim(), amount, currency, issuedDate, dueDate: dueDate || null, note: note || undefined, agendaReminder: remindOn, reminderLeadDays });
     }
   }
 
@@ -447,21 +457,25 @@ function DebtDialog({
           </div>
         )}
 
-        <input
-          autoFocus
-          value={counterparty}
-          onChange={(e) => setCounterparty(e.target.value)}
-          placeholder={type === "BORROWED" ? "Kimdan oldim (ism)" : "Kimga berdim (ism)"}
-          className="mb-3 w-full rounded-lg border border-border bg-subtle/30 px-3 py-2.5 text-[14px] outline-none placeholder:text-faint/50 focus:border-foreground/30"
-        />
-
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-subtle/30 px-3 py-2 focus-within:border-foreground/30">
           <input
+            autoFocus
             inputMode="numeric"
             value={amountStr ? formatSom(amount) : ""}
-            onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (/[^\d\s]/.test(raw)) {
+                setAmountShake(false);
+                requestAnimationFrame(() => setAmountShake(true));
+              }
+              setAmountStr(raw.replace(/\D/g, "").slice(0, 12));
+            }}
+            onAnimationEnd={() => setAmountShake(false)}
             placeholder="Summa"
-            className="min-w-0 flex-1 bg-transparent text-[18px] font-semibold tabular-nums outline-none placeholder:text-faint/50"
+            className={cn(
+              "min-w-0 flex-1 bg-transparent text-[18px] font-semibold tabular-nums outline-none placeholder:text-faint/50",
+              amountShake && "shake"
+            )}
           />
           {/* Valyuta tanlash — segmentli toggle (so'm / $ / €) */}
           <div className="flex shrink-0 items-center gap-0.5 rounded-md bg-subtle p-0.5">
@@ -482,6 +496,49 @@ function DebtDialog({
           </div>
         </div>
 
+        <input
+          value={counterparty}
+          onChange={(e) => setCounterparty(e.target.value)}
+          placeholder={type === "BORROWED" ? "Kimdan oldim (ism)" : "Kimga berdim (ism)"}
+          className="mb-3 w-full rounded-lg border border-border bg-subtle/30 px-3 py-2.5 text-[14px] outline-none placeholder:text-faint/50 focus:border-foreground/30"
+        />
+
+        <div className="mb-3">
+          <p className="mb-1.5 text-[12px] text-faint">{type === "BORROWED" ? "Qachon oldim" : "Qachon berdim"}</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { key: todayKey, label: "Bugun" },
+              { key: yesterdayKey, label: "Kecha" },
+            ].map((opt) => {
+              const active = issuedDate === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setIssuedDate(opt.key)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-[12.5px] transition-colors",
+                    active
+                      ? "border-foreground/30 bg-hover font-medium text-foreground"
+                      : "border-border text-muted hover:bg-hover"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+            <DatePickerButton
+              value={issuedDate}
+              onChange={setIssuedDate}
+              active={isCustomIssuedDate}
+              format={formatDate}
+              label={isCustomIssuedDate ? formatDate(issuedDate) : "Boshqa sana"}
+              placeholder="Boshqa sana"
+              max={todayKey}
+            />
+          </div>
+        </div>
+
         <div className="mb-3">
           <p className="mb-1.5 text-[12px] text-faint">Muddat (ixtiyoriy)</p>
           <DatePickerButton
@@ -497,7 +554,7 @@ function DebtDialog({
         {dueDate && (
           <div className="mb-3 rounded-lg border border-border bg-subtle/30 p-2.5">
             <label className="flex cursor-pointer select-none items-center justify-between">
-              <span className="text-[13px] font-medium">Agendaga qo&apos;shish</span>
+              <span className="text-[13px] font-medium">Eslatma yoqish</span>
               <button
                 type="button"
                 role="switch"
@@ -518,7 +575,7 @@ function DebtDialog({
             </label>
             {agendaReminder && (
               <div className="mt-2.5">
-                <p className="mb-1.5 text-[11.5px] text-faint">Qachon ko&apos;rinsin?</p>
+                <p className="mb-1.5 text-[11.5px] text-faint">Qachon eslatilsin?</p>
                 <div className="flex flex-wrap gap-1.5">
                   {leadOptions.map((o) => (
                     <button
@@ -545,8 +602,12 @@ function DebtDialog({
           <p className="mb-1.5 text-[12px] text-faint">Izoh</p>
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="ixtiyoriy" className="w-full rounded-lg border border-border bg-subtle/30 px-2.5 py-2 text-[13px] outline-none placeholder:text-faint/50 focus:border-foreground/30" />
         </div>
-        {dueDate && (
-          <p className="mb-3 -mt-1 text-[11.5px] text-faint">Muddat kuni ertalab bot eslatma yuboradi.</p>
+        {dueDate && agendaReminder && (
+          <p className="mb-3 -mt-1 text-[11.5px] text-faint">
+            {reminderLeadDays > 0
+              ? `Muddatdan ${reminderLeadDays} kun oldin ertalab bot eslatma yuboradi.`
+              : "Muddat kuni ertalab bot eslatma yuboradi."}
+          </p>
         )}
         </div>
 

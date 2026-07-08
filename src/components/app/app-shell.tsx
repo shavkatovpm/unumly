@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, isEditableElement } from "@/lib/utils";
 import { detectMac } from "@/lib/platform";
 import { CommandPalette, NAV_ROUTES } from "./command-palette";
 import { refreshPlans, usePlans } from "@/lib/plans-store";
@@ -200,6 +200,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       // Faqat desktop; palette yoki boshqa modal ochiq bo'lsa — qolganlari yo'q.
       if (window.innerWidth < 768) return;
       if (paletteOpenRef.current || otherDialogOpen()) return;
+
+      // Matn kiritiladigan joyda (input/textarea/BlockNote hujjati) —
+      // qolgan yorliqlar ishlamaydi, aks holda brauzer/muharrirning
+      // standart ⌘B (qalin), ⌘I (kursiv) va h.k. yorliqlarini bosib ketadi.
+      if (isEditableElement(document.activeElement)) return;
 
       // ── 2-daraja: ⌘ + Shift + harf — sahifaga o'tish ──
       if (e.shiftKey) {

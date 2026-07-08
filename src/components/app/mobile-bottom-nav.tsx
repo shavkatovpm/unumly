@@ -9,13 +9,13 @@ import {
   ChevronDown,
   Menu,
   Moon,
+  Plus,
   Settings,
-  Sparkles,
   Sun,
   Trash2,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, isEditableElement } from "@/lib/utils";
 import { useTheme } from "@/lib/color-store";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import {
@@ -27,6 +27,11 @@ import {
   type NavItemId,
 } from "@/lib/mobile-nav";
 import { useProfile } from "@/lib/profile-store";
+import { useProjects, useHydratedProjects } from "@/lib/projects-store";
+import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
+import type { Project } from "@/lib/types";
+import { MAX_PROJECTS, ProjectIcon } from "./loyiha-icons";
+import { ProjectFormModal } from "./loyiha/project-form-modal";
 import { SettingsDialog } from "./widgets/settings-dialog";
 import { Avatar } from "./widgets/avatar";
 
@@ -89,22 +94,12 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   // o'zgarishidan oldin sodir bo'ladi, shuning uchun nav klaviatura
   // animatsiyasi boshlanmasdan oldin yashirinadi.
   useEffect(() => {
-    function isTextEntry(el: Element | null): boolean {
-      if (!el) return false;
-      if (el instanceof HTMLInputElement) {
-        const t = el.type;
-        return t !== "button" && t !== "submit" && t !== "checkbox" && t !== "radio" && t !== "file";
-      }
-      if (el instanceof HTMLTextAreaElement) return true;
-      if (el instanceof HTMLElement && el.isContentEditable) return true;
-      return false;
-    }
     function onFocusIn(e: FocusEvent) {
-      if (isTextEntry(e.target as Element)) setKeyboardOpen(true);
+      if (isEditableElement(e.target as Element)) setKeyboardOpen(true);
     }
     function onFocusOut() {
       setTimeout(() => {
-        if (!isTextEntry(document.activeElement)) setKeyboardOpen(false);
+        if (!isEditableElement(document.activeElement)) setKeyboardOpen(false);
       }, 0);
     }
     document.addEventListener("focusin", onFocusIn);
@@ -218,11 +213,14 @@ function BoshqaruvSheet({
   const profile = useProfile();
   const [hidden, setHidden] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const { projects, create: createProject } = useProjects();
+  const hydratedProjects = useHydratedProjects();
   const dragControls = useDragControls();
-  // Arxiv/Maxsus — accordion: bir vaqtda faqat bittasi ochiq. Sheet har
+  // Loyihalar/Arxiv — accordion: bir vaqtda faqat bittasi ochiq. Sheet har
   // ochilganda yopiq holatda boshlanadi — navigatsiyadan keyin ochiq qolmaydi.
-  const [openSection, setOpenSection] = useState<"arxiv" | "maxsus" | null>(null);
-  const toggleSection = (s: "arxiv" | "maxsus") => setOpenSection((cur) => (cur === s ? null : s));
+  const [openSection, setOpenSection] = useState<"loyiha" | "arxiv" | null>(null);
+  const toggleSection = (s: "loyiha" | "arxiv") => setOpenSection((cur) => (cur === s ? null : s));
 
   // Lock background scroll while sheet is open — also locks any
   // [data-scroll-lock-on-focus] containers (Bugun/Agenda/Kalendar).
@@ -318,6 +316,35 @@ function BoshqaruvSheet({
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
           <div className="px-3 py-2.5">{renderItems()}</div>
 
+        {/* Loyihalar — dropdown (loyihalar ro'yxati + tezkor yaratish) */}
+        <SheetCollapsible label="Loyihalar" open={openSection === "loyiha"} onToggle={() => toggleSection("loyiha")}>
+          {hydratedProjects && projects.map((p) => (
+            <ProjectSheetLink
+              key={p.id}
+              project={p}
+              active={isActive(`/loyiha/${p.id}`)}
+              onNavigate={onClose}
+            />
+          ))}
+          {projects.length < MAX_PROJECTS && (
+            <button
+              type="button"
+              onClick={() => setShowCreateProject(true)}
+              className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border px-3.5 py-3 text-[15px] text-faint transition-colors hover:bg-hover hover:text-foreground"
+            >
+              <Plus className="size-[19px] shrink-0" strokeWidth={2} />
+              <span className="flex-1 text-left font-medium">Yangi loyiha</span>
+            </button>
+          )}
+          <Link
+            href="/loyiha"
+            onClick={onClose}
+            className="block px-1 py-1 text-center text-[12px] text-faint transition-colors hover:text-foreground"
+          >
+            Barcha loyihalar
+          </Link>
+        </SheetCollapsible>
+
         {/* Arxiv — dropdown */}
         <SheetCollapsible label="Arxiv" open={openSection === "arxiv"} onToggle={() => toggleSection("arxiv")}>
           <SheetLink
@@ -333,18 +360,6 @@ function BoshqaruvSheet({
             label="O'chirilgan"
             icon={Trash2}
             active={isActive("/ochirilgan")}
-            onNavigate={onClose}
-            secondary
-          />
-        </SheetCollapsible>
-
-        {/* Maxsus — dropdown (Loyiha) */}
-        <SheetCollapsible label="Maxsus" open={openSection === "maxsus"} onToggle={() => toggleSection("maxsus")}>
-          <SheetLink
-            href="/loyiha"
-            label="Loyiha"
-            icon={Sparkles}
-            active={isActive("/loyiha")}
             onNavigate={onClose}
             secondary
           />
@@ -378,6 +393,15 @@ function BoshqaruvSheet({
         </div>
       </motion.div>
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {showCreateProject && (
+        <ProjectFormModal
+          onClose={() => setShowCreateProject(false)}
+          onSubmit={({ title, icon, color }) => {
+            createProject({ title, icon, color });
+            setShowCreateProject(false);
+          }}
+        />
+      )}
     </>
   );
 }
@@ -433,6 +457,38 @@ function SheetLink({
     >
       <span className="flex-1 text-left font-medium">{label}</span>
       <Icon className="size-[25px] shrink-0 text-faint" strokeWidth={2} />
+    </Link>
+  );
+}
+
+function ProjectSheetLink({
+  project,
+  active,
+  onNavigate,
+}: {
+  project: Project;
+  active: boolean;
+  onNavigate?: () => void;
+}) {
+  const color = project.color ? CATEGORY_PALETTE[project.color].oklch : "var(--faint)";
+  return (
+    <Link
+      href={`/loyiha/${project.id}`}
+      onClick={onNavigate}
+      className={cn(
+        "flex items-center gap-3 rounded-lg border px-3.5 py-3 text-[15px] transition-colors",
+        active
+          ? "border-foreground/30 bg-subtle text-foreground"
+          : "border-border bg-surface text-muted hover:bg-hover hover:text-foreground"
+      )}
+    >
+      <span
+        className="grid size-7 shrink-0 place-items-center rounded-md"
+        style={{ background: project.color ? colorWithAlpha(project.color, 0.16) : "var(--subtle)", color }}
+      >
+        <ProjectIcon k={project.icon} className="size-3.5" />
+      </span>
+      <span className="flex-1 truncate text-left font-medium">{project.title}</span>
     </Link>
   );
 }

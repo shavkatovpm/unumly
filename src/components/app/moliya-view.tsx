@@ -17,12 +17,16 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Budget, CategoryColor, FinanceCategory, FinancialGoal, Transaction, TransactionType } from "@/lib/types";
+import type { Budget, CategoryColor, FinanceCategory, FinancialGoal, GoalContribution, Transaction, TransactionType } from "@/lib/types";
 import {
+  listGoalContributions,
+  removeGoalContribution,
   summarize,
+  updateGoalContribution,
   useFinance,
   useHydratedFinance,
 } from "@/lib/finance-store";
+import { useDebts, useHydratedDebts } from "@/lib/debts-store";
 import { CATEGORY_COLOR_KEYS, CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
 import { FINANCE_ICON_KEYS, financeIcon } from "@/lib/finance-icons";
 import { ensureVisibleOnFocus } from "@/lib/ensure-visible";
@@ -69,7 +73,10 @@ export function MoliyaView() {
     addCategory, updateCategory, removeCategory, setBudget, removeBudget,
     addFinancialGoal, updateFinancialGoal, contributeFinancialGoal, removeFinancialGoal,
   } = useFinance();
-  const hydrated = useHydratedFinance();
+  const { debts } = useDebts();
+  const financeHydrated = useHydratedFinance();
+  const debtsHydrated = useHydratedDebts();
+  const hydrated = financeHydrated && debtsHydrated;
 
   const [month, setMonth] = useState(() => monthKey());
   const [tab, setTab] = useState<Tab>("umumiy");
@@ -164,6 +171,26 @@ export function MoliyaView() {
   );
   const summary = useMemo(() => summarize(transactions, month), [transactions, month]);
 
+  // Joriy balans — barcha vaqtdagi kirim-chiqim, hali qaytmagan qarzlarga
+  // moslashtirilgan (faqat so'm — valyutalar kursi o'zgaruvchan, aralashtirilmaydi).
+  // Qarz berilsa pul cho'ntakdan chiqadi (ayiriladi), qarz olingan bo'lsa
+  // (hali o'zimizniki emas) qo'shiladi — qaytarilganda mos ravishda tiklanadi.
+  const debtNet = useMemo(() => {
+    let net = 0;
+    for (const d of debts) {
+      if (d.settledAt) continue;
+      if ((d.currency ?? "UZS") !== "UZS") continue;
+      const outstanding = Math.max(0, d.amount - d.paidAmount);
+      net += d.type === "LENT" ? -outstanding : outstanding;
+    }
+    return net;
+  }, [debts]);
+  const overallNet = useMemo(
+    () => transactions.reduce((acc, t) => acc + (t.type === "INCOME" ? t.amount : -t.amount), 0),
+    [transactions]
+  );
+  const realBalance = overallNet + debtNet;
+
   // Joriy oy bo'yicha kategoriya summalari (kirim/chiqim — har biri uchun)
   const totalByCat = useMemo(() => {
     const m = new Map<string, number>();
@@ -200,7 +227,7 @@ export function MoliyaView() {
   }
 
   return (
-    <div className="mx-auto flex h-full max-w-2xl flex-col px-4 pb-24 pt-3 md:pb-6">
+    <div className="mx-auto flex h-full max-w-2xl flex-col px-4 pb-24 pt-3 md:pb-6 lg:max-w-3xl xl:max-w-4xl">
       {/* Header — oy navigatsiyasi */}
       <header className="mb-3 flex items-center justify-between">
         <h1 className="text-[18px] font-semibold tracking-[-0.01em]">Moliya</h1>
@@ -273,6 +300,8 @@ export function MoliyaView() {
                 <OverviewTab
                   summary={summary}
                   catMap={catMap}
+                  realBalance={realBalance}
+                  debtNet={debtNet}
                   onOpenCategory={(t) => { setCatType(t); selectTab("kategoriya"); }}
                 />
               ) : tab === "tranzaksiyalar" ? (
@@ -338,6 +367,7 @@ export function MoliyaView() {
         open={addOpen}
         editing={editing}
         categories={categories}
+        transactions={transactions}
         onClose={closeDialog}
         onCreate={(input) => { addTransaction(input); closeDialog(); }}
         onUpdate={(id, patch) => { updateTransaction(id, patch); closeDialog(); }}
@@ -380,10 +410,16 @@ function TabButton({
 function OverviewTab({
   summary,
   catMap,
+  realBalance,
+  debtNet,
   onOpenCategory,
 }: {
   summary: ReturnType<typeof summarize>;
   catMap: Map<string, FinanceCategory>;
+  /** Barcha vaqtdagi kirim-chiqim, hali qaytmagan (so'mdagi) qarzlarga moslashtirilgan. */
+  realBalance: number;
+  /** Balansga qarzlar ta'siri: manfiy — qarzga berilgan, musbat — qarz sifatida olingan. */
+  debtNet: number;
   onOpenCategory: (type: TransactionType) => void;
 }) {
   const incomeSlices = useMemo(
@@ -397,40 +433,48 @@ function OverviewTab({
 
   return (
     <div className="space-y-4">
-      {/* Balans kartasi */}
+      {/* Balans kartasi — joriy (oyga bog'liq emas), hali qaytmagan qarzlarga moslashtirilgan */}
       <div className="rounded-xl border border-border bg-surface p-4">
-        <p className="text-[12px] text-faint">Oylik balans</p>
+        <p className="text-[12px] text-faint">Joriy balans</p>
         <p
           className="mt-0.5 text-[28px] font-semibold tabular-nums tracking-[-0.02em]"
-          style={{ color: summary.balance < 0 ? EXPENSE_COLOR : undefined }}
+          style={{ color: realBalance < 0 ? EXPENSE_COLOR : undefined }}
         >
-          {formatSom(summary.balance)} <span className="text-[15px] font-normal text-faint">so&apos;m</span>
+          {formatSom(realBalance)} <span className="text-[15px] font-normal text-faint">so&apos;m</span>
         </p>
+        {debtNet !== 0 && (
+          <p className="mt-0.5 text-[11px] text-faint">
+            {debtNet < 0
+              ? `shundan ${formatSom(-debtNet)} so'm qarzga berilgan`
+              : `shundan ${formatSom(debtNet)} so'm qarz sifatida olingan`}
+          </p>
+        )}
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <Stat label="Kirim" value={summary.income} color={INCOME_COLOR} icon={ArrowDownLeft} />
-          <Stat label="Chiqim" value={summary.expense} color={EXPENSE_COLOR} icon={ArrowUpRight} />
+          <Stat label="Kirim (bu oy)" value={summary.income} color={INCOME_COLOR} icon={ArrowDownLeft} />
+          <Stat label="Chiqim (bu oy)" value={summary.expense} color={EXPENSE_COLOR} icon={ArrowUpRight} />
         </div>
       </div>
 
-      {/* Kirim taqsimoti */}
-      <DistributionCard
-        title="Kirim taqsimoti"
-        slices={incomeSlices}
-        total={summary.income}
-        catMap={catMap}
-        emptyText="Bu oyda kirim yo'q"
-        onClick={() => onOpenCategory("INCOME")}
-      />
+      {/* Kirim / chiqim taqsimoti — mobilda ustma-ust, desktopda yonma-yon (chapda kirim, o'ngda chiqim) */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <DistributionCard
+          title="Kirim taqsimoti"
+          slices={incomeSlices}
+          total={summary.income}
+          catMap={catMap}
+          emptyText="Bu oyda kirim yo'q"
+          onClick={() => onOpenCategory("INCOME")}
+        />
 
-      {/* Chiqim taqsimoti */}
-      <DistributionCard
-        title="Chiqim taqsimoti"
-        slices={expenseSlices}
-        total={summary.expense}
-        catMap={catMap}
-        emptyText="Bu oyda chiqim yo'q"
-        onClick={() => onOpenCategory("EXPENSE")}
-      />
+        <DistributionCard
+          title="Chiqim taqsimoti"
+          slices={expenseSlices}
+          total={summary.expense}
+          catMap={catMap}
+          emptyText="Bu oyda chiqim yo'q"
+          onClick={() => onOpenCategory("EXPENSE")}
+        />
+      </div>
     </div>
   );
 }
@@ -465,7 +509,7 @@ function DistributionCard({
       {total === 0 ? (
         <p className="py-6 text-center text-[13px] text-faint">{emptyText}</p>
       ) : (
-        <div className="flex items-center gap-5">
+        <div className="flex flex-col items-center gap-4">
           <Donut
             slices={slices.map((s) => ({
               value: s.total,
@@ -473,7 +517,7 @@ function DistributionCard({
             }))}
             total={total}
           />
-          <ul className="min-w-0 flex-1 space-y-2">
+          <ul className="w-full min-w-0 space-y-2">
             {slices.map((s) => {
               const c = s.categoryId ? catMap.get(s.categoryId) : undefined;
               const pct = Math.round((s.total / total) * 100);
@@ -759,6 +803,7 @@ function CategoriesTab({
   onRemoveBudget: (categoryId: string) => void;
 }) {
   const [creating, setCreating] = useState(false);
+  const [editingCat, setEditingCat] = useState<FinanceCategory | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailCat, setDetailCat] = useState<FinanceCategory | null>(null);
   function openDetail(cat: FinanceCategory | null) {
@@ -840,15 +885,21 @@ function CategoriesTab({
 
       {/* + Yangi kategoriya */}
       <button
-        onClick={() => setCreating((v) => !v)}
+        onClick={() => setCreating(true)}
         className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border py-2.5 text-[13px] font-medium text-faint transition-colors hover:bg-hover hover:text-foreground"
       >
         <Plus className="size-4" />
         Yangi kategoriya
       </button>
-      <AnimatePresence initial={false}>
-        {creating && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+      <Dialog open={creating} onClose={() => setCreating(false)} mobilePlacement="top" className="w-full max-w-md">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
+            <p className="text-[15px] font-semibold">Yangi kategoriya</p>
+            <button onClick={() => setCreating(false)} aria-label="Yopish" className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
+              <X className="size-4" />
+            </button>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 [-webkit-overflow-scrolling:touch]">
             <CategoryForm
               type={type}
               showLimit={type === "EXPENSE"}
@@ -859,9 +910,9 @@ function CategoriesTab({
                 setCreating(false);
               }}
             />
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </div>
+      </Dialog>
 
       {type === "EXPENSE" && (
         <p className="px-1 text-[11.5px] text-faint">Har chiqim kategoriyasiga oylik limit qo&apos;ysangiz bo&apos;ladi.</p>
@@ -899,10 +950,8 @@ function CategoriesTab({
                 limit={budgetMap.get(r.cat.id) ?? null}
                 total={r.total}
                 onOpen={() => openDetail(r.cat)}
-                onUpdate={(patch) => onUpdateCategory(r.cat.id, patch)}
+                onEdit={() => setEditingCat(r.cat)}
                 onRemove={() => askRemove(r.cat.id)}
-                onSetBudget={(amount) => onSetBudget(r.cat.id, amount)}
-                onRemoveBudget={() => onRemoveBudget(r.cat.id)}
               />
             ) : (
               <li key="__uncategorized" className="rounded-xl border border-dashed border-border bg-surface p-3">
@@ -934,6 +983,36 @@ function CategoriesTab({
         onClose={() => setDetailOpen(false)}
         onEditTxn={onEditTxn}
       />
+      <Dialog open={!!editingCat} onClose={() => setEditingCat(null)} mobilePlacement="top" className="w-full max-w-md">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
+            <p className="text-[15px] font-semibold">Kategoriyani tahrirlash</p>
+            <button onClick={() => setEditingCat(null)} aria-label="Yopish" className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
+              <X className="size-4" />
+            </button>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 [-webkit-overflow-scrolling:touch]">
+            {editingCat && (
+              <CategoryForm
+                type={editingCat.type}
+                initial={{ label: editingCat.label, icon: editingCat.icon, color: editingCat.color }}
+                showLimit={editingCat.type === "EXPENSE"}
+                initialLimit={budgetMap.get(editingCat.id) ?? null}
+                submitLabel="Saqlash"
+                onCancel={() => setEditingCat(null)}
+                onSubmit={({ limit: nextLimit, ...patch }) => {
+                  onUpdateCategory(editingCat.id, patch);
+                  if (editingCat.type === "EXPENSE") {
+                    if (nextLimit != null) onSetBudget(editingCat.id, nextLimit);
+                    else onRemoveBudget(editingCat.id);
+                  }
+                  setEditingCat(null);
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }
@@ -956,49 +1035,21 @@ function CategoryManageRow({
   limit,
   total,
   onOpen,
-  onUpdate,
+  onEdit,
   onRemove,
-  onSetBudget,
-  onRemoveBudget,
 }: {
   cat: FinanceCategory;
   hasLimit: boolean;
   limit: number | null;
   total: number;
   onOpen: () => void;
-  onUpdate: (patch: { label?: string; icon?: string; color?: CategoryColor }) => void;
+  onEdit: () => void;
   onRemove: () => void;
-  onSetBudget: (amount: number) => void;
-  onRemoveBudget: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
   const Icon = financeIcon(cat.icon);
   const color = colorWithAlpha(cat.color, 1);
   const pct = limit && limit > 0 ? total / limit : 0;
   const typeColor = cat.type === "INCOME" ? INCOME_COLOR : EXPENSE_COLOR;
-
-  if (editing) {
-    return (
-      <li className="rounded-xl border border-border bg-surface p-1">
-        <CategoryForm
-          type={cat.type}
-          initial={{ label: cat.label, icon: cat.icon, color: cat.color }}
-          showLimit={hasLimit}
-          initialLimit={limit}
-          submitLabel="Saqlash"
-          onCancel={() => setEditing(false)}
-          onSubmit={({ limit: nextLimit, ...patch }) => {
-            onUpdate(patch);
-            if (hasLimit) {
-              if (nextLimit != null) onSetBudget(nextLimit);
-              else onRemoveBudget();
-            }
-            setEditing(false);
-          }}
-        />
-      </li>
-    );
-  }
 
   return (
     <li className="rounded-xl border border-border bg-surface p-3">
@@ -1015,13 +1066,13 @@ function CategoryManageRow({
           </span>
           {hasLimit && limit != null && <span className="text-faint">{" / "}{formatSom(limit)}</span>}
         </span>
-        <button onClick={() => setEditing(true)} aria-label="Tahrirlash" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><Pencil className="size-3.5" /></button>
+        <button onClick={onEdit} aria-label="Tahrirlash" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><Pencil className="size-3.5" /></button>
         <button onClick={onRemove} aria-label="O'chirish" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"><Trash2 className="size-3.5" /></button>
       </div>
 
       {hasLimit && (
         limit != null ? (
-          <button onClick={() => setEditing(true)} className="mt-2.5 block w-full">
+          <button onClick={onEdit} className="mt-2.5 block w-full">
             <ProgressBar pct={pct} />
             {pct > 1 && (
               <p className="mt-1 text-left text-[11.5px]" style={{ color: EXPENSE_COLOR }}>
@@ -1030,7 +1081,7 @@ function CategoryManageRow({
             )}
           </button>
         ) : (
-          <button onClick={() => setEditing(true)} className="mt-2 flex items-center gap-1 text-[12.5px] text-faint transition-colors hover:text-foreground">
+          <button onClick={onEdit} className="mt-2 flex items-center gap-1 text-[12.5px] text-faint transition-colors hover:text-foreground">
             <Plus className="size-3.5" />
             Limit qo&apos;shish
           </button>
@@ -1147,16 +1198,20 @@ function YigimTab({
   goals: FinancialGoal[];
   onCreate: (input: { title: string; targetAmount: number; icon?: string | null; deadline?: string | null }) => string;
   onUpdate: (id: string, patch: { title?: string; targetAmount?: number; icon?: string | null; deadline?: string | null }) => void;
-  onContribute: (id: string, delta: number) => void;
+  onContribute: (id: string, delta: number, date: string) => void;
   onRemove: (id: string) => void;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
+  const [historyGoal, setHistoryGoal] = useState<FinancialGoal | null>(null);
 
   const confirmItems = useMemo(() => goals.map((g) => ({ id: g.id, title: g.title })), [goals]);
   const { askRemove, confirmEl } = useConfirmRemove(confirmItems, onRemove, { itemLabel: "Maqsadni" });
 
   const sorted = useMemo(() => [...goals].sort((a, b) => a.order - b.order), [goals]);
+  // Tarix ochiq turgan payt maqsad boshqa joyda yangilansa (masalan hissa
+  // qo'shilsa), dialogdagi progress-bar ham yangi qiymat bilan yangilanadi.
+  const historyGoalLive = historyGoal ? goals.find((g) => g.id === historyGoal.id) ?? null : null;
 
   return (
     <div className="space-y-3">
@@ -1175,9 +1230,10 @@ function YigimTab({
           <GoalCard
             key={g.id}
             goal={g}
-            onContribute={(delta) => onContribute(g.id, delta)}
+            onContribute={(delta) => onContribute(g.id, delta, dateKey())}
             onEdit={() => { setEditingGoal(g); setDialogOpen(true); }}
             onRemove={() => askRemove(g.id)}
+            onOpenHistory={() => setHistoryGoal(g)}
           />
         ))
       )}
@@ -1189,6 +1245,11 @@ function YigimTab({
         onCreate={(input) => { onCreate(input); setDialogOpen(false); }}
         onUpdate={(id, patch) => { onUpdate(id, patch); setDialogOpen(false); setEditingGoal(null); }}
       />
+      <GoalHistoryDialog
+        goal={historyGoalLive}
+        open={!!historyGoal}
+        onClose={() => setHistoryGoal(null)}
+      />
       {confirmEl}
     </div>
   );
@@ -1199,11 +1260,13 @@ function GoalCard({
   onContribute,
   onEdit,
   onRemove,
+  onOpenHistory,
 }: {
   goal: FinancialGoal;
   onContribute: (delta: number) => void;
   onEdit: () => void;
   onRemove: () => void;
+  onOpenHistory: () => void;
 }) {
   const [contributing, setContributing] = useState(false);
   const [amountStr, setAmountStr] = useState("");
@@ -1221,7 +1284,13 @@ function GoalCard({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
+    <div
+      onClick={onOpenHistory}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter") onOpenHistory(); }}
+      className="cursor-pointer rounded-xl border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+    >
       <div className="flex items-center gap-3">
         <span
           className="grid size-10 shrink-0 place-items-center rounded-lg"
@@ -1245,10 +1314,10 @@ function GoalCard({
             </p>
           )}
         </div>
-        <button onClick={onEdit} aria-label="Tahrirlash" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
+        <button onClick={(e) => { e.stopPropagation(); onEdit(); }} aria-label="Tahrirlash" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
           <Pencil className="size-3.5" />
         </button>
-        <button onClick={onRemove} aria-label="O'chirish" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
+        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} aria-label="O'chirish" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
           <Trash2 className="size-3.5" />
         </button>
       </div>
@@ -1271,48 +1340,224 @@ function GoalCard({
         )}
       </div>
 
-      {contributing ? (
-        <div className="mt-3 flex items-center gap-2">
-          <div className="flex flex-1 items-baseline gap-1.5 rounded-lg border border-border bg-subtle/30 px-2.5 py-2 focus-within:border-foreground/30">
-            <input
-              autoFocus
-              inputMode="numeric"
-              value={amountStr ? formatSom(Number(amountStr)) : ""}
-              onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
-              onFocus={ensureVisibleOnFocus}
-              onKeyDown={(e) => { if (e.key === "Enter") apply(1); }}
-              placeholder="Summa"
-              className="min-w-0 flex-1 bg-transparent text-[14px] font-medium tabular-nums outline-none placeholder:text-faint/50"
-            />
-            <span className="shrink-0 text-[12px] text-faint">so&apos;m</span>
+      <div onClick={(e) => e.stopPropagation()}>
+        {contributing ? (
+          <div className="mt-3 flex items-center gap-2">
+            <div className="flex flex-1 items-baseline gap-1.5 rounded-lg border border-border bg-subtle/30 px-2.5 py-2 focus-within:border-foreground/30">
+              <input
+                autoFocus
+                inputMode="numeric"
+                value={amountStr ? formatSom(Number(amountStr)) : ""}
+                onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                onFocus={ensureVisibleOnFocus}
+                onKeyDown={(e) => { if (e.key === "Enter") apply(1); }}
+                placeholder="Summa"
+                className="min-w-0 flex-1 bg-transparent text-[14px] font-medium tabular-nums outline-none placeholder:text-faint/50"
+              />
+              <span className="shrink-0 text-[12px] text-faint">so&apos;m</span>
+            </div>
+            <button
+              onClick={() => apply(-1)}
+              disabled={Number(amountStr || "0") <= 0}
+              aria-label="Yechish"
+              className="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-faint hover:bg-hover hover:text-foreground disabled:opacity-40"
+            >
+              <Minus className="size-4" />
+            </button>
+            <button
+              onClick={() => apply(1)}
+              disabled={Number(amountStr || "0") <= 0}
+              aria-label="Qo'shish"
+              className="grid size-9 shrink-0 place-items-center rounded-lg bg-foreground text-background disabled:opacity-40"
+            >
+              <Plus className="size-4" />
+            </button>
           </div>
+        ) : (
           <button
-            onClick={() => apply(-1)}
-            disabled={Number(amountStr || "0") <= 0}
-            aria-label="Yechish"
-            className="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-faint hover:bg-hover hover:text-foreground disabled:opacity-40"
+            onClick={() => setContributing(true)}
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-subtle/60 py-2 text-[13px] font-medium text-muted transition-colors hover:bg-hover hover:text-foreground"
           >
-            <Minus className="size-4" />
+            <Plus className="size-3.5" />
+            Hissa qo&apos;shish
           </button>
-          <button
-            onClick={() => apply(1)}
-            disabled={Number(amountStr || "0") <= 0}
-            aria-label="Qo'shish"
-            className="grid size-9 shrink-0 place-items-center rounded-lg bg-foreground text-background disabled:opacity-40"
-          >
-            <Plus className="size-4" />
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => setContributing(true)}
-          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-subtle/60 py-2 text-[13px] font-medium text-muted transition-colors hover:bg-hover hover:text-foreground"
-        >
-          <Plus className="size-3.5" />
-          Hissa qo&apos;shish
-        </button>
-      )}
+        )}
+      </div>
     </div>
+  );
+}
+
+/* ─── Yig'im tarixi — hissalar ro'yxati, har birini tahrirlash/o'chirish mumkin ─── */
+function GoalHistoryDialog({
+  goal,
+  open,
+  onClose,
+}: {
+  goal: FinancialGoal | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [items, setItems] = useState<GoalContribution[] | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editAmountStr, setEditAmountStr] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const goalId = goal?.id;
+  useEffect(() => {
+    if (!open || !goalId) { setItems(null); return; }
+    let alive = true;
+    setItems(null);
+    listGoalContributions(goalId).then((rows) => { if (alive) setItems(rows); });
+    return () => { alive = false; };
+  }, [open, goalId]);
+
+  async function reload() {
+    if (!goalId) return;
+    setItems(await listGoalContributions(goalId));
+  }
+
+  function startEdit(c: GoalContribution) {
+    setEditingId(c.id);
+    setEditAmountStr(String(Math.abs(c.amount)));
+    setEditDate(c.date);
+    setEditNote(c.note ?? "");
+  }
+
+  async function saveEdit(c: GoalContribution) {
+    const amt = Number(editAmountStr || "0");
+    if (amt <= 0) return;
+    setBusy(true);
+    const signed = c.amount < 0 ? -amt : amt; // ishora (qo'shildi/yechildi) o'zgarmaydi
+    await updateGoalContribution(c.id, { amount: signed, date: editDate, note: editNote.trim() || undefined });
+    await reload();
+    setEditingId(null);
+    setBusy(false);
+  }
+
+  const confirmItems = useMemo(
+    () => (items ?? []).map((c) => ({
+      id: c.id,
+      title: `${c.amount < 0 ? "-" : "+"}${formatSom(Math.abs(c.amount))} so'm`,
+    })),
+    [items]
+  );
+  const { askRemove, confirmEl } = useConfirmRemove(
+    confirmItems,
+    async (id) => { setBusy(true); await removeGoalContribution(id); await reload(); setBusy(false); },
+    { itemLabel: "Yozuvni" }
+  );
+
+  const pct = goal && goal.targetAmount > 0 ? Math.min(100, Math.round((goal.savedAmount / goal.targetAmount) * 100)) : 0;
+
+  return (
+    <>
+    <Dialog open={open} onClose={onClose} className="w-full max-w-md">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
+          <div className="min-w-0">
+            <p className="truncate text-[15px] font-semibold">{goal?.title}</p>
+            {goal && (
+              <p className="text-[11.5px] text-faint">
+                {formatSom(goal.savedAmount)} / {formatSom(goal.targetAmount)} so&apos;m · {pct}%
+              </p>
+            )}
+          </div>
+          <button onClick={onClose} aria-label="Yopish" className="grid size-8 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
+            <X className="size-4" />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 [-webkit-overflow-scrolling:touch]">
+          {items === null ? (
+            <ListLoader />
+          ) : items.length === 0 ? (
+            <p className="py-8 text-center text-[13px] text-faint">Hali hissalar yo&apos;q</p>
+          ) : (
+            <ul className="space-y-2">
+              {items.map((c) => {
+                const isEditing = editingId === c.id;
+                const positive = c.amount >= 0;
+                const color = positive ? INCOME_COLOR : EXPENSE_COLOR;
+                return (
+                  <li key={c.id} className="rounded-lg border border-border p-2.5">
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 rounded-lg border border-border bg-subtle/30 px-2.5 py-2 focus-within:border-foreground/30">
+                          <input
+                            autoFocus
+                            inputMode="numeric"
+                            value={editAmountStr ? formatSom(Number(editAmountStr)) : ""}
+                            onChange={(e) => setEditAmountStr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                            placeholder="Summa"
+                            className="min-w-0 flex-1 bg-transparent text-[14px] font-medium tabular-nums outline-none placeholder:text-faint/50"
+                          />
+                          <span className="shrink-0 text-[12px] text-faint">so&apos;m</span>
+                        </div>
+                        <DatePickerButton
+                          value={editDate}
+                          onChange={setEditDate}
+                          format={formatDeadline}
+                          max={dateKey()}
+                          className="w-full"
+                        />
+                        <input
+                          value={editNote}
+                          onChange={(e) => setEditNote(e.target.value)}
+                          placeholder="Izoh (ixtiyoriy)"
+                          className="w-full rounded-lg border border-border bg-subtle/30 px-2.5 py-1.5 text-[12.5px] outline-none placeholder:text-faint/50 focus:border-foreground/30"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="flex-1 rounded-md border border-border py-1.5 text-[12.5px] font-medium text-muted hover:bg-hover hover:text-foreground"
+                          >
+                            Bekor
+                          </button>
+                          <button
+                            onClick={() => saveEdit(c)}
+                            disabled={busy || Number(editAmountStr || "0") <= 0}
+                            className="flex-1 rounded-md bg-foreground py-1.5 text-[12.5px] font-medium text-background disabled:opacity-40"
+                          >
+                            Saqlash
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className="grid size-7 shrink-0 place-items-center rounded-md"
+                          style={{ background: colorWithAlpha(positive ? "emerald" : "red", 0.14), color }}
+                        >
+                          {positive ? <Plus className="size-3.5" /> : <Minus className="size-3.5" />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13.5px] font-medium tabular-nums" style={{ color }}>
+                            {`${positive ? "+" : "-"}${formatSom(Math.abs(c.amount))} so'm`}
+                          </p>
+                          <p className="truncate text-[11px] text-faint">
+                            {formatDeadline(c.date)}{c.note ? ` · ${c.note}` : ""}
+                          </p>
+                        </div>
+                        <button onClick={() => startEdit(c)} aria-label="Tahrirlash" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
+                          <Pencil className="size-3.5" />
+                        </button>
+                        <button onClick={() => askRemove(c.id)} aria-label="O'chirish" className="grid size-7 shrink-0 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground">
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </Dialog>
+    {confirmEl}
+    </>
   );
 }
 
@@ -1398,11 +1643,13 @@ function GoalDialog({
 
         <div className="mb-3">
           <p className="mb-1.5 text-[12px] text-faint">Muddat (ixtiyoriy)</p>
-          <input
-            type="date"
+          <DatePickerButton
             value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            className="w-full rounded-lg border border-border bg-subtle/30 px-2.5 py-2 text-[13px] outline-none focus:border-foreground/30"
+            onChange={setDeadline}
+            onClear={() => setDeadline("")}
+            format={formatDeadline}
+            placeholder="Sana tanlash"
+            min={dateKey()}
           />
         </div>
 
@@ -1502,6 +1749,7 @@ function TxnDialog({
   open,
   editing,
   categories,
+  transactions,
   onClose,
   onCreate,
   onUpdate,
@@ -1511,6 +1759,7 @@ function TxnDialog({
   open: boolean;
   editing: Transaction | null;
   categories: FinanceCategory[];
+  transactions: Transaction[];
   onClose: () => void;
   onCreate: (input: {
     type: TransactionType;
@@ -1563,7 +1812,24 @@ function TxnDialog({
   if (!open && lastOpen) setLastOpen(false);
 
   const amount = Number(amountStr || "0");
-  const typeCats = categories.filter((c) => c.type === type);
+  // Ko'p ishlatilgan kategoriya birinchi bo'lib chiqadi — har safar
+  // qidirmasdan tez tanlash uchun.
+  const usageCount = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of transactions) {
+      if (!t.categoryId) continue;
+      m.set(t.categoryId, (m.get(t.categoryId) ?? 0) + 1);
+    }
+    return m;
+  }, [transactions]);
+  const typeCats = useMemo(
+    () =>
+      categories
+        .filter((c) => c.type === type)
+        .slice()
+        .sort((a, b) => (usageCount.get(b.id) ?? 0) - (usageCount.get(a.id) ?? 0)),
+    [categories, type, usageCount]
+  );
   const todayKey = dateKey();
   const yesterdayKey = dateKey(new Date(Date.now() - 86400000));
   const isCustomDate = date !== todayKey && date !== yesterdayKey;
@@ -1577,12 +1843,16 @@ function TxnDialog({
     setType(next);
     setCategoryId(null); // kategoriyalar turi bo'yicha farq qiladi
   }
-  function save() {
+  // `overrideCategoryId` — kategoriya endigina yaratilib, state hali
+  // yangilanmagan bo'lishi mumkin (stale closure); shu holatda to'g'ridan-to'g'ri
+  // yangi id bilan saqlaymiz.
+  function save(overrideCategoryId?: string | null) {
     if (amount <= 0) return;
+    const catId = overrideCategoryId !== undefined ? overrideCategoryId : categoryId;
     if (editing) {
-      onUpdate(editing.id, { type, amount, categoryId, note, date });
+      onUpdate(editing.id, { type, amount, categoryId: catId, note, date });
     } else {
-      onCreate({ type, amount, categoryId, note: note || undefined, date });
+      onCreate({ type, amount, categoryId: catId, note: note || undefined, date });
     }
   }
 
@@ -1667,11 +1937,15 @@ function TxnDialog({
                   onClick={() => setCategoryId(active ? null : c.id)}
                   className={cn(
                     "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12.5px] transition-colors",
-                    active ? "border-transparent font-medium" : "border-border text-muted hover:bg-hover"
+                    active ? "font-medium" : "text-muted hover:bg-hover"
                   )}
-                  style={active ? { background: colorWithAlpha(c.color, 0.16), color } : undefined}
+                  style={{
+                    background: colorWithAlpha(c.color, active ? 0.16 : 0.08),
+                    borderColor: active ? "transparent" : colorWithAlpha(c.color, 0.3),
+                    color: active ? color : undefined,
+                  }}
                 >
-                  <Icon className="size-3.5" style={{ color: active ? color : undefined }} />
+                  <Icon className="size-3.5" style={{ color }} />
                   {c.label}
                 </button>
               );
@@ -1704,6 +1978,9 @@ function TxnDialog({
                     const id = onAddCategory({ type, ...input });
                     setCategoryId(id);
                     setCreatingCat(false);
+                    // Summa allaqachon kiritilgan bo'lsa — yozuvni darhol
+                    // saqlaymiz, alohida "Qo'shish" bosishga hojat qolmaydi.
+                    if (amount > 0) save(id);
                   }}
                 />
               </motion.div>
@@ -1779,7 +2056,7 @@ function TxnDialog({
                 <Trash2 className="size-4" />
               </button>
               <button
-                onClick={save}
+                onClick={() => save()}
                 disabled={amount <= 0}
                 className="flex-1 rounded-lg bg-foreground py-2.5 text-[14px] font-medium text-background transition-opacity disabled:opacity-40"
               >
@@ -1788,7 +2065,7 @@ function TxnDialog({
             </div>
           ) : (
             <button
-              onClick={save}
+              onClick={() => save()}
               disabled={amount <= 0}
               className="w-full rounded-lg bg-foreground py-2.5 text-[14px] font-medium text-background transition-opacity disabled:opacity-40"
             >

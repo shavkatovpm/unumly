@@ -607,6 +607,17 @@ function TabView(props: ViewProps) {
   const addRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (adding) addRef.current?.focus(); }, [adding]);
 
+  // Mobil: tepadagi inline qator o'rniga pastki-o'ng burchakdagi FAB + markazdagi dialog.
+  const [mobileAdd, setMobileAdd] = useState(false);
+  const [mobileV, setMobileV] = useState("");
+  const mobileAddRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (mobileAdd) mobileAddRef.current?.focus(); }, [mobileAdd]);
+  function submitMobileAdd() {
+    if (mobileV.trim()) props.onCreate(mobileV, tab);
+    setMobileV("");
+    setMobileAdd(false);
+  }
+
   const [doneOpen, setDoneOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
@@ -709,9 +720,9 @@ function TabView(props: ViewProps) {
         }}
         className="absolute inset-0 overflow-y-auto overscroll-x-contain pb-24 md:pb-0"
       >
-      <div className="mx-auto w-full max-w-3xl">
-        {/* + Yangi reja qo'shish — tepada, lekin tab bardan biroz ajralib turadi */}
-        <div className="mt-3 border-y border-border/40">
+      <div className="mx-auto w-full max-w-3xl lg:max-w-4xl xl:max-w-5xl">
+        {/* + Yangi reja qo'shish — desktop: tepada inline qator (mobil FAB pastda) */}
+        <div className="mt-3 hidden border-y border-border/40 md:block">
           {adding ? (
             <form
               onSubmit={(e) => {
@@ -835,6 +846,50 @@ function TabView(props: ViewProps) {
       </motion.div>
       </AnimatePresence>
       </div>
+
+      {/* Mobile FAB — bottom-right circular "+" button */}
+      <button
+        type="button"
+        onClick={() => setMobileAdd(true)}
+        aria-label="Yangi reja qo'shish"
+        className={cn(
+          "fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 md:hidden",
+          mobileAdd && "pointer-events-none scale-75 opacity-0"
+        )}
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
+      >
+        <Plus className="size-6" strokeWidth={2.5} />
+      </button>
+
+      <Dialog open={mobileAdd} onClose={() => setMobileAdd(false)} className="max-w-sm" mobilePlacement="center">
+        <div className="flex flex-col">
+          <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+            <p className="text-[15px] font-semibold">Yangi reja</p>
+            <button
+              onClick={() => setMobileAdd(false)}
+              aria-label="Yopish"
+              className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          </header>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitMobileAdd();
+            }}
+            className="px-4 py-4"
+          >
+            <input
+              ref={mobileAddRef}
+              value={mobileV}
+              onChange={(e) => setMobileV(e.target.value)}
+              placeholder={`${active.label} bo'limiga reja yozing...`}
+              className="w-full rounded-lg border border-border bg-subtle/30 px-3 py-2.5 text-[14px] outline-none placeholder:text-faint/50 focus:border-foreground/30"
+            />
+          </form>
+        </div>
+      </Dialog>
     </div>
   );
 }

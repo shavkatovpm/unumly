@@ -191,7 +191,7 @@ export function addCategory(input: {
   };
   set({ cats: [...snapshot.cats, optimistic] });
   void withPending(
-    catActions.createFinanceCategory(input)
+    catActions.createFinanceCategory({ ...input, id })
       .then((row) => set({ cats: snapshot.cats.map((c) => (c.id === id ? row : c)) }))
       .catch(() => set({ cats: snapshot.cats.filter((c) => c.id !== id) }))
   );
@@ -305,14 +305,14 @@ export function updateFinancialGoal(
   );
 }
 
-export function contributeFinancialGoal(id: string, delta: number): void {
+export function contributeFinancialGoal(id: string, delta: number, date: string, note?: string): void {
   const prev = snapshot.goals.find((g) => g.id === id);
   if (!prev || delta === 0) return;
   const nextSaved = Math.max(0, prev.savedAmount + Math.round(delta));
   set({ goals: snapshot.goals.map((g) => (g.id === id ? { ...g, savedAmount: nextSaved } : g)) });
   void withPending(
-    goalActions.contributeFinancialGoal(id, delta)
-      .then((row) => set({ goals: snapshot.goals.map((g) => (g.id === id ? row : g)) }))
+    goalActions.contributeFinancialGoal(id, delta, date, note)
+      .then(({ goal }) => set({ goals: snapshot.goals.map((g) => (g.id === id ? goal : g)) }))
       .catch(() => set({ goals: snapshot.goals.map((g) => (g.id === id ? prev : g)) }))
   );
 }
@@ -321,6 +321,23 @@ export function removeFinancialGoal(id: string): void {
   const prev = snapshot.goals;
   set({ goals: snapshot.goals.filter((g) => g.id !== id) });
   void withPending(goalActions.removeFinancialGoal(id).catch(() => { set({ goals: prev }); }));
+}
+
+/* ─── Yig'im tarixi — on-demand (global snapshotga saqlanmaydi, dialog
+   ochilganda o'qiladi; mutatsiyadan keyin tegishli goal snapshotda yangilanadi). ─── */
+export const listGoalContributions = goalActions.listGoalContributions;
+
+export async function updateGoalContribution(
+  id: string,
+  patch: { amount?: number; date?: string; note?: string }
+): Promise<void> {
+  const { goal } = await goalActions.updateGoalContribution(id, patch);
+  set({ goals: snapshot.goals.map((g) => (g.id === goal.id ? goal : g)) });
+}
+
+export async function removeGoalContribution(id: string): Promise<void> {
+  const goal = await goalActions.removeGoalContribution(id);
+  set({ goals: snapshot.goals.map((g) => (g.id === goal.id ? goal : g)) });
 }
 
 /* ─── Derived (oylik xulosa) ─── */

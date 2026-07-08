@@ -44,3 +44,7 @@ next-env.d.ts
 /src/app/test/
 
 .env*.local
+
+# Claude Code local settings / reference material (not app code)
+/.claude/
+/example ui/

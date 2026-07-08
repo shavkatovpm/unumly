@@ -107,5 +107,19 @@ export function usePages(projectId: string | null) {
     });
   }, [projectId]);
 
-  return { pages, hydrated, create, update, remove };
+  /** Bir xil ota (parentId)ga tegishli sahifalarni drag-and-drop orqali
+   *  qayta tartiblaydi — `orderedIds` shu guruhning to'liq yangi ketma-
+   *  ketligi. Xato bo'lsa serverdan qayta yuklab tiklaydi. */
+  const reorder = useCallback((orderedIds: string[]) => {
+    if (!projectId) return;
+    const list = cache.get(projectId) ?? [];
+    const indexById = new Map(orderedIds.map((id, i) => [id, i]));
+    cache.set(projectId, list.map((p) => (indexById.has(p.id) ? { ...p, order: indexById.get(p.id)! } : p)));
+    emit(projectId);
+    void actions.reorderPages(projectId, orderedIds).catch(() => {
+      void actions.listPages(projectId).then((rows) => { cache.set(projectId, rows); emit(projectId); });
+    });
+  }, [projectId]);
+
+  return { pages, hydrated, create, update, remove, reorder };
 }

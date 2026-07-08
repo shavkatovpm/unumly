@@ -208,7 +208,7 @@ export function OdatView() {
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Odat</h1>
           <button type="button" onClick={() => { setAddCat(undefined); setAddDaysPreset(undefined); setShowAdd(true); }} className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground" aria-label="Yangi odat"><Plus className="size-4" /></button>
         </div>
-        <div className="mx-auto flex max-w-xl gap-6 px-5 md:px-6">
+        <div className="mx-auto flex max-w-xl gap-6 px-5 md:px-6 lg:max-w-2xl xl:max-w-3xl">
           {([["calendar", "Kalendar"], ["habits", "Odatlar"]] as [Tab, string][]).map(([v, label]) => (
             <button key={v} type="button" onClick={() => selectTab(v)} className={cn("relative py-2.5 text-[13px] font-medium transition-colors", tab === v ? "text-foreground" : "text-faint hover:text-muted")}>
               {label}{tab === v && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-foreground" />}
@@ -237,7 +237,7 @@ export function OdatView() {
             }}
             className="absolute inset-0 overflow-y-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]"
           >
-            <div className="mx-auto w-full max-w-xl px-5 pb-24 md:px-6 md:pb-12">
+            <div className="mx-auto w-full max-w-xl px-5 pb-24 md:px-6 md:pb-12 lg:max-w-2xl xl:max-w-3xl">
               {tab === "habits" ? (
                 <HabitsTab hydrated={hydrated} cats={cats} habits={habits} archived={archived} onOpen={setDetailId} onAddHabit={(pre) => { setAddCat(pre); setAddDaysPreset(undefined); setShowAdd(true); }} onAddCategory={() => setShowAddCat(true)} onEditCategory={(id) => setEditCatId(id)} onDeleteCategory={askRemoveCategory} onRestore={restore} onDeleteHabit={askRemoveHabit} />
               ) : (

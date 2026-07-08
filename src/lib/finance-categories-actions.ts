@@ -79,6 +79,7 @@ export async function listFinanceCategories(): Promise<FinanceCategory[]> {
 /* ─── Create / update / delete ────────────────────────────── */
 
 export type CreateFinanceCategoryInput = {
+  id?: string;
   type: TransactionType;
   label: string;
   icon: string;
@@ -98,6 +99,7 @@ export async function createFinanceCategory(
   const nextOrder = (last?.order ?? -1) + 1;
   const row = await prisma.financeCategory.create({
     data: {
+      id: input.id,
       userId: user.id,
       type: input.type,
       label: input.label.trim(),

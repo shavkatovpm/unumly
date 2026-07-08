@@ -15,9 +15,9 @@ import {
   Inbox,
   ListChecks,
   Moon,
+  Plus,
   Repeat,
   Settings,
-  Sparkles,
   Sun,
   Target,
   Trash2,
@@ -27,6 +27,11 @@ import {
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/color-store";
 import { useProfile } from "@/lib/profile-store";
+import { useProjects, useHydratedProjects } from "@/lib/projects-store";
+import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
+import type { Project } from "@/lib/types";
+import { MAX_PROJECTS, ProjectIcon } from "./loyiha-icons";
+import { ProjectFormModal } from "./loyiha/project-form-modal";
 import { SettingsDialog } from "./widgets/settings-dialog";
 import { Avatar } from "./widgets/avatar";
 
@@ -34,6 +39,7 @@ type IconCmp = ComponentType<{ className?: string; strokeWidth?: number }>;
 
 const STORAGE_ARXIV_OPEN = "unumly:sidebar:arxiv";
 const STORAGE_BOSHQARUV_OPEN = "unumly:sidebar:boshqaruv";
+const STORAGE_LOYIHA_OPEN = "unumly:sidebar:loyiha";
 
 export function Sidebar({
   todayCount,
@@ -100,6 +106,52 @@ export function Sidebar({
       try {
         if (typeof window !== "undefined") {
           window.localStorage.setItem(STORAGE_ARXIV_OPEN, next ? "1" : "0");
+        }
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+
+  // Loyihalar section collapsible — default closed, persisted.
+  // Auto-closes when user navigates away from a Loyiha route.
+  const [loyihaOpen, setLoyihaOpen] = useState(false);
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const { projects, create: createProject } = useProjects();
+  const hydratedProjects = useHydratedProjects();
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const v = window.localStorage.getItem(STORAGE_LOYIHA_OPEN);
+      if (v === "1") setLoyihaOpen(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const onLoyihaRoute = pathname === "/loyiha" || pathname.startsWith("/loyiha/");
+
+  useEffect(() => {
+    if (!onLoyihaRoute && loyihaOpen) {
+      setLoyihaOpen(false);
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(STORAGE_LOYIHA_OPEN, "0");
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  function toggleLoyiha() {
+    setLoyihaOpen((v) => {
+      const next = !v;
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(STORAGE_LOYIHA_OPEN, next ? "1" : "0");
         }
       } catch {
         /* ignore */
@@ -250,6 +302,39 @@ export function Sidebar({
           />
         </CollapsibleSection>
 
+        {/* ── Loyihalar (to'liq workspace) ───────── */}
+        <CollapsibleSection
+          label="Loyihalar"
+          open={loyihaOpen}
+          onToggle={toggleLoyiha}
+        >
+          {hydratedProjects && projects.map((p) => (
+            <ProjectSidebarLink
+              key={p.id}
+              project={p}
+              active={isActive(`/loyiha/${p.id}`)}
+              onNavigate={closeOnMobile}
+            />
+          ))}
+          {projects.length < MAX_PROJECTS && (
+            <button
+              type="button"
+              onClick={() => setShowCreateProject(true)}
+              className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[15.5px] text-muted transition-colors hover:bg-hover hover:text-foreground"
+            >
+              <Plus className="size-3.5 shrink-0 text-faint" strokeWidth={2} />
+              <span className="flex-1">Yangi loyiha</span>
+            </button>
+          )}
+          <Link
+            href="/loyiha"
+            onClick={closeOnMobile}
+            className="mt-0.5 block px-2 py-1 text-[12px] text-faint transition-colors hover:text-foreground"
+          >
+            Barcha loyihalar
+          </Link>
+        </CollapsibleSection>
+
         {/* ── Arxiv ─────────────────────────────── */}
         <CollapsibleSection
           label="Arxiv"
@@ -271,17 +356,6 @@ export function Sidebar({
             onNavigate={closeOnMobile}
           />
         </CollapsibleSection>
-
-        {/* ── Maxsus (to'liq workspace: loyihalar) ── */}
-        <Section label="Maxsus">
-          <SidebarLink
-            href="/loyiha"
-            label="Loyiha"
-            icon={Sparkles}
-            active={isActive("/loyiha")}
-            onNavigate={closeOnMobile}
-          />
-        </Section>
       </div>
 
       {/* Bottom: profile + theme toggle */}
@@ -314,6 +388,15 @@ export function Sidebar({
       </div>
         </aside>
         <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        {showCreateProject && (
+          <ProjectFormModal
+            onClose={() => setShowCreateProject(false)}
+            onSubmit={({ title, icon, color }) => {
+              createProject({ title, icon, color });
+              setShowCreateProject(false);
+            }}
+          />
+        )}
       </div>
     </>
   );
@@ -426,6 +509,38 @@ function SidebarLink({
           {badge}
         </span>
       )}
+    </Link>
+  );
+}
+
+function ProjectSidebarLink({
+  project,
+  active,
+  onNavigate,
+}: {
+  project: Project;
+  active: boolean;
+  onNavigate?: () => void;
+}) {
+  const color = project.color ? CATEGORY_PALETTE[project.color].oklch : "var(--faint)";
+  return (
+    <Link
+      href={`/loyiha/${project.id}`}
+      onClick={onNavigate}
+      className={cn(
+        "group flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[15.5px] transition-colors",
+        active
+          ? "bg-surface text-foreground shadow-[0_1px_0_var(--border)]"
+          : "text-muted hover:bg-hover hover:text-foreground"
+      )}
+    >
+      <span
+        className="grid size-[18px] shrink-0 place-items-center rounded"
+        style={{ background: project.color ? colorWithAlpha(project.color, 0.16) : "var(--subtle)", color }}
+      >
+        <ProjectIcon k={project.icon} className="size-2.5" />
+      </span>
+      <span className="flex-1 truncate">{project.title}</span>
     </Link>
   );
 }

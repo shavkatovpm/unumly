@@ -73,6 +73,7 @@ model User {
   transactions      Transaction[]
   budgets           Budget[]
   financialGoals    FinancialGoal[]
+  goalContributions GoalContribution[]
   debts             Debt[]
   projects          Project[]
 
@@ -603,7 +604,29 @@ model FinancialGoal {
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contributions GoalContribution[]
 
+  @@index([userId])
+}
+
+// Yig'im maqsadiga hissa tarixi (har bir qo'shish/yechish alohida yozuv).
+// savedAmount — shu yozuvlar yig'indisi (denormalized, tez o'qish uchun).
+model GoalContribution {
+  id     String @id @default(cuid())
+  userId String
+  goalId String
+
+  amount BigInt // musbat = qo'shildi, manfiy = yechildi (so'm)
+  date   String @db.VarChar(10) // YYYY-MM-DD
+  note   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal FinancialGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
   @@index([userId])
 }
 
@@ -628,8 +651,9 @@ model Debt {
   paidAmount   BigInt   @default(0) // qaytarilgan qism
   currency     String   @default("UZS") // UZS | USD | EUR
 
-  dueDate String? @db.VarChar(10) // YYYY-MM-DD — ixtiyoriy muddat
-  note    String?
+  issuedDate String  @db.VarChar(10) // YYYY-MM-DD — qarz qachon berilgan/olingan
+  dueDate    String? @db.VarChar(10) // YYYY-MM-DD — ixtiyoriy muddat
+  note       String?
 
   // Bot eslatmasi (Plan kabi) — dueDate bo'yicha hisoblanadi.
   notifyAt   DateTime?

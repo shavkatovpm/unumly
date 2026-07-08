@@ -229,6 +229,15 @@ export type FinancialGoal = {
   order: number;
 };
 
+/** Yig'im maqsadiga bitta hissa (qo'shish/yechish) tarix yozuvi. */
+export type GoalContribution = {
+  id: string;
+  goalId: string;
+  amount: number;   // musbat = qo'shildi, manfiy = yechildi (so'm)
+  date: string;      // YYYY-MM-DD
+  note?: string;
+};
+
 /* ─── Qarzdorlik (Debts) ─── */
 
 /** BORROWED — men oldim (qarzdorman); LENT — men berdim (menga qarzdor). */
@@ -244,6 +253,7 @@ export type Debt = {
   amount: number;         // umumiy summa
   paidAmount: number;     // qaytarilgan qism
   currency: Currency;     // valyuta (UZS default)
+  issuedDate: string;     // YYYY-MM-DD — qarz qachon berilgan/olingan
   dueDate?: string;       // YYYY-MM-DD
   note?: string;
   settledAt?: string;     // ISO — to'liq hal qilingan bo'lsa

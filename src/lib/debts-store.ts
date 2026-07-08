@@ -59,6 +59,7 @@ export function addDebt(input: {
   counterparty: string;
   amount: number;
   currency?: Currency;
+  issuedDate: string;
   dueDate?: string | null;
   note?: string;
   agendaReminder?: boolean;
@@ -72,6 +73,7 @@ export function addDebt(input: {
     amount: Math.round(input.amount),
     paidAmount: 0,
     currency: input.currency ?? "UZS",
+    issuedDate: input.issuedDate,
     dueDate: input.dueDate ?? undefined,
     note: input.note?.trim() || undefined,
     order: memoryState.length,
@@ -94,6 +96,7 @@ export function updateDebt(
     counterparty?: string;
     amount?: number;
     currency?: Currency;
+    issuedDate?: string;
     dueDate?: string | null;
     note?: string;
     agendaReminder?: boolean;
@@ -110,6 +113,7 @@ export function updateDebt(
           ...(patch.counterparty !== undefined && { counterparty: patch.counterparty }),
           ...(patch.amount !== undefined && { amount: Math.round(patch.amount) }),
           ...(patch.currency !== undefined && { currency: patch.currency }),
+          ...(patch.issuedDate !== undefined && { issuedDate: patch.issuedDate }),
           ...(patch.dueDate !== undefined && { dueDate: patch.dueDate ?? undefined }),
           ...(patch.note !== undefined && { note: patch.note.trim() || undefined }),
           ...(patch.agendaReminder !== undefined && { agendaReminder: patch.agendaReminder }),

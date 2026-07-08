@@ -31,7 +31,7 @@ export function JadvalPanel({ projectId }: { projectId: string }) {
   if (!hydrated) return <ListLoader />;
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
+    <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 lg:max-w-5xl xl:max-w-6xl">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-[13px] font-medium text-muted">Tasklar</p>
         {tasks.length > 0 && (

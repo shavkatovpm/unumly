@@ -222,7 +222,7 @@ export function MaqsadView() {
             }}
             className="absolute inset-0 overflow-y-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]"
           >
-            <div className="mx-auto w-full max-w-2xl px-4 pb-28 pt-5 md:px-6 md:pb-12">
+            <div className="mx-auto w-full max-w-2xl px-4 pb-28 pt-5 md:px-6 md:pb-12 lg:max-w-3xl xl:max-w-4xl">
               {!hydrated && list.length === 0 ? (
                 <ListLoader label="Maqsadlar yuklanmoqda…" />
               ) : list.length === 0 ? (
@@ -316,7 +316,7 @@ function GoalDetail({ goal, onBack, onEdit, api }: { goal: Goal; onBack: () => v
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-xl flex-1 px-4 pb-28 pt-6 md:px-6 md:pb-12">
+      <div className="mx-auto w-full max-w-xl flex-1 px-4 pb-28 pt-6 md:px-6 md:pb-12 lg:max-w-2xl xl:max-w-3xl">
         {/* Maqsad sarlavhasi + progress */}
         <div className="flex flex-col items-center text-center">
           <span className="grid size-12 place-items-center rounded-xl bg-subtle"><GoalIcon k={goal.icon} className="size-6 text-foreground" /></span>

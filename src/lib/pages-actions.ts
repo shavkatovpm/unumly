@@ -86,12 +86,25 @@ export async function updatePage(id: string, patch: UpdatePagePatch): Promise<Pa
   });
   if (!existing) throw new Error("NOT_FOUND");
 
+  // BlockNote'ning ba'zi blok proplari (masalan jadval `columnWidths` —
+  // avtomatik kenglikdagi ustunlar uchun `undefined` bo'lishi mumkin) xom JS
+  // `undefined` qiymatini o'z ichiga oladi — Prisma'ning Json ustuni buni rad
+  // etadi ("Can not use `undefined` value within array"), va bu saqlashni
+  // butunlay yiqitib, o'zgarish sukut saqlab (foydalanuvchiga xato
+  // ko'rinmasdan) yo'qolib ketishiga sabab bo'lardi. JSON aylanishi
+  // `undefined`ni massivda `null`ga, obyekt xossasida esa butunlay olib
+  // tashlashga aylantiradi — bu Prisma xato xabarining o'zi tavsiya qilgani.
+  const safeContent =
+    patch.content !== undefined
+      ? (JSON.parse(JSON.stringify(patch.content)) as Prisma.InputJsonValue)
+      : undefined;
+
   const row = await prisma.page.update({
     where: { id },
     data: {
       ...(patch.title !== undefined && { title: patch.title.trim() || "Nomsiz" }),
       ...(patch.icon !== undefined && { icon: patch.icon }),
-      ...(patch.content !== undefined && { content: patch.content as Prisma.InputJsonValue }),
+      ...(safeContent !== undefined && { content: safeContent }),
       ...(patch.parentId !== undefined && { parentId: patch.parentId }),
       ...(patch.order !== undefined && { order: patch.order }),
     },
@@ -104,4 +117,20 @@ export async function updatePage(id: string, patch: UpdatePagePatch): Promise<Pa
 export async function removePage(id: string): Promise<void> {
   const user = await requireUser();
   await prisma.page.deleteMany({ where: { id, project: { userId: user.id } } });
+}
+
+/** Bir xil ota (parentId)ga tegishli sahifalarni drag-and-drop orqali qayta
+ *  tartiblash — bitta gesture uchun bitta so'rov, hammasi bitta
+ *  tranzaksiyada. Boshqa foydalanuvchiga tegishli id kirib qolmasligi
+ *  uchun avval mavjud (shu userga tegishli) id'lar bilan filtrlanadi. */
+export async function reorderPages(projectId: string, orderedIds: string[]): Promise<void> {
+  const user = await requireUser();
+  await requireOwnProject(user.id, projectId);
+  const known = new Set(
+    (await prisma.page.findMany({ where: { projectId }, select: { id: true } })).map((p) => p.id)
+  );
+  const filtered = orderedIds.filter((id) => known.has(id));
+  await prisma.$transaction(
+    filtered.map((id, i) => prisma.page.update({ where: { id }, data: { order: i } }))
+  );
 }
