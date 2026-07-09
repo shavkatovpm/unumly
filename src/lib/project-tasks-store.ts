@@ -9,6 +9,15 @@ import * as actions from "@/lib/project-tasks-actions";
 
 const cache = new Map<string, ProjectTask[]>();
 const listeners = new Map<string, Set<() => void>>();
+// Boshlang'ich yuklash paytida (hali kesh bo'sh) komponent StrictMode yoki
+// tab almashtirish tufayli tez-tez qayta mount bo'lsa, bir nechta
+// `listProjectTasks` so'rovi bir vaqtda "havoda" qolib ketishi mumkin edi —
+// birinchisi sekinroq bo'lsa, u KEYINROQ tugab, orada foydalanuvchi
+// ulgurgan optimistik o'zgarishlarni (masalan checkbox bosilishini) eski
+// ma'lumot bilan qayta yozib, "bekor qilib" qo'yardi. Shu sabab bir
+// projectId uchun bir vaqtning o'zida faqat BITTA so'rov "havoda" qoladi —
+// qolganlari o'sha bittasining natijasini kutadi.
+const inFlight = new Map<string, Promise<ProjectTask[]>>();
 
 function emit(projectId: string) {
   for (const l of listeners.get(projectId) ?? []) l();
@@ -27,10 +36,12 @@ export function useProjectTasks(projectId: string | null) {
   useEffect(() => {
     if (!projectId) return;
     const unsub = subscribe(projectId, () => forceRender((n) => n + 1));
-    if (!cache.has(projectId)) {
-      void actions.listProjectTasks(projectId)
-        .then((rows) => { cache.set(projectId, rows); emit(projectId); })
-        .catch(() => { cache.set(projectId, cache.get(projectId) ?? []); emit(projectId); });
+    if (!cache.has(projectId) && !inFlight.has(projectId)) {
+      const req = actions.listProjectTasks(projectId)
+        .then((rows) => { cache.set(projectId, rows); emit(projectId); return rows; })
+        .catch(() => { cache.set(projectId, cache.get(projectId) ?? []); emit(projectId); return []; })
+        .finally(() => { inFlight.delete(projectId); });
+      inFlight.set(projectId, req);
     }
     return unsub;
   }, [projectId]);
