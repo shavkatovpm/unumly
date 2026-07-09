@@ -71,8 +71,13 @@ export function useProjectTasks(projectId: string | null) {
     void actions.updateProjectTask(id, {
       ...(patch.title !== undefined && { title: patch.title }),
       ...(patch.done !== undefined && { done: patch.done }),
-      ...(patch.priority !== undefined && { priority: patch.priority ?? null }),
-      ...(patch.dueDate !== undefined && { dueDate: patch.dueDate ?? null }),
+      // `priority`/`dueDate` tozalash `undefined` qiymat bilan chaqiriladi
+      // (masalan DatePickerButton'ning "Tozalash" tugmasi) — shu sabab
+      // `!== undefined` emas, `"key" in patch` bilan tekshiriladi: aks holda
+      // "tozalash" (undefined) va "umuman tegilmagan" (key yo'q) bir xil
+      // ko'rinib, tozalash so'rovi jo'natilmasdan yutilib qolardi.
+      ...("priority" in patch && { priority: patch.priority ?? null }),
+      ...("dueDate" in patch && { dueDate: patch.dueDate ?? null }),
       ...(patch.order !== undefined && { order: patch.order }),
     }).catch(() => {
       cache.set(projectId, (cache.get(projectId) ?? []).map((t) => (t.id === id ? prev : t)));

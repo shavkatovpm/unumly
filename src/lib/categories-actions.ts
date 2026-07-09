@@ -27,31 +27,42 @@ async function requireUser() {
   return u;
 }
 
-/* ─── Read (seeds defaults on first call) ─────────────────── */
+/** Loyiha shu foydalanuvchiga tegishli ekanini tekshiradi. */
+async function requireOwnProject(userId: string, projectId: string) {
+  const p = await prisma.project.findFirst({ where: { id: projectId, userId }, select: { id: true } });
+  if (!p) throw new Error("NOT_FOUND");
+}
 
-export async function listCategories(): Promise<Category[]> {
+/* ─── Read (shaxsiy — NULL projectId — bo'lsa sukut toifalarni bir marta
+   urug'lantiradi; loyihaga tegishli bo'lsa bo'sh boshlanadi) ─────────── */
+
+export async function listCategories(projectId?: string): Promise<Category[]> {
   const user = await requireUser();
 
-  // First-ever fetch for this user → seed the default categories once.
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { categoriesSeeded: true },
-  });
-  if (dbUser && !dbUser.categoriesSeeded) {
-    await prisma.$transaction([
-      prisma.category.createMany({
-        data: DEFAULTS.map((d) => ({ ...d, userId: user.id })),
-        skipDuplicates: true,
-      }),
-      prisma.user.update({
-        where: { id: user.id },
-        data: { categoriesSeeded: true },
-      }),
-    ]);
+  if (projectId) {
+    await requireOwnProject(user.id, projectId);
+  } else {
+    // Faqat shaxsiy (asosiy Reja) uchun — loyihalar bo'sh boshlanadi.
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { categoriesSeeded: true },
+    });
+    if (dbUser && !dbUser.categoriesSeeded) {
+      await prisma.$transaction([
+        prisma.category.createMany({
+          data: DEFAULTS.map((d) => ({ ...d, userId: user.id })),
+          skipDuplicates: true,
+        }),
+        prisma.user.update({
+          where: { id: user.id },
+          data: { categoriesSeeded: true },
+        }),
+      ]);
+    }
   }
 
   const rows = await prisma.category.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, projectId: projectId ?? null },
     orderBy: [{ order: "asc" }],
   });
   return rows.map(toCategory);
@@ -63,12 +74,14 @@ export type CreateCategoryInput = {
   id?: string;
   label: string;
   color: CategoryColor;
+  projectId?: string;
 };
 
 export async function createCategory(input: CreateCategoryInput): Promise<Category> {
   const user = await requireUser();
+  if (input.projectId) await requireOwnProject(user.id, input.projectId);
   const last = await prisma.category.findFirst({
-    where: { userId: user.id },
+    where: { userId: user.id, projectId: input.projectId ?? null },
     orderBy: { order: "desc" },
     select: { order: true },
   });
@@ -79,6 +92,7 @@ export async function createCategory(input: CreateCategoryInput): Promise<Catego
       userId: user.id,
       label: input.label.trim(),
       color: input.color,
+      projectId: input.projectId,
       order: nextOrder,
     },
   });

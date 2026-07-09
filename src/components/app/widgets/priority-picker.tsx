@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import type { PlanPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -30,22 +31,63 @@ export function PriorityPicker({
   align?: "left" | "right";
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => setMounted(true), []);
+
+  // Dropdown portal orqali document.body'ga chiqariladi — aks holda
+  // jadval/kalendar katagi kabi `overflow-hidden` konteynerlar ichida
+  // qirqilib, "chala" ko'rinardi.
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    function place() {
+      const el = triggerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const width = 132; // taxminan (3 doira + tozalash tugmasi + padding)
+      const left = align === "right" ? r.right - width : r.left;
+      setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(left, window.innerWidth - width - 8)) });
+    }
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, align]);
 
   useEffect(() => {
     if (!open) return;
     function close(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (menuRef.current?.contains(t)) return;
+      if (triggerRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
     }
     document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   const colorCls = priorityColorClass(value);
 
   return (
-    <div ref={ref} className="relative inline-block">
+    <>
       <button
+        ref={triggerRef}
         type="button"
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => {
@@ -62,12 +104,12 @@ export function PriorityPicker({
             : "border-[1.5px] border-dashed border-faint hover:border-foreground"
         )}
       />
-      {open && (
+      {mounted && open && pos && createPortal(
         <div
-          className={cn(
-            "absolute top-full z-50 mt-1 flex items-center gap-1 rounded-md border border-border bg-surface p-1 shadow-lg",
-            align === "right" ? "right-0" : "left-0"
-          )}
+          ref={menuRef}
+          role="menu"
+          style={{ top: pos.top, left: pos.left }}
+          className="fixed z-[120] flex items-center gap-1 rounded-md border border-border bg-surface p-1 shadow-lg"
           onMouseDown={(e) => e.stopPropagation()}
         >
           {OPTIONS.map((o) => {
@@ -104,8 +146,9 @@ export function PriorityPicker({
               <X className="size-2.5" />
             </button>
           )}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }

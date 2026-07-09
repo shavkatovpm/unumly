@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Category, CategoryColor } from "@/lib/types";
 import * as actions from "@/lib/categories-actions";
 
@@ -9,18 +9,49 @@ import * as actions from "@/lib/categories-actions";
    Optimistic UI: mutators update local state immediately and fire
    the server action in the background; failed calls roll back.
    Cache hydrates on first hook usage and polls for cross-device sync.
-   Mirrors plans-store.
+
+   Scope-aware (pages-store pattern): `undefined` projectId = shaxsiy
+   (asosiy Reja), aks holda shu Loyihaning o'z toifalar to'plami — har
+   biri alohida keshda, bir vaqtning o'zida bir nechtasi ochiq bo'lishi
+   mumkin.
    ════════════════════════════════════════════════════════════ */
 
 type State = Category[];
 
-let memoryState: State = [];
-let hydrated = false;
-let hydrating = false;
-const listeners = new Set<() => void>();
+const PERSONAL = "__personal__";
+function scopeKey(projectId?: string): string {
+  return projectId ?? PERSONAL;
+}
 
-function emit() {
-  for (const l of listeners) l();
+type Scope = {
+  categories: State;
+  hydrated: boolean;
+  hydrating: boolean;
+  pollTimer: number | null;
+  pollSubscribers: number;
+  pendingMutations: number;
+};
+
+const scopes = new Map<string, Scope>();
+const listeners = new Map<string, Set<() => void>>();
+
+function getScope(key: string): Scope {
+  let s = scopes.get(key);
+  if (!s) {
+    s = { categories: [], hydrated: false, hydrating: false, pollTimer: null, pollSubscribers: 0, pendingMutations: 0 };
+    scopes.set(key, s);
+  }
+  return s;
+}
+
+function emit(key: string) {
+  for (const l of listeners.get(key) ?? []) l();
+}
+function subscribe(key: string, cb: () => void) {
+  let set = listeners.get(key);
+  if (!set) { set = new Set(); listeners.set(key, set); }
+  set.add(cb);
+  return () => { set!.delete(cb); if (set!.size === 0) listeners.delete(key); };
 }
 
 function nextId() {
@@ -30,31 +61,34 @@ function nextId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-function hydrateOnce() {
-  if (hydrated || hydrating || typeof window === "undefined") return;
-  hydrating = true;
+function hydrateOnce(key: string, projectId?: string) {
+  const s = getScope(key);
+  if (s.hydrated || s.hydrating || typeof window === "undefined") return;
+  s.hydrating = true;
   void actions
-    .listCategories()
+    .listCategories(projectId)
     .then((rows) => {
-      memoryState = rows;
-      hydrated = true;
-      emit();
+      s.categories = rows;
+      s.hydrated = true;
+      emit(key);
     })
     .catch(() => {
-      hydrated = true;
-      emit();
+      s.hydrated = true;
+      emit(key);
     })
     .finally(() => {
-      hydrating = false;
+      s.hydrating = false;
     });
 }
 
-/** Force a re-fetch from the server (used after first-login import). */
+/** Force a re-fetch from the server (used after first-login import).
+ *  Faqat shaxsiy (asosiy Reja) uchun. */
 export async function refreshCategories(): Promise<void> {
+  const s = getScope(PERSONAL);
   try {
-    memoryState = await actions.listCategories();
-    hydrated = true;
-    emit();
+    s.categories = await actions.listCategories();
+    s.hydrated = true;
+    emit(PERSONAL);
   } catch {
     /* swallow */
   }
@@ -63,14 +97,11 @@ export async function refreshCategories(): Promise<void> {
 /* ─── Background polling (cross-device sync) ──────────────── */
 
 const POLL_INTERVAL_MS = 20 * 1000;
-let pollTimer: number | null = null;
-let pollSubscribers = 0;
-let pendingMutations = 0;
 
-function withPending<T>(p: Promise<T>): Promise<T> {
-  pendingMutations++;
+function withPending<T>(s: Scope, p: Promise<T>): Promise<T> {
+  s.pendingMutations++;
   return p.finally(() => {
-    pendingMutations = Math.max(0, pendingMutations - 1);
+    s.pendingMutations = Math.max(0, s.pendingMutations - 1);
   });
 }
 
@@ -85,91 +116,77 @@ function rowsEqual(a: Category[], b: Category[]): boolean {
   return true;
 }
 
-function fetchAndReconcile() {
-  if (pendingMutations > 0) return;
+function fetchAndReconcile(key: string, projectId?: string) {
+  const s = getScope(key);
+  if (s.pendingMutations > 0) return;
   void actions
-    .listCategories()
+    .listCategories(projectId)
     .then((rows) => {
-      if (pendingMutations > 0) return;
-      if (rowsEqual(rows, memoryState)) return;
-      memoryState = rows;
-      emit();
+      if (s.pendingMutations > 0) return;
+      if (rowsEqual(rows, s.categories)) return;
+      s.categories = rows;
+      emit(key);
     })
     .catch(() => { /* unauthenticated or transient */ });
 }
 
-function startPolling() {
-  if (pollTimer !== null || typeof window === "undefined") return;
-  pollTimer = window.setInterval(() => {
+function startPolling(key: string, projectId?: string) {
+  const s = getScope(key);
+  if (s.pollTimer !== null || typeof window === "undefined") return;
+  s.pollTimer = window.setInterval(() => {
     if (document.visibilityState !== "visible") return;
-    fetchAndReconcile();
+    fetchAndReconcile(key, projectId);
   }, POLL_INTERVAL_MS);
 }
 
-function stopPolling() {
-  if (pollTimer !== null) {
-    window.clearInterval(pollTimer);
-    pollTimer = null;
+function stopPolling(key: string) {
+  const s = getScope(key);
+  if (s.pollTimer !== null) {
+    window.clearInterval(s.pollTimer);
+    s.pollTimer = null;
   }
-}
-
-function maybeRefreshOnVisible() {
-  if (document.visibilityState !== "visible") return;
-  fetchAndReconcile();
-}
-
-function subscribe(cb: () => void) {
-  listeners.add(cb);
-  return () => {
-    listeners.delete(cb);
-  };
-}
-
-function getSnapshot(): State {
-  return memoryState;
-}
-
-const EMPTY_STATE: State = [];
-function getServerSnapshot(): State {
-  return EMPTY_STATE;
 }
 
 /* ─── Optimistic mutators ─────────────────────────────────── */
 
-function createCategory(input: { label: string; color: CategoryColor }): string {
+function createCategory(key: string, projectId: string | undefined, input: { label: string; color: CategoryColor }): string {
+  const s = getScope(key);
   const id = nextId();
   const cat: Category = {
     id,
     label: input.label.trim(),
     color: input.color,
-    order: memoryState.length,
+    order: s.categories.length,
   };
-  memoryState = [...memoryState, cat];
-  emit();
+  s.categories = [...s.categories, cat];
+  emit(key);
 
   void withPending(
+    s,
     actions
-      .createCategory({ id, label: cat.label, color: cat.color })
+      .createCategory({ id, label: cat.label, color: cat.color, projectId })
       .then((server) => {
-        memoryState = memoryState.map((c) => (c.id === id ? server : c));
-        emit();
+        s.categories = s.categories.map((c) => (c.id === id ? server : c));
+        emit(key);
       })
       .catch(() => {
-        memoryState = memoryState.filter((c) => c.id !== id);
-        emit();
+        s.categories = s.categories.filter((c) => c.id !== id);
+        emit(key);
       })
   );
 
   return id;
 }
 
-function updateCategory(id: string, patch: Partial<Category>): void {
-  const prev = memoryState.find((c) => c.id === id);
+function updateCategory(key: string, id: string, patch: Partial<Category>): void {
+  const s = getScope(key);
+  const prev = s.categories.find((c) => c.id === id);
   if (!prev) return;
-  memoryState = memoryState.map((c) => (c.id === id ? { ...c, ...patch } : c));
-  emit();
+  s.categories = s.categories.map((c) => (c.id === id ? { ...c, ...patch } : c));
+  emit(key);
 
   void withPending(
+    s,
     actions
       .updateCategory(id, {
         ...(patch.label !== undefined && { label: patch.label }),
@@ -177,62 +194,80 @@ function updateCategory(id: string, patch: Partial<Category>): void {
         ...(patch.order !== undefined && { order: patch.order }),
       })
       .then((server) => {
-        memoryState = memoryState.map((c) => (c.id === id ? server : c));
-        emit();
+        s.categories = s.categories.map((c) => (c.id === id ? server : c));
+        emit(key);
       })
       .catch(() => {
-        memoryState = memoryState.map((c) => (c.id === id ? prev : c));
-        emit();
+        s.categories = s.categories.map((c) => (c.id === id ? prev : c));
+        emit(key);
       })
   );
 }
 
-function removeCategory(id: string): void {
-  const prev = memoryState.find((c) => c.id === id);
+function removeCategory(key: string, id: string): void {
+  const s = getScope(key);
+  const prev = s.categories.find((c) => c.id === id);
   if (!prev) return;
-  memoryState = memoryState.filter((c) => c.id !== id);
-  emit();
+  s.categories = s.categories.filter((c) => c.id !== id);
+  emit(key);
 
   void withPending(
+    s,
     actions.removeCategory(id).catch(() => {
-      memoryState = [...memoryState, prev];
-      emit();
+      s.categories = [...s.categories, prev];
+      emit(key);
     })
   );
 }
 
 /* ─── React hook ──────────────────────────────────────────── */
 
-export function useCategories() {
-  const categories = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+/** `projectId` berilmasa — shaxsiy (asosiy Reja); berilsa — shu loyihaning
+ *  o'z, mustaqil toifalar to'plami (bo'sh boshlanadi, sukut toifalar
+ *  urug'lantirilmaydi). */
+export function useCategories(projectId?: string) {
+  const key = scopeKey(projectId);
+  const [, forceRender] = useState(0);
 
   useEffect(() => {
-    hydrateOnce();
-    pollSubscribers++;
-    startPolling();
-    document.addEventListener("visibilitychange", maybeRefreshOnVisible);
+    const unsub = subscribe(key, () => forceRender((n) => n + 1));
+    hydrateOnce(key, projectId);
+    const s = getScope(key);
+    s.pollSubscribers++;
+    startPolling(key, projectId);
+    function onVisible() {
+      if (document.visibilityState !== "visible") return;
+      fetchAndReconcile(key, projectId);
+    }
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
-      pollSubscribers--;
-      document.removeEventListener("visibilitychange", maybeRefreshOnVisible);
-      if (pollSubscribers <= 0) {
-        pollSubscribers = 0;
-        stopPolling();
+      unsub();
+      s.pollSubscribers--;
+      document.removeEventListener("visibilitychange", onVisible);
+      if (s.pollSubscribers <= 0) {
+        s.pollSubscribers = 0;
+        stopPolling(key);
       }
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
+  const s = getScope(key);
   const sorted = useMemo(
-    () => [...categories].sort((a, b) => a.order - b.order),
-    [categories]
+    () => [...s.categories].sort((a, b) => a.order - b.order),
+    [s.categories]
   );
   return {
     categories: sorted,
-    create: createCategory,
-    update: updateCategory,
-    remove: removeCategory,
+    create: (input: { label: string; color: CategoryColor }) => createCategory(key, projectId, input),
+    update: (id: string, patch: Partial<Category>) => updateCategory(key, id, patch),
+    remove: (id: string) => removeCategory(key, id),
   };
 }
 
-export function useHydratedCategories(): boolean {
-  return useSyncExternalStore(subscribe, () => hydrated, () => false);
+export function useHydratedCategories(projectId?: string): boolean {
+  const key = scopeKey(projectId);
+  const [, forceRender] = useState(0);
+  useEffect(() => subscribe(key, () => forceRender((n) => n + 1)), [key]);
+  return getScope(key).hydrated;
 }

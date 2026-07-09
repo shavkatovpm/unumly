@@ -780,3 +780,16 @@ textarea,
 .unumly-bn th s {
   opacity: 0.55;
 }
+
+/* Jadval bloki — har bir ustun standart holatda kamida 120px (BlockNote'ning
+   o'zi belgilaydi), shu sabab 3+ ustunli jadval tor mobil ekranga sig'maydi.
+   Tashqi konteynerlar sahifa slayd-animatsiyasi uchun `overflow-x-hidden`
+   bo'lgani sabab, ustidan tashqarida qolgan ustunlar shunchaki "kesilib"
+   ko'rinmay qolardi. Endi jadvalning O'ZI ichida gorizontal aylantiriladi —
+   barcha ustunlarga (suqilib) yetish mumkin, qolgan sahifa joylashuvi va
+   responsivligi hech qanday o'zgarishsiz qoladi. */
+.unumly-bn [data-content-type="table"] .tableWrapper {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}

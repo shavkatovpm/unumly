@@ -17,10 +17,11 @@ import { ListLoader } from "./widgets/list-loader";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { HujjatlarPanel } from "./loyiha/hujjatlar-panel";
 import { JadvalPanel } from "./loyiha/jadval-panel";
+import { RejaView } from "./reja-view";
 import { ProjectIcon } from "./loyiha-icons";
 import { ProjectFormModal } from "./loyiha/project-form-modal";
 
-type Tab = "hujjatlar" | "tasklar";
+type Tab = "reja" | "hujjatlar" | "tasklar";
 
 export function LoyihaWorkspaceView({ projectId }: { projectId: string }) {
   const { projects, update, remove } = useProjects();
@@ -98,6 +99,16 @@ export function LoyihaWorkspaceView({ projectId }: { projectId: string }) {
         <div className="flex shrink-0 items-center gap-0.5 rounded-lg bg-subtle/60 p-0.5 text-[12.5px]">
           <button
             type="button"
+            onClick={() => setTab("reja")}
+            className={cn(
+              "rounded-md px-3 py-1.5 font-medium transition-all",
+              tab === "reja" ? "bg-surface shadow-sm text-foreground" : "text-faint hover:text-muted"
+            )}
+          >
+            Reja
+          </button>
+          <button
+            type="button"
             onClick={() => setTab("hujjatlar")}
             className={cn(
               "rounded-md px-3 py-1.5 font-medium transition-all",
@@ -119,8 +130,10 @@ export function LoyihaWorkspaceView({ projectId }: { projectId: string }) {
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === "hujjatlar" ? (
+      <div className={cn("min-h-0 flex-1", tab === "reja" ? "overflow-hidden" : "overflow-y-auto")}>
+        {tab === "reja" ? (
+          <RejaView projectId={project.id} />
+        ) : tab === "hujjatlar" ? (
           <HujjatlarPanel projectId={project.id} />
         ) : (
           <JadvalPanel projectId={project.id} />

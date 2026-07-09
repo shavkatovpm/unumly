@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import type { Idea, Plan } from "@/lib/types";
 import {
   getPlanById,
@@ -13,19 +13,53 @@ import * as actions from "@/lib/ideas-actions";
 /* ════════════════════════════════════════════════════════════
    Ideas store (Reja board) — in-memory cache backed by server
    actions. Optimistic UI with rollback + cross-device polling,
-   mirroring plans-store. Scheduled ideas are still mirrored to a
-   Plan (same id) so they also surface in Bugun/Agenda/Kalendar.
-   ════════════════════════════════════════════════════════════ */
+   mirroring plans-store.
+
+   Scope-aware: `undefined` projectId = shaxsiy (asosiy Reja), aks holda
+   shu Loyihaning o'z Reja bo'limi — har biri alohida keshda (pages-store
+   pattern), bir vaqtning o'zida bir nechtasi ochiq bo'lishi mumkin.
+
+   Sanali (scheduledFor) g'oyalar hali ham Plan (bir xil id) sifatida
+   ko'zguланади — LEKIN faqat SHAXSIY g'oyalar uchun (Bugun/Agenda/
+   Kalendarga chiqishi kerak bo'lgani uchun). Loyihaga tegishli g'oyalar
+   ProjectTask kabi mustaqil qoladi — Plan/eslatma tizimiga aralashmaydi. */
 
 type State = Idea[];
 
-let memoryState: State = [];
-let hydrated = false;
-let hydrating = false;
-const listeners = new Set<() => void>();
+const PERSONAL = "__personal__";
+function scopeKey(projectId?: string): string {
+  return projectId ?? PERSONAL;
+}
 
-function emit() {
-  for (const l of listeners) l();
+type Scope = {
+  ideas: State;
+  hydrated: boolean;
+  hydrating: boolean;
+  pollTimer: number | null;
+  pollSubscribers: number;
+  pendingMutations: number;
+};
+
+const scopes = new Map<string, Scope>();
+const listeners = new Map<string, Set<() => void>>();
+
+function getScope(key: string): Scope {
+  let s = scopes.get(key);
+  if (!s) {
+    s = { ideas: [], hydrated: false, hydrating: false, pollTimer: null, pollSubscribers: 0, pendingMutations: 0 };
+    scopes.set(key, s);
+  }
+  return s;
+}
+
+function emit(key: string) {
+  for (const l of listeners.get(key) ?? []) l();
+}
+function subscribe(key: string, cb: () => void) {
+  let set = listeners.get(key);
+  if (!set) { set = new Set(); listeners.set(key, set); }
+  set.add(cb);
+  return () => { set!.delete(cb); if (set!.size === 0) listeners.delete(key); };
 }
 
 function nextId() {
@@ -39,7 +73,8 @@ function nextId() {
    "Tozalash" bosilganda bajarilgan g'oyalarni reja dropdownidan
    yashiramiz. Bu faqat reja ko'rinishiga taalluqli — g'oya bazada
    (completedAt bilan) qoladi va Arxiv → Bajarilganlarda ko'rinaveradi.
-   ──────────────────────────────────────────────────────────── */
+   G'oya id'lari global noyob (cuid) — scope'dan qat'iy nazar bitta
+   umumiy to'plam yetarli. ──────────────────────────────────────── */
 const DISMISSED_KEY = "unumly:idea-done-dismissed";
 let dismissedSet: Set<string> = new Set();
 let dismissedLoaded = false;
@@ -88,35 +123,40 @@ export function dismissDoneIdeas(ids: string[]): void {
   }
   if (changed) {
     persistDismissed();
-    emit();
+    // Barcha ochiq scope'larni yangilaymiz — qaysi biriga tegishli ekanini
+    // bilmaymiz, lekin bu arzon (faqat qayta render).
+    for (const key of scopes.keys()) emit(key);
   }
 }
 
-function hydrateOnce() {
-  if (hydrated || hydrating || typeof window === "undefined") return;
-  hydrating = true;
+function hydrateOnce(key: string, projectId?: string) {
+  const s = getScope(key);
+  if (s.hydrated || s.hydrating || typeof window === "undefined") return;
+  s.hydrating = true;
   void actions
-    .listIdeas()
+    .listIdeas(projectId)
     .then((rows) => {
-      memoryState = rows;
-      hydrated = true;
-      emit();
+      s.ideas = rows;
+      s.hydrated = true;
+      emit(key);
     })
     .catch(() => {
-      hydrated = true;
-      emit();
+      s.hydrated = true;
+      emit(key);
     })
     .finally(() => {
-      hydrating = false;
+      s.hydrating = false;
     });
 }
 
-/** Force a re-fetch from the server (used after first-login import). */
+/** Force a re-fetch from the server (used after first-login import).
+ *  Faqat shaxsiy (asosiy Reja) uchun — import faqat shaxsiy ma'lumot uchun. */
 export async function refreshIdeas(): Promise<void> {
+  const s = getScope(PERSONAL);
   try {
-    memoryState = await actions.listIdeas();
-    hydrated = true;
-    emit();
+    s.ideas = await actions.listIdeas();
+    s.hydrated = true;
+    emit(PERSONAL);
   } catch {
     /* swallow */
   }
@@ -125,14 +165,11 @@ export async function refreshIdeas(): Promise<void> {
 /* ─── Background polling (cross-device sync) ──────────────── */
 
 const POLL_INTERVAL_MS = 20 * 1000;
-let pollTimer: number | null = null;
-let pollSubscribers = 0;
-let pendingMutations = 0;
 
-function withPending<T>(p: Promise<T>): Promise<T> {
-  pendingMutations++;
+function withPending<T>(s: Scope, p: Promise<T>): Promise<T> {
+  s.pendingMutations++;
   return p.finally(() => {
-    pendingMutations = Math.max(0, pendingMutations - 1);
+    s.pendingMutations = Math.max(0, s.pendingMutations - 1);
   });
 }
 
@@ -159,56 +196,38 @@ function rowsEqual(a: Idea[], b: Idea[]): boolean {
   return true;
 }
 
-function fetchAndReconcile() {
-  if (pendingMutations > 0) return;
+function fetchAndReconcile(key: string, projectId?: string) {
+  const s = getScope(key);
+  if (s.pendingMutations > 0) return;
   void actions
-    .listIdeas()
+    .listIdeas(projectId)
     .then((rows) => {
-      if (pendingMutations > 0) return;
-      if (rowsEqual(rows, memoryState)) return;
-      memoryState = rows;
-      emit();
+      if (s.pendingMutations > 0) return;
+      if (rowsEqual(rows, s.ideas)) return;
+      s.ideas = rows;
+      emit(key);
     })
     .catch(() => { /* unauthenticated or transient */ });
 }
 
-function startPolling() {
-  if (pollTimer !== null || typeof window === "undefined") return;
-  pollTimer = window.setInterval(() => {
+function startPolling(key: string, projectId?: string) {
+  const s = getScope(key);
+  if (s.pollTimer !== null || typeof window === "undefined") return;
+  s.pollTimer = window.setInterval(() => {
     if (document.visibilityState !== "visible") return;
-    fetchAndReconcile();
+    fetchAndReconcile(key, projectId);
   }, POLL_INTERVAL_MS);
 }
 
-function stopPolling() {
-  if (pollTimer !== null) {
-    window.clearInterval(pollTimer);
-    pollTimer = null;
+function stopPolling(key: string) {
+  const s = getScope(key);
+  if (s.pollTimer !== null) {
+    window.clearInterval(s.pollTimer);
+    s.pollTimer = null;
   }
 }
 
-function maybeRefreshOnVisible() {
-  if (document.visibilityState !== "visible") return;
-  fetchAndReconcile();
-}
-
-function subscribe(cb: () => void) {
-  listeners.add(cb);
-  return () => {
-    listeners.delete(cb);
-  };
-}
-
-function getSnapshot(): State {
-  return memoryState;
-}
-
-const EMPTY_STATE: State = [];
-function getServerSnapshot(): State {
-  return EMPTY_STATE;
-}
-
-/* ─── Plan sync helpers ───────────────────────────────────── */
+/* ─── Plan sync helpers (faqat shaxsiy scope) ─────────────── */
 
 function planFromIdea(idea: Idea): Plan {
   return {
@@ -241,9 +260,11 @@ export type CreateIdeaInput = {
   notes?: string;
 };
 
-/* ─── Optimistic mutators ─────────────────────────────────── */
+/* ─── Optimistic mutators — barchasi (key, projectId) ni birinchi
+   argument sifatida oladi; hook shu qiymatlarni "bog'lab" qaytaradi. ─── */
 
-export function createIdea(input: CreateIdeaInput): string {
+function createIdea(key: string, projectId: string | undefined, input: CreateIdeaInput): string {
+  const s = getScope(key);
   const now = new Date().toISOString();
   const id = nextId();
   const idea: Idea = {
@@ -253,40 +274,43 @@ export function createIdea(input: CreateIdeaInput): string {
     notes: input.notes,
     done: false,
     createdAt: now,
-    order: memoryState.length,
+    order: s.ideas.length,
   };
-  memoryState = [...memoryState, idea];
-  emit();
+  s.ideas = [...s.ideas, idea];
+  emit(key);
 
   void withPending(
+    s,
     actions
-      .createIdea({ id, title: idea.title, categoryId: idea.categoryId, notes: idea.notes })
+      .createIdea({ id, title: idea.title, categoryId: idea.categoryId, notes: idea.notes, projectId })
       .then((server) => {
-        memoryState = memoryState.map((i) => (i.id === id ? server : i));
-        emit();
+        s.ideas = s.ideas.map((i) => (i.id === id ? server : i));
+        emit(key);
       })
       .catch(() => {
-        memoryState = memoryState.filter((i) => i.id !== id);
-        emit();
+        s.ideas = s.ideas.filter((i) => i.id !== id);
+        emit(key);
       })
   );
 
   return id;
 }
 
-export function updateIdea(id: string, patch: Partial<Idea>): void {
-  const prev = memoryState.find((i) => i.id === id);
+function updateIdea(key: string, projectId: string | undefined, id: string, patch: Partial<Idea>): void {
+  const s = getScope(key);
+  const prev = s.ideas.find((i) => i.id === id);
   if (!prev) return;
   const updated: Idea = { ...prev, ...patch };
   if (patch.done !== undefined) {
     updated.completedAt = patch.done ? new Date().toISOString() : undefined;
     undismiss(id);
   }
-  memoryState = memoryState.map((i) => (i.id === id ? updated : i));
-  emit();
-  syncPlanFor(updated);
+  s.ideas = s.ideas.map((i) => (i.id === id ? updated : i));
+  emit(key);
+  if (!projectId) syncPlanFor(updated);
 
   void withPending(
+    s,
     actions
       .updateIdea(id, {
         ...(patch.title !== undefined && { title: patch.title }),
@@ -301,18 +325,19 @@ export function updateIdea(id: string, patch: Partial<Idea>): void {
         ...(patch.priority !== undefined && { priority: patch.priority ?? null }),
       })
       .then((server) => {
-        memoryState = memoryState.map((i) => (i.id === id ? server : i));
-        emit();
+        s.ideas = s.ideas.map((i) => (i.id === id ? server : i));
+        emit(key);
       })
       .catch(() => {
-        memoryState = memoryState.map((i) => (i.id === id ? prev : i));
-        emit();
+        s.ideas = s.ideas.map((i) => (i.id === id ? prev : i));
+        emit(key);
       })
   );
 }
 
-export function toggleIdeaDone(id: string): void {
-  const prev = memoryState.find((i) => i.id === id);
+function toggleIdeaDone(key: string, projectId: string | undefined, id: string): void {
+  const s = getScope(key);
+  const prev = s.ideas.find((i) => i.id === id);
   if (!prev) return;
   const nowDone = !prev.done;
   const updated: Idea = {
@@ -321,11 +346,11 @@ export function toggleIdeaDone(id: string): void {
     completedAt: nowDone ? new Date().toISOString() : undefined,
   };
   undismiss(id);
-  memoryState = memoryState.map((i) => (i.id === id ? updated : i));
-  emit();
+  s.ideas = s.ideas.map((i) => (i.id === id ? updated : i));
+  emit(key);
 
-  // Mirror done state onto the linked plan (without re-emitting back to us)
-  if (updated.scheduledFor) {
+  // Mirror done state onto the linked plan (faqat shaxsiy) without re-emitting back to us
+  if (!projectId && updated.scheduledFor) {
     const plan = getPlanById(updated.id);
     if (plan && (plan.status === "DONE") !== updated.done) {
       togglePlanStatus(updated.id);
@@ -333,82 +358,94 @@ export function toggleIdeaDone(id: string): void {
   }
 
   void withPending(
+    s,
     actions
       .toggleIdeaDone(id)
       .then((server) => {
-        memoryState = memoryState.map((i) => (i.id === id ? server : i));
-        emit();
+        s.ideas = s.ideas.map((i) => (i.id === id ? server : i));
+        emit(key);
       })
       .catch(() => {
-        memoryState = memoryState.map((i) => (i.id === id ? prev : i));
-        emit();
+        s.ideas = s.ideas.map((i) => (i.id === id ? prev : i));
+        emit(key);
       })
   );
 }
 
-export function removeIdea(id: string): void {
-  const prev = memoryState.find((i) => i.id === id);
+function removeIdea(key: string, projectId: string | undefined, id: string): void {
+  const s = getScope(key);
+  const prev = s.ideas.find((i) => i.id === id);
   if (!prev) return;
   undismiss(id);
-  memoryState = memoryState.filter((i) => i.id !== id);
-  emit();
-  if (getPlanById(id)) removePlan(id);
+  s.ideas = s.ideas.filter((i) => i.id !== id);
+  emit(key);
+  if (!projectId && getPlanById(id)) removePlan(id);
 
   void withPending(
+    s,
     actions.removeIdea(id).catch(() => {
-      memoryState = [...memoryState, prev];
-      emit();
+      s.ideas = [...s.ideas, prev];
+      emit(key);
     })
   );
 }
 
-export function getIdeaById(id: string): Idea | undefined {
-  return memoryState.find((i) => i.id === id);
-}
-
-/* ─── Listen for plan toggles → mirror to idea ────────────── */
+/* ─── Listen for plan toggles → mirror to idea (faqat shaxsiy scope) ─── */
 
 if (typeof window !== "undefined") {
   window.addEventListener("unumly:plan-toggled", (e: Event) => {
     const detail = (e as CustomEvent).detail as { id: string; done: boolean };
-    const idea = memoryState.find((i) => i.id === detail.id);
+    const s = getScope(PERSONAL);
+    const idea = s.ideas.find((i) => i.id === detail.id);
     if (idea && idea.done !== detail.done) {
-      memoryState = memoryState.map((i) =>
+      s.ideas = s.ideas.map((i) =>
         i.id === detail.id ? { ...i, done: detail.done } : i
       );
-      emit();
+      emit(PERSONAL);
       // Persist the mirrored state so it survives a reload / other device.
-      void withPending(actions.updateIdea(detail.id, { done: detail.done }).catch(() => {}));
+      void withPending(s, actions.updateIdea(detail.id, { done: detail.done }).catch(() => {}));
     }
   });
 }
 
 /* ─── React hook ──────────────────────────────────────────── */
 
-export function useIdeas() {
-  const ideas = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+/** `projectId` berilmasa — shaxsiy (asosiy Reja); berilsa — shu loyihaning
+ *  o'z, mustaqil g'oyalar/toifalar to'plami. */
+export function useIdeas(projectId?: string) {
+  const key = scopeKey(projectId);
+  const [, forceRender] = useState(0);
 
   useEffect(() => {
-    hydrateOnce();
-    pollSubscribers++;
-    startPolling();
-    document.addEventListener("visibilitychange", maybeRefreshOnVisible);
+    const unsub = subscribe(key, () => forceRender((n) => n + 1));
+    hydrateOnce(key, projectId);
+    const s = getScope(key);
+    s.pollSubscribers++;
+    startPolling(key, projectId);
+    function onVisible() {
+      if (document.visibilityState !== "visible") return;
+      fetchAndReconcile(key, projectId);
+    }
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
-      pollSubscribers--;
-      document.removeEventListener("visibilitychange", maybeRefreshOnVisible);
-      if (pollSubscribers <= 0) {
-        pollSubscribers = 0;
-        stopPolling();
+      unsub();
+      s.pollSubscribers--;
+      document.removeEventListener("visibilitychange", onVisible);
+      if (s.pollSubscribers <= 0) {
+        s.pollSubscribers = 0;
+        stopPolling(key);
       }
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
+  const s = getScope(key);
   return {
-    ideas,
-    hydrated,
-    create: createIdea,
-    update: updateIdea,
-    toggleDone: toggleIdeaDone,
-    remove: removeIdea,
+    ideas: s.ideas,
+    hydrated: s.hydrated,
+    create: (input: CreateIdeaInput) => createIdea(key, projectId, input),
+    update: (id: string, patch: Partial<Idea>) => updateIdea(key, projectId, id, patch),
+    toggleDone: (id: string) => toggleIdeaDone(key, projectId, id),
+    remove: (id: string) => removeIdea(key, projectId, id),
   };
 }

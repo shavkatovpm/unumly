@@ -63,15 +63,19 @@ function colorAlpha(c: string, a: number) {
    Main view
    ════════════════════════════════════════════════════════════ */
 
-export function RejaView() {
-  const { ideas, create, update, toggleDone, remove } = useIdeas();
+/** `projectId` berilsa — shu Loyihaning o'z (shaxsiy Reja'dan mustaqil)
+ *  g'oyalar/toifalar to'plami bilan ishlaydi, lekin qolgan hamma narsa
+ *  (ko'rinish, tartiblash, kanban, birlashtirish va h.k.) asosiy Reja bilan
+ *  bir xil. */
+export function RejaView({ projectId }: { projectId?: string } = {}) {
+  const { ideas, create, update, toggleDone, remove } = useIdeas(projectId);
   const {
     categories,
     create: createCategory,
     update: updateCategory,
     remove: removeCategory,
-  } = useCategories();
-  const catsHydrated = useHydratedCategories();
+  } = useCategories(projectId);
+  const catsHydrated = useHydratedCategories(projectId);
 
   const { askRemove, confirmEl } = useConfirmRemove(ideas, remove, {
     itemLabel: "G'oyani",
@@ -176,7 +180,7 @@ export function RejaView() {
   const selection: RejaSelection = { active: selectMode, selected: selectedIds, toggle: toggleSelect };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden">
       <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
         <div className="flex items-center gap-2 md:gap-3">
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Reja</h1>

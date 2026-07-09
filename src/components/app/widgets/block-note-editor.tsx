@@ -759,14 +759,12 @@ function CustomTableHandle(props: TableHandleProps) {
   );
 }
 
-/** "Belgilash ustuni"ga aylantirilgan kataklarda checkbox belgisining ustiga
- *  bosilganda — matn kursorini qo'yish o'rniga belgini almashtiradi; belgidan
- *  boshqa joyga (label matniga) bosilsa — odatdagidek tahrirlash uchun kursor
- *  qo'yiladi. Belgi CSS orqali chizilgan haqiqiy DOM elementi bo'lgani uchun
- *  (pastga qarang) uning aniq joylashuvi (markazga tekislanganda ham)
- *  `getBoundingClientRect` bilan to'g'ri aniqlanadi. Faqat ProseMirror o'z
- *  ishlovchisini ishga tushirishidan oldin (capture bosqichida)
- *  to'xtatilgani uchun ishlaydi. */
+/** "Belgilash ustuni"ga aylantirilgan kataklarda — bosilgan joyi farqi
+ *  qilmasdan (aniq belgi ustidan ham, katakning istalgan joyidan ham) doim
+ *  faqat belgini almashtiradi, matn kursori HECH QACHON qo'yilmaydi — bu
+ *  ustundagi kataklarga erkin matn yozish imkoniyati atayin yo'q (faqat
+ *  belgilash uchun). Faqat ProseMirror o'z ishlovchisini ishga
+ *  tushirishidan oldin (capture bosqichida) to'xtatilgani uchun ishlaydi. */
 function handleCheckboxCellMouseDown(
   editor: TableMutationEditor,
   e: React.MouseEvent<HTMLDivElement>
@@ -776,11 +774,6 @@ function handleCheckboxCellMouseDown(
   if (!cellEl) return;
   const marker = cellEl.querySelector('span[data-style-type="textColor"][data-value^="checkbox-"]') as HTMLElement | null;
   if (!marker) return;
-  const markerRect = marker.getBoundingClientRect();
-  if (
-    e.clientX < markerRect.left || e.clientX > markerRect.right ||
-    e.clientY < markerRect.top || e.clientY > markerRect.bottom
-  ) return;
 
   const rowEl = cellEl.closest("tr");
   const blockEl = cellEl.closest('[data-node-type="blockContainer"]') as HTMLElement | null;

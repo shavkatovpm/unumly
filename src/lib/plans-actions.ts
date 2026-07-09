@@ -195,6 +195,21 @@ export async function updatePlan(id: string, patch: UpdatePlanPatch): Promise<Pl
   const existing = await prisma.plan.findFirst({ where: { id, userId: user.id } });
   if (!existing) throw new Error("NOT_FOUND");
 
+  // Jadval (ProjectTask)dan avtomatik yaratilgan Plan bo'lsa — sarlavha,
+  // muhimlik va sana o'zgarishlari orqaga, o'sha taskka ham ko'chiriladi,
+  // shunda ikkala joy (Jadval va Agenda/Bugun) hech qachon bir-biridan
+  // "ajralib" qolmaydi.
+  if (existing.projectTaskId && (patch.title !== undefined || patch.priority !== undefined || patch.scheduledFor !== undefined)) {
+    await prisma.projectTask.update({
+      where: { id: existing.projectTaskId },
+      data: {
+        ...(patch.title !== undefined && { title: patch.title.trim() }),
+        ...(patch.priority !== undefined && { priority: patch.priority }),
+        ...(patch.scheduledFor !== undefined && { dueDate: patch.scheduledFor }),
+      },
+    }).catch(() => {});
+  }
+
   // Recompute notifyAt when scheduledFor, time or per-task lead changes
   const nextScheduledFor = patch.scheduledFor ?? existing.scheduledFor;
   const nextTime = patch.time === undefined ? existing.time : patch.time;
@@ -262,6 +277,12 @@ export async function togglePlanStatus(id: string): Promise<Plan> {
     void prisma.goalStep.update({ where: { id: existing.goalStepId }, data: { done: nowDone } }).catch(() => {});
   }
 
+  // Jadval taskidan yaratilgan Plan bo'lsa — "Bajarildi" holati orqaga,
+  // o'sha taskka ham ko'chiriladi.
+  if (existing.projectTaskId) {
+    void prisma.projectTask.update({ where: { id: existing.projectTaskId }, data: { done: nowDone } }).catch(() => {});
+  }
+
   return toPlan(row);
 }
 
@@ -290,11 +311,32 @@ async function clearReminderButtons(planId: string, via: "bot" | "app") {
 
 /* ─── Soft delete / restore / purge ───────────────────────── */
 
+/** Agenda/Bugun'dan o'chirilayotgan (yoki trash orqali butunlay
+ *  tozalanayotgan) Planlar orasida Jadval taskiga bog'langanlari bo'lsa —
+ *  o'sha tasklarning muddatini tozalaydi (task o'zi o'chirilmaydi, faqat
+ *  Jadval'dagi oddiy, sanasiz holatga qaytadi) va bog'lanishni uzadi —
+ *  aks holda keyinchalik trash'dan tiklansa, endi mavjud bo'lmagan
+ *  sinxronizatsiyaga "osilib" qolgan holat paydo bo'lardi. */
+async function unlinkProjectTasksForPlans(planIds: string[]) {
+  if (planIds.length === 0) return;
+  const linked = await prisma.plan.findMany({
+    where: { id: { in: planIds }, projectTaskId: { not: null } },
+    select: { projectTaskId: true },
+  });
+  const taskIds = linked.map((p) => p.projectTaskId).filter((x): x is string => !!x);
+  if (taskIds.length === 0) return;
+  await prisma.projectTask.updateMany({
+    where: { id: { in: taskIds } },
+    data: { dueDate: null },
+  });
+}
+
 export async function removePlan(id: string): Promise<void> {
   const user = await requireUser();
+  await unlinkProjectTasksForPlans([id]);
   await prisma.plan.updateMany({
     where: { id, userId: user.id },
-    data: { deletedAt: new Date() },
+    data: { deletedAt: new Date(), projectTaskId: null },
   });
   // Silence any pending bot reminders for this plan
   await prisma.botMessage.deleteMany({ where: { planId: id } });
@@ -303,9 +345,10 @@ export async function removePlan(id: string): Promise<void> {
 export async function removeManyPlans(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const user = await requireUser();
+  await unlinkProjectTasksForPlans(ids);
   await prisma.plan.updateMany({
     where: { id: { in: ids }, userId: user.id },
-    data: { deletedAt: new Date() },
+    data: { deletedAt: new Date(), projectTaskId: null },
   });
 }
 

@@ -9,6 +9,18 @@ import { DatePickerButton } from "../widgets/date-picker-button";
 import { ListLoader } from "../widgets/list-loader";
 import { useConfirmRemove } from "../widgets/confirm-dialog";
 
+const UZ_MONTHS_SHORT = ["yan", "fev", "mar", "apr", "may", "iyun", "iyul", "avg", "sen", "okt", "noy", "dek"];
+
+/** Kun+oyni qisqa ko'rsatadi ("15-iyul") — yil faqat joriy yildan farq
+ *  qilsa qo'shiladi. Xom "YYYY-MM-DD" satrni to'g'ridan-to'g'ri chiqarish
+ *  tor ustunda ("w-[92px]") kesilib, faqat yil qismi ko'rinib qolardi. */
+function formatDueDateShort(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  if (!y || !m || !d) return date;
+  const short = `${d}-${UZ_MONTHS_SHORT[m - 1]}`;
+  return y === new Date().getFullYear() ? short : `${short} ${y}`;
+}
+
 /** Loyihaning "Jadval" ko'rinishi — sanaga bog'liq bo'lmagan, erkin task
  *  ro'yxati (post mavzulari, ish qatorlari va h.k.), jadval uslubida. */
 export function JadvalPanel({ projectId }: { projectId: string }) {
@@ -68,20 +80,44 @@ export function JadvalPanel({ projectId }: { projectId: string }) {
         <ul className="overflow-hidden rounded-xl border border-border bg-surface">
           {/* Ustun sarlavhalari — faqat kattaroq ekranlarda */}
           <li className="hidden items-center gap-3 border-b border-border bg-subtle/40 px-3 py-2 text-[10.5px] font-medium uppercase tracking-[0.1em] text-faint sm:flex">
-            <span className="w-5 shrink-0" />
             <span className="min-w-0 flex-1">Nomi</span>
             <span className="w-16 shrink-0 text-center">Muhimlik</span>
-            <span className="w-[104px] shrink-0 text-center">Muddat</span>
+            <span className="w-[92px] shrink-0 text-center">Muddat</span>
+            <span className="w-5 shrink-0" />
             <span className="w-8 shrink-0" />
           </li>
           {tasks.map((t, i) => (
             <li
               key={t.id}
               className={cn(
-                "group flex items-center gap-3 px-3 py-2.5",
+                "group flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5",
                 i !== 0 && "border-t border-border"
               )}
             >
+              <input
+                value={t.title}
+                onChange={(e) => update(t.id, { title: e.target.value })}
+                className={cn(
+                  "min-w-0 w-full bg-transparent text-[14px] focus:outline-none sm:w-auto sm:flex-1",
+                  t.done && "text-faint line-through"
+                )}
+              />
+
+              <span className="flex w-16 shrink-0 justify-start sm:justify-center">
+                <PriorityPicker value={t.priority} onChange={(p) => update(t.id, { priority: p })} />
+              </span>
+
+              <span className="w-[92px] shrink-0">
+                <DatePickerButton
+                  value={t.dueDate ?? ""}
+                  onChange={(v) => update(t.id, { dueDate: v })}
+                  onClear={t.dueDate ? () => update(t.id, { dueDate: undefined }) : undefined}
+                  placeholder="Muddat"
+                  format={formatDueDateShort}
+                  className="w-full justify-center text-[11.5px]"
+                />
+              </span>
+
               <button
                 type="button"
                 onClick={() => update(t.id, { done: !t.done })}
@@ -94,34 +130,11 @@ export function JadvalPanel({ projectId }: { projectId: string }) {
                 {t.done && <span className="size-2 rounded-sm bg-accent-ink" />}
               </button>
 
-              <input
-                value={t.title}
-                onChange={(e) => update(t.id, { title: e.target.value })}
-                className={cn(
-                  "min-w-0 flex-1 bg-transparent text-[14px] focus:outline-none",
-                  t.done && "text-faint line-through"
-                )}
-              />
-
-              <span className="flex w-16 shrink-0 justify-center">
-                <PriorityPicker value={t.priority} onChange={(p) => update(t.id, { priority: p })} />
-              </span>
-
-              <span className="w-[104px] shrink-0">
-                <DatePickerButton
-                  value={t.dueDate ?? ""}
-                  onChange={(v) => update(t.id, { dueDate: v })}
-                  onClear={t.dueDate ? () => update(t.id, { dueDate: undefined }) : undefined}
-                  placeholder="Muddat"
-                  className="w-full justify-center text-[11.5px]"
-                />
-              </span>
-
               <button
                 type="button"
                 onClick={() => askRemove(t.id)}
                 aria-label="O'chirish"
-                className="grid size-8 shrink-0 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-danger sm:opacity-0 sm:group-hover:opacity-100"
+                className="ml-auto grid size-8 shrink-0 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-danger sm:ml-0 sm:opacity-0 sm:group-hover:opacity-100"
               >
                 <Trash2 className="size-3.5" />
               </button>

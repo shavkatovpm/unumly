@@ -34,12 +34,19 @@ async function requireUser() {
   return u;
 }
 
+/** Loyiha shu foydalanuvchiga tegishli ekanini tekshiradi. */
+async function requireOwnProject(userId: string, projectId: string) {
+  const p = await prisma.project.findFirst({ where: { id: projectId, userId }, select: { id: true } });
+  if (!p) throw new Error("NOT_FOUND");
+}
+
 /* ─── Read ────────────────────────────────────────────────── */
 
-export async function listIdeas(): Promise<Idea[]> {
+export async function listIdeas(projectId?: string): Promise<Idea[]> {
   const user = await requireUser();
+  if (projectId) await requireOwnProject(user.id, projectId);
   const rows = await prisma.idea.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, projectId: projectId ?? null },
     orderBy: [{ order: "asc" }, { createdAt: "asc" }],
   });
   return rows.map(toIdea);
@@ -57,12 +64,14 @@ export type CreateIdeaInput = {
   time?: string;
   duration?: number;
   priority?: PlanPriority;
+  projectId?: string;
 };
 
 export async function createIdea(input: CreateIdeaInput): Promise<Idea> {
   const user = await requireUser();
+  if (input.projectId) await requireOwnProject(user.id, input.projectId);
   const last = await prisma.idea.findFirst({
-    where: { userId: user.id },
+    where: { userId: user.id, projectId: input.projectId ?? null },
     orderBy: { order: "desc" },
     select: { order: true },
   });
@@ -79,6 +88,7 @@ export async function createIdea(input: CreateIdeaInput): Promise<Idea> {
       time: input.time,
       duration: input.duration,
       priority: input.priority,
+      projectId: input.projectId,
       order: nextOrder,
     },
   });

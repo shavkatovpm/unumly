@@ -179,6 +179,13 @@ model Plan {
   // its scoped plans too (cascade).
   projectId String?
 
+  // When this plan is the Agenda/Bugun mirror of a Jadval (ProjectTask) row
+  // that got a due date, this links back to it — one occurrence per task, so
+  // the FK is unique. Deleting the ProjectTask cascades to this plan;
+  // deleting/rescheduling/completing this plan is synced back onto the task
+  // in project-tasks-actions.ts / plans-actions.ts.
+  projectTaskId String? @unique
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -186,6 +193,7 @@ model Plan {
   habit       Habit?       @relation(fields: [habitId], references: [id], onDelete: Cascade)
   goalStep    GoalStep?    @relation(fields: [goalStepId], references: [id], onDelete: Cascade)
   project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectTask ProjectTask? @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
   botMessages BotMessage[]
 
   @@unique([habitId, scheduledFor]) // one occurrence per habit per day
@@ -336,11 +344,13 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plans Plan[]
-  goals Goal[]
-  pages Page[]
-  tasks ProjectTask[]
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plans      Plan[]
+  goals      Goal[]
+  pages      Page[]
+  tasks      ProjectTask[]
+  ideas      Idea[]
+  categories Category[]
 
   @@index([userId])
 }
@@ -362,6 +372,9 @@ model ProjectTask {
   updatedAt DateTime @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // Auto-created/synced Agenda/Bugun mirror once `dueDate` is set — see
+  // Plan.projectTaskId.
+  plan    Plan?
 
   @@index([projectId])
 }
@@ -477,12 +490,18 @@ model Category {
   color String // CategoryColor union (olive/emerald/.../gray)
   order Int    @default(0)
 
+  // NULL = shaxsiy (asosiy Reja). Berilgan bo'lsa — shu Loyihaning o'z
+  // Reja bo'limiga tegishli, shaxsiy toifalardan alohida to'plam.
+  projectId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([projectId])
 }
 
 model Idea {
@@ -504,12 +523,18 @@ model Idea {
   duration     Int? // minutes
   priority     PlanPriority?
 
+  // NULL = shaxsiy (asosiy Reja). Berilgan bo'lsa — shu Loyihaning o'z
+  // Reja bo'limiga tegishli, shaxsiy g'oyalardan alohida to'plam.
+  projectId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([projectId])
 }
 
 // ───────────────────────── Moliya (Finance) ─────────────────────────
