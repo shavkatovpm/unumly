@@ -522,6 +522,55 @@ const COMPLETE_SPECS: Record<CompleteVariant, SoundSpec> = {
 export function playComplete(v: CompleteVariant) { playSpec(COMPLETE_SPECS[v]); }
 
 /* ════════════════════════════════════════════════════════════
+   Timer end (Pomodoro fokus/tanaffus tugashi) — 5 ta variant.
+   Ikkita avvalgi urinish (uzun/qisqa bitta-ikkita sine "ping") ham
+   yoqmadi — sabab davomiylik emas, TEMBR edi: xom sinusoida hech qachon
+   haqiqiy qo'ng'iroq/kosa kabi eshitilmaydi. Meditatsiya/fokus taymer
+   ilovalari haqidagi izlanish shuni ko'rsatdi: yoqimli hisoblangan
+   tovushlar deyarli har doim tabiiy zang (Tibet kosasi, ibodatxona
+   qo'ng'irog'i, gong) bo'lib, ularning boyligi INHARMONIK partiallardan
+   keladi — pastga qarang, `ring()`. */
+
+export type TimerEndVariant = "tibet-bowl" | "temple-bell" | "soft-gong" | "crystal-chime" | "wood-tap";
+
+export const TIMER_END_VARIANTS: { id: TimerEndVariant; label: string; hint: string }[] = [
+  { id: "tibet-bowl",    label: "Tibet kosasi",       hint: "Iliq, uzoq singing bowl" },
+  { id: "temple-bell",   label: "Ibodatxona qo'ng'irog'i", hint: "Yorqinroq, qisqaroq zang" },
+  { id: "soft-gong",     label: "Yumshoq gong",       hint: "Past, keng, silliq to'lqin" },
+  { id: "crystal-chime", label: "Kristall jiringlash", hint: "Yuqori, shaffof, tiniq" },
+  { id: "wood-tap",      label: "Yog'och/marimba",    hint: "Qisqa iliq zarba" },
+];
+
+/** Haqiqiy qo'ng'iroq/kosa fizikasiga taqlid: bir nechta INHARMONIK partial
+ *  (asosiy chastotaning butun bo'lmagan karralisi — chinni/metall jismlarga
+ *  xos boylik shundan keladi), har biri o'z decay'i bilan (pastki
+ *  partiallar sekinroq, tepadagilar tezroq so'nadi), va ikkita bir-biriga
+ *  yaqin (detune) asosiy ton — "singing"/sirg'anish tuyg'usi uchun. */
+function ring(freq: number, opts: { peak: number; decay: number; detune?: number; brightness?: number }): SoundSpec {
+  const { peak, decay, detune = 4, brightness = 1 } = opts;
+  return {
+    voices: [
+      { freq, attack: 0.006, decay, peak: peak * 0.85 },
+      { freq, detune, attack: 0.006, decay: decay * 1.05, peak: peak * 0.6 },
+      { freq: freq * 2.40 * brightness, attack: 0.004, decay: decay * 0.55, peak: peak * 0.30 },
+      { freq: freq * 2.76 * brightness, attack: 0.004, decay: decay * 0.45, peak: peak * 0.22 },
+      { freq: freq * 4.10 * brightness, attack: 0.003, decay: decay * 0.30, peak: peak * 0.14 },
+      { freq: freq * 5.40 * brightness, attack: 0.003, decay: decay * 0.20, peak: peak * 0.08 },
+    ],
+  };
+}
+
+const TIMER_END_SPECS: Record<TimerEndVariant, SoundSpec> = {
+  "tibet-bowl":    ring(261.63, { peak: 0.30, decay: 1.6, detune: 5 }),
+  "temple-bell":   ring(587.33, { peak: 0.28, decay: 0.75, detune: 3 }),
+  "soft-gong":     { voices: ring(196, { peak: 0.26, decay: 1.9, detune: 6, brightness: 0.9 }).voices!.map((v) => ({ ...v, attack: 0.035 })) },
+  "crystal-chime": ring(1046.5, { peak: 0.20, decay: 0.55, detune: 2, brightness: 0.6 }),
+  "wood-tap":      marimba(587.33, 0.30, 0.30),
+};
+
+export function playTimerEnd(v: TimerEndVariant) { playSpec(TIMER_END_SPECS[v]); }
+
+/* ════════════════════════════════════════════════════════════
    New task created — 20 variants
    ════════════════════════════════════════════════════════════ */
 
@@ -702,6 +751,13 @@ export function saveComplete(v: CompleteVariant) { try { window.localStorage.set
 export function saveCreate(v: CreateVariant) { try { window.localStorage.setItem(KEYS.create, v); } catch { /**/ } }
 export function saveEnabled(v: boolean) { try { window.localStorage.setItem(KEYS.enabled, v ? "1" : "0"); } catch { /**/ } }
 export function saveVolume(v: number) { try { window.localStorage.setItem(KEYS.volume, String(v)); } catch { /**/ } }
+
+/** Foydalanuvchi ovozlarni o'chirib qo'yganmi — to'g'ridan-to'g'ri
+ *  `playComplete`/`playSpec` kabi xom funksiyalarni chaqiradigan joylar
+ *  (masalan Pomodoro) shu bilan tekshirishi kerak, chunki ular o'zi
+ *  `_isEnabled()`ni hisobga olmaydi (faqat `playOnComplete()` kabi
+ *  o'ralgan funksiyalar hisobga oladi). */
+export function isSoundEnabled() { return _isEnabled(); }
 
 /* ════════════════════════════════════════════════════════════
    App-level playback (called from real UI components).

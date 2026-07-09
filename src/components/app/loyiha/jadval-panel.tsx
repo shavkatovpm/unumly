@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CalendarDays, Check, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CalendarDays, Check, ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjectTasks } from "@/lib/project-tasks-store";
 import type { ProjectTask } from "@/lib/types";
@@ -34,21 +34,45 @@ export function JadvalPanel({ projectId }: { projectId: string }) {
   const [draft, setDraft] = useState("");
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [doneOpen, setDoneOpen] = useState(false);
+
+  // Mobil: tepadagi inline qator o'rniga pastki-o'ng burchakdagi FAB + markazdagi
+  // dialog — Bugun/Reja bo'limlaridagi bilan bir xil naqsh.
+  const [mobileAdd, setMobileAdd] = useState(false);
+  const [mobileDraft, setMobileDraft] = useState("");
+  const mobileAddRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (mobileAdd) mobileAddRef.current?.focus(); }, [mobileAdd]);
 
   const confirmItems = tasks.map((t) => ({ id: t.id, title: t.title }));
   const { askRemove, confirmEl } = useConfirmRemove(confirmItems, remove, { itemLabel: "Taskni" });
 
-  const done = tasks.filter((t) => t.done).length;
+  const active = tasks.filter((t) => !t.done);
+  const doneList = tasks.filter((t) => t.done);
   const detailTask = detailId ? tasks.find((t) => t.id === detailId) ?? null : null;
+
+  function addTask(title: string) {
+    const t = title.trim();
+    if (!t) return;
+    const id = create({ title: t });
+    setJustCreatedId(id);
+    window.setTimeout(() => setJustCreatedId((cur) => (cur === id ? null : cur)), 900);
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const t = draft.trim();
-    if (!t) return;
-    const id = create({ title: t });
+    addTask(draft);
     setDraft("");
-    setJustCreatedId(id);
-    window.setTimeout(() => setJustCreatedId((cur) => (cur === id ? null : cur)), 900);
+  }
+
+  function submitMobile(e: React.FormEvent) {
+    e.preventDefault();
+    addTask(mobileDraft);
+    setMobileDraft("");
+    setMobileAdd(false);
+  }
+
+  function toggle(id: string) {
+    update(id, { done: !tasks.find((x) => x.id === id)?.done });
   }
 
   if (!hydrated) return <ListLoader />;
@@ -58,13 +82,13 @@ export function JadvalPanel({ projectId }: { projectId: string }) {
       <div className="mb-3 flex items-center justify-between">
         <p className="text-[13px] font-medium text-muted">Tasklar</p>
         {tasks.length > 0 && (
-          <p className="font-mono text-[11px] tabular-nums text-faint">{done}/{tasks.length}</p>
+          <p className="font-mono text-[11px] tabular-nums text-faint">{doneList.length}/{tasks.length}</p>
         )}
       </div>
 
       <form
         onSubmit={submit}
-        className="mb-3 flex items-center gap-2 overflow-hidden rounded-lg border border-border bg-surface px-3 py-2 shadow-[0_1px_0_var(--border)] transition-colors focus-within:border-border-strong"
+        className="mb-3 hidden items-center gap-2 overflow-hidden rounded-lg border border-border bg-surface px-3 py-2 shadow-[0_1px_0_var(--border)] transition-colors focus-within:border-border-strong md:flex"
       >
         <Plus className="size-3.5 shrink-0 text-faint" />
         <input
@@ -88,18 +112,85 @@ export function JadvalPanel({ projectId }: { projectId: string }) {
       {tasks.length === 0 ? (
         <p className="py-10 text-center text-[13px] text-faint">Hali task yo&apos;q</p>
       ) : (
-        <ul className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border bg-surface">
-          {tasks.map((t) => (
-            <ProjectTaskRow
-              key={t.id}
-              task={t}
-              onToggle={(id) => update(id, { done: !tasks.find((x) => x.id === id)?.done })}
-              onOpen={setDetailId}
-              isNew={t.id === justCreatedId}
-            />
-          ))}
-        </ul>
+        <div className="overflow-hidden rounded-xl border border-border bg-surface">
+          <ul className="divide-y divide-border/70">
+            {active.map((t) => (
+              <ProjectTaskRow
+                key={t.id}
+                task={t}
+                onToggle={toggle}
+                onOpen={setDetailId}
+                isNew={t.id === justCreatedId}
+              />
+            ))}
+          </ul>
+
+          {doneList.length > 0 && (
+            <div className="border-t border-border bg-subtle/40">
+              <button
+                type="button"
+                onClick={() => setDoneOpen((v) => !v)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-muted transition-colors hover:bg-hover/40 hover:text-foreground"
+              >
+                <ChevronRight className={cn("size-3 transition-transform", doneOpen && "rotate-90")} />
+                <Check className="size-3" strokeWidth={3} />
+                <span className="text-[11.5px] font-medium uppercase tracking-wider">Bajarilgan</span>
+                <span className="font-mono text-[10.5px] tabular-nums">{doneList.length}</span>
+              </button>
+              <div
+                className="grid transition-[grid-template-rows] duration-300 ease-out"
+                style={{ gridTemplateRows: doneOpen ? "1fr" : "0fr" }}
+              >
+                <div className="overflow-hidden">
+                  <ul className="divide-y divide-border/70 border-t border-border">
+                    {doneList.map((t) => (
+                      <ProjectTaskRow key={t.id} task={t} onToggle={toggle} onOpen={setDetailId} />
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
+
+      {/* Mobile FAB — bottom-right circular "+" button */}
+      <button
+        type="button"
+        onClick={() => setMobileAdd(true)}
+        aria-label="Yangi task qo'shish"
+        className={cn(
+          "fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 md:hidden",
+          mobileAdd && "pointer-events-none scale-75 opacity-0"
+        )}
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
+      >
+        <Plus className="size-6" strokeWidth={2.5} />
+      </button>
+
+      <Dialog open={mobileAdd} onClose={() => setMobileAdd(false)} className="max-w-sm" mobilePlacement="center">
+        <div className="flex flex-col">
+          <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+            <p className="text-[15px] font-semibold">Yangi task</p>
+            <button
+              onClick={() => setMobileAdd(false)}
+              aria-label="Yopish"
+              className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          </header>
+          <form onSubmit={submitMobile} className="px-4 py-4">
+            <input
+              ref={mobileAddRef}
+              value={mobileDraft}
+              onChange={(e) => setMobileDraft(e.target.value)}
+              placeholder="Yangi task qo'shish..."
+              className="w-full rounded-lg border border-border bg-subtle/30 px-3 py-2.5 text-[14px] outline-none placeholder:text-faint/50 focus:border-foreground/30"
+            />
+          </form>
+        </div>
+      </Dialog>
 
       <ProjectTaskDetail
         task={detailTask}

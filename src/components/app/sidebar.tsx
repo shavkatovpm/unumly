@@ -20,6 +20,7 @@ import {
   Settings,
   Sun,
   Target,
+  Timer,
   Trash2,
   Wallet,
   Zap,
@@ -298,6 +299,13 @@ export function Sidebar({
             label="Tezkor"
             icon={Zap}
             active={isActive("/tezkor")}
+            onNavigate={closeOnMobile}
+          />
+          <SidebarLink
+            href="/pomodoro"
+            label="Pomodoro"
+            icon={Timer}
+            active={isActive("/pomodoro")}
             onNavigate={closeOnMobile}
           />
         </CollapsibleSection>
