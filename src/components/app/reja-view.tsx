@@ -119,7 +119,12 @@ export function RejaView({ projectId }: { projectId?: string } = {}) {
     if (newTimerRef.current) window.clearTimeout(newTimerRef.current);
   }, []);
   function handleCreate(title: string, categoryId: string) {
-    const id = create({ title, categoryId });
+    // Bir nechta qatorda yozilsa (yoki ko'chirib joylanganda) — har bir qator
+    // alohida reja sifatida qo'shiladi. Bitta qator bo'lsa — bitta reja.
+    const lines = title.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 0) return;
+    let id: string | null = null;
+    for (const line of lines) id = create({ title: line, categoryId });
     setJustCreatedId(id);
     if (newTimerRef.current) window.clearTimeout(newTimerRef.current);
     newTimerRef.current = window.setTimeout(() => setJustCreatedId(null), NEW_ITEM_MS);
