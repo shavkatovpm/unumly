@@ -189,7 +189,12 @@ export function MoliyaView() {
     () => transactions.reduce((acc, t) => acc + (t.type === "INCOME" ? t.amount : -t.amount), 0),
     [transactions]
   );
-  const realBalance = overallNet + debtNet;
+  // Yig'imga ajratilgan pul — asosiy balansdan chiqarib qo'yiladi (band summa).
+  const savingsTotal = useMemo(
+    () => goals.reduce((acc, g) => acc + g.savedAmount, 0),
+    [goals]
+  );
+  const realBalance = overallNet + debtNet - savingsTotal;
 
   // Joriy oy bo'yicha kategoriya summalari (kirim/chiqim — har biri uchun)
   const totalByCat = useMemo(() => {
@@ -302,6 +307,7 @@ export function MoliyaView() {
                   catMap={catMap}
                   realBalance={realBalance}
                   debtNet={debtNet}
+                  savingsTotal={savingsTotal}
                   onOpenCategory={(t) => { setCatType(t); selectTab("kategoriya"); }}
                 />
               ) : tab === "tranzaksiyalar" ? (
@@ -412,14 +418,17 @@ function OverviewTab({
   catMap,
   realBalance,
   debtNet,
+  savingsTotal,
   onOpenCategory,
 }: {
   summary: ReturnType<typeof summarize>;
   catMap: Map<string, FinanceCategory>;
-  /** Barcha vaqtdagi kirim-chiqim, hali qaytmagan (so'mdagi) qarzlarga moslashtirilgan. */
+  /** Barcha vaqtdagi kirim-chiqim, hali qaytmagan qarzlarga va yig'imga ajratilgan summaga moslashtirilgan. */
   realBalance: number;
   /** Balansga qarzlar ta'siri: manfiy — qarzga berilgan, musbat — qarz sifatida olingan. */
   debtNet: number;
+  /** Barcha yig'im maqsadlariga ajratilgan jami summa — balansdan ayrilgan. */
+  savingsTotal: number;
   onOpenCategory: (type: TransactionType) => void;
 }) {
   const incomeSlices = useMemo(
@@ -447,6 +456,11 @@ function OverviewTab({
             {debtNet < 0
               ? `shundan ${formatSom(-debtNet)} so'm qarzga berilgan`
               : `shundan ${formatSom(debtNet)} so'm qarz sifatida olingan`}
+          </p>
+        )}
+        {savingsTotal !== 0 && (
+          <p className="mt-0.5 text-[11px] text-faint">
+            shundan {formatSom(savingsTotal)} so&apos;m yig&apos;imga ajratilgan
           </p>
         )}
         <div className="mt-3 grid grid-cols-2 gap-2">
