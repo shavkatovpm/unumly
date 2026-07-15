@@ -59,6 +59,56 @@ function colorAlpha(c: string, a: number) {
   return c.replace(")", ` / ${a})`);
 }
 
+/** Bir qatorlik ko'rinishda boshlanadi, matn ko'p qatorli bo'lsa balandligi
+ *  o'zi o'sadi. Enter — yuboradi, Shift+Enter — yangi qator qo'shadi (bir
+ *  nechta rejani bitta-bittadan yozish uchun). */
+function AutoGrowTextarea({
+  textareaRef,
+  value,
+  onChange,
+  onSubmit,
+  onBlur,
+  onEscape,
+  placeholder,
+  className,
+}: {
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: () => void;
+  onBlur?: () => void;
+  onEscape?: () => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value, textareaRef]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      rows={1}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          onSubmit();
+        } else if (e.key === "Escape") {
+          onEscape?.();
+        }
+      }}
+      placeholder={placeholder}
+      className={cn("resize-none overflow-hidden leading-relaxed", className)}
+    />
+  );
+}
+
 /* ════════════════════════════════════════════════════════════
    Main view
    ════════════════════════════════════════════════════════════ */
@@ -613,13 +663,13 @@ function TabView(props: ViewProps) {
 
   const [adding, setAdding] = useState(false);
   const [v, setV] = useState("");
-  const addRef = useRef<HTMLInputElement>(null);
+  const addRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { if (adding) addRef.current?.focus(); }, [adding]);
 
   // Mobil: tepadagi inline qator o'rniga pastki-o'ng burchakdagi FAB + markazdagi dialog.
   const [mobileAdd, setMobileAdd] = useState(false);
   const [mobileV, setMobileV] = useState("");
-  const mobileAddRef = useRef<HTMLInputElement>(null);
+  const mobileAddRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { if (mobileAdd) mobileAddRef.current?.focus(); }, [mobileAdd]);
   function submitMobileAdd() {
     if (mobileV.trim()) props.onCreate(mobileV, tab);
@@ -740,25 +790,28 @@ function TabView(props: ViewProps) {
                 setV("");
                 setAdding(false);
               }}
-              className="flex items-center gap-3 px-5 py-2"
+              className="flex items-start gap-3 px-5 py-2"
             >
-              <CircleDashed className="size-3.5 shrink-0 text-faint" />
-              <input
-                ref={addRef}
+              <CircleDashed className="mt-[3px] size-3.5 shrink-0 text-faint" />
+              <AutoGrowTextarea
+                textareaRef={addRef}
                 value={v}
-                onChange={(e) => setV(e.target.value)}
+                onChange={setV}
                 onBlur={() => {
                   if (v.trim()) props.onCreate(v, tab);
                   setV("");
                   setAdding(false);
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setV("");
-                    setAdding(false);
-                  }
+                onSubmit={() => {
+                  if (v.trim()) props.onCreate(v, tab);
+                  setV("");
+                  setAdding(false);
                 }}
-                placeholder={`${active.label} bo'limiga reja yozing...`}
+                onEscape={() => {
+                  setV("");
+                  setAdding(false);
+                }}
+                placeholder={`${active.label} bo'limiga reja yozing... (Shift+Enter — yangi qator)`}
                 className="flex-1 bg-transparent text-[13.5px] placeholder:text-faint focus:outline-none"
               />
             </form>
@@ -889,11 +942,12 @@ function TabView(props: ViewProps) {
             }}
             className="px-4 py-4"
           >
-            <input
-              ref={mobileAddRef}
+            <AutoGrowTextarea
+              textareaRef={mobileAddRef}
               value={mobileV}
-              onChange={(e) => setMobileV(e.target.value)}
-              placeholder={`${active.label} bo'limiga reja yozing...`}
+              onChange={setMobileV}
+              onSubmit={submitMobileAdd}
+              placeholder={`${active.label} bo'limiga reja yozing... (Shift+Enter — yangi qator)`}
               className="w-full rounded-lg border border-border bg-subtle/30 px-3 py-2.5 text-[14px] outline-none placeholder:text-faint/50 focus:border-foreground/30"
             />
           </form>
@@ -1399,7 +1453,7 @@ function KanbanColumn({
   const done = sortIdeas(ideas.filter(isRecentlyDone), sortOrder);
   const [adding, setAdding] = useState(false);
   const [v, setV] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { if (adding) inputRef.current?.focus(); }, [adding]);
   const [showDone, setShowDone] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -1442,22 +1496,25 @@ function KanbanColumn({
               setV("");
               setAdding(false);
             }}
-            className="flex items-center gap-2 px-3 py-1.5"
+            className="flex items-start gap-2 px-3 py-1.5"
           >
-            <CircleDashed className="size-3 shrink-0 text-faint" />
-            <input
-              ref={inputRef}
+            <CircleDashed className="mt-[3px] size-3 shrink-0 text-faint" />
+            <AutoGrowTextarea
+              textareaRef={inputRef}
               value={v}
-              onChange={(e) => setV(e.target.value)}
+              onChange={setV}
               onBlur={() => {
                 if (v.trim()) onCreate(v);
                 setV("");
                 setAdding(false);
               }}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") { setV(""); setAdding(false); }
+              onSubmit={() => {
+                if (v.trim()) onCreate(v);
+                setV("");
+                setAdding(false);
               }}
-              placeholder="G'oya..."
+              onEscape={() => { setV(""); setAdding(false); }}
+              placeholder="G'oya... (Shift+Enter — yangi qator)"
               className="flex-1 bg-transparent text-[12px] placeholder:text-faint focus:outline-none"
             />
           </form>
