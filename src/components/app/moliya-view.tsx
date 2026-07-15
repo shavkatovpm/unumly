@@ -449,7 +449,8 @@ function OverviewTab({
           className="mt-0.5 text-[28px] font-semibold tabular-nums tracking-[-0.02em]"
           style={{ color: realBalance < 0 ? EXPENSE_COLOR : undefined }}
         >
-          {formatSom(realBalance)} <span className="text-[15px] font-normal text-faint">so&apos;m</span>
+          {formatSom(realBalance)}
+          <span className="ml-1.5 text-[15px] font-normal text-faint">so&apos;m</span>
         </p>
         {debtNet !== 0 && (
           <p className="mt-0.5 text-[11px] text-faint">
