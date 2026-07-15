@@ -15,7 +15,7 @@ import type { Project } from "@/lib/types";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
 import { useHydratedProjects } from "@/lib/projects-store";
-import { MAX_PROJECTS, ProjectIcon } from "./loyiha-icons";
+import { ProjectIcon } from "./loyiha-icons";
 import { ProjectFormModal } from "./loyiha/project-form-modal";
 
 export function LoyihaView() {
@@ -31,8 +31,6 @@ export function LoyihaView() {
     description: '"{title}" va unga tegishli barcha hujjat/tasklar o\'chiriladi. Bu amalni qaytarib bo\'lmaydi.',
   });
 
-  const atLimit = projects.length >= MAX_PROJECTS;
-
   return (
     <div className="mx-auto flex h-full max-w-2xl flex-col px-4 pb-24 pt-3 md:pb-6 lg:max-w-4xl xl:max-w-5xl">
       <header className="mb-4 flex items-center justify-between">
@@ -42,16 +40,14 @@ export function LoyihaView() {
             Har biri o&apos;z hujjatlari va tasklariga ega alohida workspace
           </p>
         </div>
-        {!atLimit && (
-          <button
-            type="button"
-            onClick={() => setShowAdd(true)}
-            className="grid size-9 shrink-0 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-foreground"
-            aria-label="Yangi loyiha"
-          >
-            <Plus className="size-[18px]" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setShowAdd(true)}
+          className="grid size-9 shrink-0 place-items-center rounded-md text-faint transition-colors hover:bg-hover hover:text-foreground"
+          aria-label="Yangi loyiha"
+        >
+          <Plus className="size-[18px]" />
+        </button>
       </header>
 
       {!hydrated ? (
@@ -87,12 +83,6 @@ export function LoyihaView() {
             />
           ))}
         </ul>
-      )}
-
-      {atLimit && projects.length > 0 && (
-        <p className="mt-3 text-center text-[11.5px] text-faint">
-          Bir vaqtda ko&apos;pi bilan {MAX_PROJECTS} ta loyiha bo&apos;lishi mumkin.
-        </p>
       )}
 
       {showAdd && (

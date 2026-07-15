@@ -30,7 +30,7 @@ import { useProfile } from "@/lib/profile-store";
 import { useProjects, useHydratedProjects } from "@/lib/projects-store";
 import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
 import type { Project } from "@/lib/types";
-import { MAX_PROJECTS, ProjectIcon } from "./loyiha-icons";
+import { ProjectIcon } from "./loyiha-icons";
 import { ProjectFormModal } from "./loyiha/project-form-modal";
 import { SettingsDialog } from "./widgets/settings-dialog";
 import { Avatar } from "./widgets/avatar";
@@ -326,16 +326,14 @@ function BoshqaruvSheet({
               onNavigate={onClose}
             />
           ))}
-          {projects.length < MAX_PROJECTS && (
-            <button
-              type="button"
-              onClick={() => setShowCreateProject(true)}
-              className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border px-3.5 py-3 text-[15px] text-faint transition-colors hover:bg-hover hover:text-foreground"
-            >
-              <Plus className="size-[19px] shrink-0" strokeWidth={2} />
-              <span className="flex-1 text-left font-medium">Yangi loyiha</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowCreateProject(true)}
+            className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border px-3.5 py-3 text-[15px] text-faint transition-colors hover:bg-hover hover:text-foreground"
+          >
+            <Plus className="size-[19px] shrink-0" strokeWidth={2} />
+            <span className="flex-1 text-left font-medium">Yangi loyiha</span>
+          </button>
           <Link
             href="/loyiha"
             onClick={onClose}

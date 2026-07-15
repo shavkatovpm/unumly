@@ -35,9 +35,6 @@ export const PROJECT_ICONS = {
   home: Home, wrench: Wrench, key: Key,
 } as const;
 
-/** Bir vaqtda ko'pi bilan shuncha loyiha bo'lishi mumkin. */
-export const MAX_PROJECTS = 5;
-
 export type ProjectIconKey = keyof typeof PROJECT_ICONS;
 export const PROJECT_ICON_CHOICES = Object.keys(PROJECT_ICONS) as ProjectIconKey[];
 

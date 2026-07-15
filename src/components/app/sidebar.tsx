@@ -31,7 +31,7 @@ import { useProfile } from "@/lib/profile-store";
 import { useProjects, useHydratedProjects } from "@/lib/projects-store";
 import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
 import type { Project } from "@/lib/types";
-import { MAX_PROJECTS, ProjectIcon } from "./loyiha-icons";
+import { ProjectIcon } from "./loyiha-icons";
 import { ProjectFormModal } from "./loyiha/project-form-modal";
 import { SettingsDialog } from "./widgets/settings-dialog";
 import { Avatar } from "./widgets/avatar";
@@ -324,16 +324,14 @@ export function Sidebar({
               onNavigate={closeOnMobile}
             />
           ))}
-          {projects.length < MAX_PROJECTS && (
-            <button
-              type="button"
-              onClick={() => setShowCreateProject(true)}
-              className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[15.5px] text-muted transition-colors hover:bg-hover hover:text-foreground"
-            >
-              <Plus className="size-3.5 shrink-0 text-faint" strokeWidth={2} />
-              <span className="flex-1">Yangi loyiha</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowCreateProject(true)}
+            className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[15.5px] text-muted transition-colors hover:bg-hover hover:text-foreground"
+          >
+            <Plus className="size-3.5 shrink-0 text-faint" strokeWidth={2} />
+            <span className="flex-1">Yangi loyiha</span>
+          </button>
           <Link
             href="/loyiha"
             onClick={closeOnMobile}
