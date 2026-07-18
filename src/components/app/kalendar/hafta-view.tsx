@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Clock, Pencil, Trash2, X } from "lucide-react";
 import type { Plan, PlanPriority } from "@/lib/types";
@@ -93,11 +93,14 @@ export function HaftaView({
   onRemoveMany?: (ids: string[]) => void;
 }) {
   const weekStart = startOfWeek(date);
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart);
-    d.setDate(weekStart.getDate() + i);
-    return d;
-  });
+  const weekStartMs = weekStart.getTime();
+  const days = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStartMs);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }, [weekStartMs]);
 
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -152,7 +155,7 @@ export function HaftaView({
       const dayWidth = (el.scrollWidth - TIME_AXIS) / 7;
       el.scrollLeft = Math.min(overflow, todayIdx * dayWidth);
     });
-  }, [date, days, today]);
+  }, [weekStartMs, days, today]);
   // Offset (minutes) from the cursor to the dragged task's top, captured at
   // dragstart. Used by the drop preview so the task's top anchors to the
   // grab point, not to the cursor itself.
