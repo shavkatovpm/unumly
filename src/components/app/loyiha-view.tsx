@@ -29,15 +29,15 @@ export function LoyihaView() {
   const [tab, setTab] = useState<Tab>("barchasi");
 
   return (
-    <div className="mx-auto flex h-full max-w-2xl flex-col px-4 pb-24 pt-3 md:pb-6 lg:max-w-4xl xl:max-w-5xl">
-      <header className="mb-4">
+    <div className="mx-auto flex h-full max-w-2xl flex-col px-4 pt-3 md:pb-6 lg:max-w-4xl xl:max-w-5xl">
+      <header className="mb-4 shrink-0">
         <h1 className="text-[18px] font-semibold tracking-[-0.01em]">Loyiha</h1>
         <p className="mt-0.5 text-[12.5px] text-faint">
           Har biri o&apos;z hujjatlari va tasklariga ega alohida workspace
         </p>
       </header>
 
-      <div className="mb-4 inline-flex w-fit rounded-md border border-border bg-surface p-0.5">
+      <div className="mb-4 inline-flex w-fit shrink-0 rounded-md border border-border bg-surface p-0.5">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -53,20 +53,22 @@ export function LoyihaView() {
         ))}
       </div>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={tab}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.18 }}
-        >
-          {tab === "barchasi" && <LoyihaBarchasi />}
-          {tab === "reja" && <LoyihaReja />}
-          {tab === "jadval" && <LoyihaJadval />}
-          {tab === "analitika" && <LoyihaAnalitika />}
-        </motion.div>
-      </AnimatePresence>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-24 [-webkit-overflow-scrolling:touch] md:pb-6">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18 }}
+          >
+            {tab === "barchasi" && <LoyihaBarchasi />}
+            {tab === "reja" && <LoyihaReja />}
+            {tab === "jadval" && <LoyihaJadval />}
+            {tab === "analitika" && <LoyihaAnalitika />}
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
