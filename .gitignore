@@ -42,6 +42,7 @@ next-env.d.ts
 
 # Local-only test playground (not deployed)
 /src/app/test/
+/src/components/app/test/
 
 .env*.local
 

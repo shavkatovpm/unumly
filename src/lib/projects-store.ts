@@ -38,7 +38,7 @@ function rowsEqual(a: State, b: State) {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
     const x = a[i], y = b[i];
-    if (x.id !== y.id || x.title !== y.title || x.icon !== y.icon || x.color !== y.color || x.order !== y.order || x.archivedAt !== y.archivedAt) return false;
+    if (x.id !== y.id || x.title !== y.title || x.icon !== y.icon || x.color !== y.color || x.order !== y.order || x.archivedAt !== y.archivedAt || x.category !== y.category || x.targetHours !== y.targetHours) return false;
   }
   return true;
 }
@@ -75,6 +75,8 @@ export function updateProject(id: string, patch: Partial<Project>): void {
     ...(patch.color !== undefined && { color: patch.color ?? null }),
     ...(patch.order !== undefined && { order: patch.order }),
     ...(patch.archivedAt !== undefined && { archivedAt: patch.archivedAt ?? null }),
+    ...(patch.category !== undefined && { category: patch.category ?? null }),
+    ...(patch.targetHours !== undefined && { targetHours: patch.targetHours ?? null }),
   }).then((server) => { memoryState = memoryState.map((p) => (p.id === id ? server : p)); emit(); })
     .catch(() => { memoryState = memoryState.map((p) => (p.id === id ? prev : p)); emit(); }));
 }

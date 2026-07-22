@@ -13,6 +13,7 @@ import {
   ChevronRight,
   ClipboardList,
   Inbox,
+  LayoutGrid,
   ListChecks,
   Moon,
   Plus,
@@ -316,6 +317,13 @@ export function Sidebar({
           open={loyihaOpen}
           onToggle={toggleLoyiha}
         >
+          <SidebarLink
+            href="/loyiha"
+            label="Barchasi"
+            icon={LayoutGrid}
+            active={pathname === "/loyiha"}
+            onNavigate={closeOnMobile}
+          />
           {hydratedProjects && projects.map((p) => (
             <ProjectSidebarLink
               key={p.id}
@@ -332,13 +340,6 @@ export function Sidebar({
             <Plus className="size-3.5 shrink-0 text-faint" strokeWidth={2} />
             <span className="flex-1">Yangi loyiha</span>
           </button>
-          <Link
-            href="/loyiha"
-            onClick={closeOnMobile}
-            className="mt-0.5 block px-2 py-1 text-[12px] text-faint transition-colors hover:text-foreground"
-          >
-            Barcha loyihalar
-          </Link>
         </CollapsibleSection>
 
         {/* ── Arxiv ─────────────────────────────── */}

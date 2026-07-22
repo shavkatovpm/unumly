@@ -147,6 +147,9 @@ export type Goal = {
 
 /* ─── Loyiha (Project workspace) ─── */
 
+/** Loyihalar taqsimoti — A/B/C/D muhimlik toifasi (Reja/Analitika). */
+export type LoyihaKategoriya = "A" | "B" | "C" | "D";
+
 export type Project = {
   id: string;
   title: string;
@@ -154,6 +157,8 @@ export type Project = {
   color?: CategoryColor;
   order: number;
   archivedAt?: string;  // ISO datetime
+  category?: LoyihaKategoriya;
+  targetHours?: number; // haftalik maqsad soat
 };
 
 /** Node in a project's page tree (Notion-style nested pages, arbitrary

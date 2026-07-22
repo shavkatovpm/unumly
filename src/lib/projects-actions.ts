@@ -4,7 +4,7 @@ import type { Project as DbProject } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import type { CategoryColor, Project } from "@/lib/types";
+import type { CategoryColor, LoyihaKategoriya, Project } from "@/lib/types";
 
 async function requireUser() {
   const u = await getSessionUser();
@@ -20,6 +20,8 @@ function toProject(p: DbProject): Project {
     color: (p.color as CategoryColor | null) ?? undefined,
     order: p.order,
     archivedAt: p.archivedAt ? p.archivedAt.toISOString() : undefined,
+    category: (p.category as LoyihaKategoriya | null) ?? undefined,
+    targetHours: p.targetHours ?? undefined,
   };
 }
 
@@ -61,6 +63,8 @@ export type UpdateProjectPatch = Partial<{
   color: CategoryColor | null;
   order: number;
   archivedAt: string | null;
+  category: LoyihaKategoriya | null;
+  targetHours: number | null;
 }>;
 
 export async function updateProject(id: string, patch: UpdateProjectPatch): Promise<Project> {
@@ -76,6 +80,8 @@ export async function updateProject(id: string, patch: UpdateProjectPatch): Prom
       ...(patch.color !== undefined && { color: patch.color }),
       ...(patch.order !== undefined && { order: patch.order }),
       ...(patch.archivedAt !== undefined && { archivedAt: patch.archivedAt ? new Date(patch.archivedAt) : null }),
+      ...(patch.category !== undefined && { category: patch.category }),
+      ...(patch.targetHours !== undefined && { targetHours: patch.targetHours }),
     },
   });
   return toProject(row);

@@ -59,6 +59,12 @@ model User {
   // bir marta seed qilinadi.
   financeCategoriesSeeded Boolean @default(false)
 
+  // Loyihalar taqsimoti — Reja bo'limi sozlamalari. weeklyCapacity: 7 ta son
+  // [Du..Ya], soat (default [12,12,12,12,12,4,4]). categoryPct: kategoriya
+  // maqsad foizi, masalan {"A":50,"B":30,"C":15,"D":5}.
+  weeklyCapacity Json?
+  categoryPct    Json?
+
   createdAt  DateTime @default(now())
   lastSeenAt DateTime @default(now())
 
@@ -341,18 +347,44 @@ model Project {
   order      Int       @default(0)
   archivedAt DateTime?
 
+  // Loyihalar taqsimoti (Reja/Analitika): A/B/C/D muhimlik toifasi (null =
+  // hali toifalanmagan) va shu toifa ichida haftalik maqsad soat.
+  category    String?
+  targetHours Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   plans      Plan[]
   goals      Goal[]
   pages      Page[]
   tasks      ProjectTask[]
   ideas      Idea[]
   categories Category[]
+  focusLogs  ProjectFocusLog[]
 
   @@index([userId])
+}
+
+// Loyihalar taqsimoti — "necha marta ishladim" tally hisoblagichi, hafta
+// bo'yicha (weekStart = shu haftaning dushanbasi, YYYY-MM-DD). Reja/Jadval/
+// Analitika bo'limlari shu yerdan o'qiydi: joriy hafta soni + oxirgi
+// haftalar tarixi (trend uchun).
+model ProjectFocusLog {
+  id        String @id @default(cuid())
+  projectId String
+
+  weekStart String @db.VarChar(10) // YYYY-MM-DD, dushanba
+  count     Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, weekStart])
+  @@index([projectId])
 }
 
 // Simple flat todo row for a Project's "Jadval" (table) view — deliberately

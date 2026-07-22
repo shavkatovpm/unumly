@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   CheckCircle2,
   ChevronDown,
+  LayoutGrid,
   Menu,
   Moon,
   Plus,
@@ -318,6 +319,21 @@ function BoshqaruvSheet({
 
         {/* Loyihalar — dropdown (loyihalar ro'yxati + tezkor yaratish) */}
         <SheetCollapsible label="Loyihalar" open={openSection === "loyiha"} onToggle={() => toggleSection("loyiha")}>
+          <Link
+            href="/loyiha"
+            onClick={onClose}
+            className={cn(
+              "flex items-center gap-3 rounded-lg border px-3.5 py-3 text-[15px] transition-colors",
+              pathname === "/loyiha"
+                ? "border-foreground/30 bg-subtle text-foreground"
+                : "border-border bg-surface text-muted hover:bg-hover hover:text-foreground"
+            )}
+          >
+            <span className="grid size-7 shrink-0 place-items-center rounded-md bg-subtle text-faint">
+              <LayoutGrid className="size-3.5" />
+            </span>
+            <span className="flex-1 truncate text-left font-medium">Barchasi</span>
+          </Link>
           {hydratedProjects && projects.map((p) => (
             <ProjectSheetLink
               key={p.id}
@@ -334,13 +350,6 @@ function BoshqaruvSheet({
             <Plus className="size-[19px] shrink-0" strokeWidth={2} />
             <span className="flex-1 text-left font-medium">Yangi loyiha</span>
           </button>
-          <Link
-            href="/loyiha"
-            onClick={onClose}
-            className="block px-1 py-1 text-center text-[12px] text-faint transition-colors hover:text-foreground"
-          >
-            Barcha loyihalar
-          </Link>
         </SheetCollapsible>
 
         {/* Arxiv — dropdown */}
