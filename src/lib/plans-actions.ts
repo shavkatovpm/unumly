@@ -5,6 +5,7 @@ import { Prisma, type Plan as DbPlan } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, getSessionUserId } from "@/lib/auth";
 import { computeNotifyAt, sanitizeLeadMin } from "@/lib/notify-time";
+import { DEFER_LIMIT, isDeferral, todayInTashkent } from "@/lib/plan-status";
 import { markReminderDone } from "@/lib/telegram-bot";
 import type { Plan, PlanScope, PlanStatus, PlanPriority, Subtask } from "@/lib/types";
 
@@ -43,6 +44,7 @@ function toPlan(p: DbPlan): Plan {
     deletedAt: p.deletedAt ? p.deletedAt.toISOString() : undefined,
     createdAt: p.createdAt.toISOString(),
     order: p.order,
+    deferCount: p.deferCount,
     habitId: p.habitId ?? undefined,
     goalStepId: p.goalStepId ?? undefined,
   };
@@ -228,11 +230,18 @@ export async function updatePlan(id: string, patch: UpdatePlanPatch): Promise<Pl
         : await getUserLeadMin(user.id);
   }
 
+  // Kechiktirish hisoblagichi. Faqat muddati kelgan/o'tgan reja kechroqqa
+  // surilganda oshadi — kelajakdagi rejani qayta tartiblash bunga kirmaydi.
+  const deferred =
+    patch.scheduledFor !== undefined &&
+    isDeferral(existing.scheduledFor, patch.scheduledFor);
+
   const { subtasks, ...rest } = patch;
   const row = await prisma.plan.update({
     where: { id },
     data: {
       ...rest,
+      ...(deferred && { deferCount: { increment: 1 } }),
       ...(subtasks !== undefined && { subtasks: subtasks as unknown as Prisma.InputJsonValue }),
       completedAt:
         patch.completedAt === undefined
@@ -283,6 +292,62 @@ export async function togglePlanStatus(id: string): Promise<Plan> {
     void prisma.projectTask.update({ where: { id: existing.projectTaskId }, data: { done: nowDone } }).catch(() => {});
   }
 
+  return toPlan(row);
+}
+
+/* ─── Bajarilmagan rejalar ustidagi amallar ───────────────── */
+
+/** "Bugunga ko'chirish" — bajarilmagan rejani bugunga tortadi.
+ *  Sana o'zgargani uchun `updatePlan` deferCount'ni o'zi oshiradi va
+ *  eslatmani qayta qo'yadi. Limitga yetgan reja ko'chirilmaydi (UI ham
+ *  tugmani bloklaydi, bu server tomonidagi ikkinchi to'siq). */
+export async function deferPlanToToday(id: string): Promise<Plan> {
+  const user = await requireUser();
+  const existing = await prisma.plan.findFirst({
+    where: { id, userId: user.id },
+    select: { deferCount: true, scheduledFor: true },
+  });
+  if (!existing) throw new Error("NOT_FOUND");
+  if (existing.deferCount >= DEFER_LIMIT) throw new Error("DEFER_LIMIT_REACHED");
+
+  const today = todayInTashkent();
+  if (existing.scheduledFor === today) return getPlanOrThrow(id, user.id);
+  return updatePlan(id, { scheduledFor: today });
+}
+
+/** "Kerak emas ekan" — rejani CANCELLED qiladi (o'chirilmaydi).
+ *  `cancelled: false` bilan chaqirilsa TODO holatiga qaytaradi. */
+export async function setPlanCancelled(id: string, cancelled: boolean): Promise<Plan> {
+  const user = await requireUser();
+  const existing = await prisma.plan.findFirst({ where: { id, userId: user.id }, select: { id: true } });
+  if (!existing) throw new Error("NOT_FOUND");
+  const row = await prisma.plan.update({
+    where: { id },
+    data: { status: cancelled ? "CANCELLED" : "TODO", completedAt: null },
+  });
+  // Kerak emas deyilgan ish uchun yuborilgan bot eslatmalari osilib
+  // qolmasin — tugmalarini olib tashlaymiz.
+  if (cancelled) await prisma.botMessage.deleteMany({ where: { planId: id } });
+  return toPlan(row);
+}
+
+/** Arxiv/"Kerak emas" ro'yxatidan rejani hayotga qaytarish: holati TODO
+ *  bo'ladi va sanasi bugunga ko'chadi. DEFER_LIMIT bu yerda tekshirilmaydi —
+ *  limit kundalik "qochib yurish"ni to'xtatish uchun, allaqachon oqimdan
+ *  chiqib ketgan rejani butunlay qamab qo'yish uchun emas. */
+export async function restorePlanToToday(id: string): Promise<Plan> {
+  const user = await requireUser();
+  const existing = await prisma.plan.findFirst({
+    where: { id, userId: user.id },
+    select: { id: true },
+  });
+  if (!existing) throw new Error("NOT_FOUND");
+  return updatePlan(id, { scheduledFor: todayInTashkent(), status: "TODO" });
+}
+
+async function getPlanOrThrow(id: string, userId: string): Promise<Plan> {
+  const row = await prisma.plan.findFirst({ where: { id, userId } });
+  if (!row) throw new Error("NOT_FOUND");
   return toPlan(row);
 }
 

@@ -25,6 +25,7 @@ import {
   Trash2,
   Wallet,
   Zap,
+  Archive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/color-store";
@@ -83,6 +84,8 @@ export function Sidebar({
   const onArxivRoute =
     pathname === "/bajarilgan" ||
     pathname.startsWith("/bajarilgan/") ||
+    pathname === "/arxiv" ||
+    pathname.startsWith("/arxiv/") ||
     pathname === "/ochirilgan" ||
     pathname.startsWith("/ochirilgan/");
 
@@ -342,9 +345,9 @@ export function Sidebar({
           </button>
         </CollapsibleSection>
 
-        {/* ── Arxiv ─────────────────────────────── */}
+        {/* ── Tarix ─────────────────────────────── */}
         <CollapsibleSection
-          label="Arxiv"
+          label="Tarix"
           open={arxivOpen}
           onToggle={toggleArxiv}
         >
@@ -353,6 +356,13 @@ export function Sidebar({
             label="Bajarilgan"
             icon={CheckCircle2}
             active={isActive("/bajarilgan")}
+            onNavigate={closeOnMobile}
+          />
+          <SidebarLink
+            href="/arxiv"
+            label="Arxiv"
+            icon={Archive}
+            active={isActive("/arxiv")}
             onNavigate={closeOnMobile}
           />
           <SidebarLink

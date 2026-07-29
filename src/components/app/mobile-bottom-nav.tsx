@@ -15,6 +15,7 @@ import {
   Sun,
   Trash2,
   X,
+  Archive,
 } from "lucide-react";
 import { cn, isEditableElement } from "@/lib/utils";
 import { useTheme } from "@/lib/color-store";
@@ -49,7 +50,7 @@ function readJSON<T>(key: string, fallback: T): T {
 }
 
 // Routes that always live inside the Boshqaruv sheet (never primary slots).
-const BOSHQARUV_ROUTES = ["/bajarilgan", "/ochirilgan"];
+const BOSHQARUV_ROUTES = ["/bajarilgan", "/arxiv", "/ochirilgan"];
 
 // Boshqaruv sheet'da ko'rsatish tartibi — asosiy nav'da BO'LMAGAN
 // (o'chirilgan) barcha bo'limlar shu tartibda chiqadi (hech biri yo'qolmaydi).
@@ -352,13 +353,21 @@ function BoshqaruvSheet({
           </button>
         </SheetCollapsible>
 
-        {/* Arxiv — dropdown */}
-        <SheetCollapsible label="Arxiv" open={openSection === "arxiv"} onToggle={() => toggleSection("arxiv")}>
+        {/* Tarix — dropdown */}
+        <SheetCollapsible label="Tarix" open={openSection === "arxiv"} onToggle={() => toggleSection("arxiv")}>
           <SheetLink
             href="/bajarilgan"
             label="Bajarilgan"
             icon={CheckCircle2}
             active={isActive("/bajarilgan")}
+            onNavigate={onClose}
+            secondary
+          />
+          <SheetLink
+            href="/arxiv"
+            label="Arxiv"
+            icon={Archive}
+            active={isActive("/arxiv")}
             onNavigate={onClose}
             secondary
           />

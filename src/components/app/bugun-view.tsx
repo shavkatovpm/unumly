@@ -16,16 +16,15 @@ import {
   Sunset,
   X,
 } from "lucide-react";
-import { useHydrated, usePlans } from "@/lib/plans-store";
+import { useHydrated, useMissedPlans, usePlans } from "@/lib/plans-store";
+import { MissedSection } from "./widgets/missed-section";
 import { useDebts } from "@/lib/debts-store";
 import { debtRemindersForToday } from "@/lib/debt-reminders";
 import { DebtReminderRow } from "./widgets/debt-reminder-row";
 import { useRejaCategoryMap } from "@/lib/use-reja-category";
 import { useDragReorder } from "@/lib/use-drag-reorder";
 import {
-  formatDateLong,
   formatUzDate,
-  fromDateInputValue,
   occupiedTimeSlots,
   parseTimeToMinutes,
   startOfDay,
@@ -42,7 +41,8 @@ import { ListLoader } from "./widgets/list-loader";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 
 export function BugunView() {
-  const { plans, create, update, toggleStatus, remove } = usePlans();
+  const { plans, create, update, toggleStatus, remove, deferToToday, setCancelled } = usePlans();
+  const missed = useMissedPlans();
   const rejaCatMap = useRejaCategoryMap();
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [analyticsLabel, setAnalyticsLabel] = useState("Haftalik analitika");
@@ -69,31 +69,20 @@ export function BugunView() {
     return () => window.clearInterval(id);
   }, []);
 
-  // Today's plans + carry-over: untimed/timed undone tasks from past days
-  // remain visible here until the user completes, edits or deletes them.
+  // Faqat bugungi rejalar. O'tib ketgan bajarilmaganlar bu yerda emas —
+  // ular pastdagi yopiq "Bajarilmagan" bo'limida (effectiveStatus = MISSED),
+  // 7 kundan oshganlari esa /arxiv sahifasida.
   const todays = useMemo(
     () =>
       plans
-        .filter((p) => {
-          if (p.scope !== "DAILY") return false;
-          if (p.scheduledFor === todayIso) return true;
-          if (p.scheduledFor < todayIso && p.status !== "DONE") return true;
-          return false;
-        })
+        .filter(
+          (p) =>
+            p.scope === "DAILY" &&
+            p.scheduledFor === todayIso &&
+            p.status !== "CANCELLED"
+        )
         .sort((a, b) => {
           if (a.status !== b.status) return a.status === "DONE" ? 1 : -1;
-          // Overdue timed tasks float to the very top; oldest first
-          const aOverdueTimed = !!a.time && a.scheduledFor < todayIso;
-          const bOverdueTimed = !!b.time && b.scheduledFor < todayIso;
-          if (aOverdueTimed !== bOverdueTimed) return aOverdueTimed ? -1 : 1;
-          if (aOverdueTimed && bOverdueTimed) {
-            if (a.scheduledFor !== b.scheduledFor) {
-              return a.scheduledFor.localeCompare(b.scheduledFor);
-            }
-            const at = parseTimeToMinutes(a.time!);
-            const bt = parseTimeToMinutes(b.time!);
-            if (at !== bt) return at - bt;
-          }
           const aHas = !!a.time;
           const bHas = !!b.time;
           if (aHas !== bHas) return aHas ? -1 : 1;
@@ -127,17 +116,12 @@ export function BugunView() {
   const nowMin = now ? now.getHours() * 60 + now.getMinutes() : null;
 
   function bucketOf(p: Plan): "overdue" | "midnight" | "morning" | "noon" | "evening" | "anytime" {
-    // Overdue = timed undone task whose moment is already in the past:
-    //   - scheduled for a previous day, OR
-    //   - scheduled for today but the clock passed its time + duration.
-    // Task vaqti kelganda emas, balki belgilangan davomiyligi ham tugagach
-    // kechikkan bo'ladi (1 soatlik task faqat 1 soat o'tgach qizil bo'ladi).
-    // Untimed past-day undone tasks → flow into "anytime" naturally.
-    if (p.time) {
-      if (p.scheduledFor < todayIso) return "overdue";
-      if (p.scheduledFor === todayIso && nowMin !== null) {
-        if (parseTimeToMinutes(p.time) + (p.duration ?? 0) < nowMin) return "overdue";
-      }
+    // Kechikkan = bugungi, vaqti belgilangan, davomiyligi ham tugagan ish.
+    // Vaqti kelganda emas, balki davomiyligi ham o'tgach qizil bo'ladi
+    // (1 soatlik task faqat 1 soat o'tgach kechikkan hisoblanadi). Kun
+    // oxirigacha shu yerda — hozirgidek qizil holatda — turaveradi.
+    if (p.time && nowMin !== null) {
+      if (parseTimeToMinutes(p.time) + (p.duration ?? 0) < nowMin) return "overdue";
     }
     if (!p.time) return "anytime";
     const h = Number(p.time.split(":")[0]);
@@ -218,6 +202,7 @@ export function BugunView() {
     const draft: Plan = {
       id: "__draft__",
       title: t,
+      deferCount: 0,
       scope: "DAILY",
       scheduledFor: todayIso,
       time: time || undefined,
@@ -538,17 +523,10 @@ export function BugunView() {
                         </header>
                         <ul className="divide-y divide-border/70">
                           {b.items.map((p) => {
-                            // Past-day overdue → show date prefix; today's
-                            // overdue → just red time pill (date is implicit).
-                            const overdueDateLabel =
-                              isOverdue && p.scheduledFor < todayIso
-                                ? formatDateLong(fromDateInputValue(p.scheduledFor))
-                                : undefined;
                             // Faol oyna: vaqti kelgan, lekin davomiyligi hali
                             // tugamagan, bajarilmagan bugungi task → ko'k.
                             const isActiveNow =
                               !!p.time &&
-                              p.scheduledFor === todayIso &&
                               p.status !== "DONE" &&
                               nowMin !== null &&
                               parseTimeToMinutes(p.time) <= nowMin &&
@@ -564,7 +542,6 @@ export function BugunView() {
                                   isNew={p.id === justCreatedId}
                                   overdue={isOverdue}
                                   active={isActiveNow}
-                                  overdueDateLabel={overdueDateLabel}
                                   rejaCategory={rejaCatMap.get(p.id)}
                                 />
                               );
@@ -592,12 +569,6 @@ export function BugunView() {
                                   onRemove={askRemove}
                                   onOpen={setDetailId}
                                   isNew={p.id === justCreatedId}
-                                  staleUntimed={p.scheduledFor < todayIso}
-                                  overdueDateLabel={
-                                    p.scheduledFor < todayIso
-                                      ? formatDateLong(fromDateInputValue(p.scheduledFor))
-                                      : undefined
-                                  }
                                   rejaCategory={rejaCatMap.get(p.id)}
                                 />
                               </div>
@@ -612,6 +583,15 @@ export function BugunView() {
 
             </>
           )}
+
+          {/* Muddati o'tgan, 7 kundan kam — yopiq holda, bugungi ro'yxatni
+              chalg'itmasin. Bugungi ro'yxat bo'sh bo'lsa ham ko'rinadi. */}
+          <MissedSection
+            plans={missed}
+            onDefer={deferToToday}
+            onCancel={setCancelled}
+            onOpen={setDetailId}
+          />
         </div>
       </div>
 

@@ -3,12 +3,13 @@
 import { useMemo, useState } from "react";
 import { Clock, Check, ClipboardList, ListChecks, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { PlanStatus } from "@/lib/types";
 
 export type UserDetailPlan = {
   id: string;
   title: string;
   scope: "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
-  status: "TODO" | "IN_PROGRESS" | "DONE" | "ARCHIVED";
+  status: PlanStatus;
   priority: "HIGH" | "MEDIUM" | "LOW" | null;
   scheduledFor: string;
   time: string | null;

@@ -41,7 +41,13 @@ function headingFor(view: CalendarView, date: Date): string {
 }
 
 export function KalendarView() {
-  const { plans, create, update, toggleStatus, remove, removeMany } = usePlans();
+  const { plans: allPlans, create, update, toggleStatus, remove, removeMany } = usePlans();
+  // "Kerak emas ekan" deyilgan rejalar kalendarda ochiq vazifa bo'lib
+  // turmasin — ular /arxiv sahifasida saqlanadi.
+  const plans = useMemo(
+    () => allPlans.filter((p) => p.status !== "CANCELLED"),
+    [allPlans]
+  );
   const { askRemove, confirmEl } = useConfirmRemove(plans, remove, {
     description:
       '"{title}" o\'chiriladi va 30 kun davomida "O\'chirilgan" bo\'limida saqlanadi.',
@@ -50,19 +56,17 @@ export function KalendarView() {
   const today = useMemo(() => startOfDay(), []);
   const [selected, setSelected] = useState<Date>(today);
 
-  // Kun view scroll container — joriy soatga avto-scroll qiladi
+  // Kun view scroll container — DayGrid to'liq 24 soatni render qiladi
+  // (START_HOUR=0), lekin default holatda ekran 06:00'dan boshlab ko'rinadi
+  // (yuqoriga — tunga — scroll qilish imkoni saqlanadi).
   const kunScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (view !== "kun") return;
     const el = kunScrollRef.current;
     if (!el) return;
-    // Joriy soat tepada turadi, o'tib ketgan soatlar yashirinadi
-    // (user yuqoriga scroll qilib ko'rishi mumkin)
     const HOUR_HEIGHT = 56;
-    const START_HOUR = 6;
-    const END_HOUR = 23;
-    const nowH = Math.max(START_HOUR, Math.min(END_HOUR, new Date().getHours()));
-    el.scrollTop = Math.max(0, (nowH - START_HOUR) * HOUR_HEIGHT);
+    const DEFAULT_SCROLL_HOUR = 6;
+    el.scrollTop = DEFAULT_SCROLL_HOUR * HOUR_HEIGHT;
   }, [view, selected]);
 
   function shift(delta: number) {

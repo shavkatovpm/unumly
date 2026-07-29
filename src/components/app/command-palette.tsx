@@ -23,6 +23,7 @@ import {
   PanelLeft,
   Keyboard,
   CornerDownLeft,
+  Archive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createPlan } from "@/lib/plans-store";
@@ -45,6 +46,7 @@ export const NAV_ROUTES: Array<{ href: string; label: string; icon: IconCmp; key
   { href: "/qarz", label: "Qarz", icon: Wallet, key: "q" },
   { href: "/maqsad", label: "Maqsad", icon: Target },
   { href: "/bajarilgan", label: "Bajarilgan", icon: CheckCircle2 },
+  { href: "/arxiv", label: "Arxiv", icon: Archive },
   { href: "/ochirilgan", label: "O'chirilgan", icon: Trash2 },
 ];
 

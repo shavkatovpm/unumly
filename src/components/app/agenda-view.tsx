@@ -296,6 +296,7 @@ export function AgendaView() {
     const draft: Plan = {
       id: "__draft__",
       title: t,
+      deferCount: 0,
       scope: "DAILY",
       scheduledFor: toDateInputValue(date),
       time: time || undefined,
@@ -338,6 +339,8 @@ export function AgendaView() {
           p.scope === "DAILY" &&
           p.scheduledFor > todayIso &&
           p.status !== "DONE" &&
+          // "Kerak emas ekan" deyilgan reja ochiq vazifa sifatida ko'rinmasin
+          p.status !== "CANCELLED" &&
           !(p.habitId && hiddenHabitIds.has(p.habitId))
       )
       .sort((a, b) => {

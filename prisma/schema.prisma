@@ -121,10 +121,16 @@ enum PlanScope {
   YEARLY
 }
 
+// MISSED va ARCHIVED odatda DB'ga yozilmaydi — ular `scheduledFor` va bugungi
+// sanadan o'qish paytida hisoblanadi (`effectiveStatus`, cron yo'q). Enumda
+// turishlari MCP/admin filtrlar va kelajakda qo'lda belgilash uchun kerak.
+// CANCELLED esa haqiqiy yozilgan holat: "Kerak emas ekan" tugmasi qo'yadi.
 enum PlanStatus {
   TODO
   IN_PROGRESS
   DONE
+  MISSED
+  CANCELLED
   ARCHIVED
 }
 
@@ -169,6 +175,12 @@ model Plan {
   completedAt DateTime?
   deletedAt   DateTime? // soft delete; purged after 30 days
   order       Int       @default(0)
+
+  // Necha marta kechiktirilgan. Faqat muddati kelgan/o'tgan reja kechroq
+  // sanaga surilganda oshadi (eski scheduledFor <= bugun VA yangi > eski) —
+  // kelajakdagi rejani qayta tartiblash bunga kirmaydi. 3 ga yetganda UI
+  // "Bugunga ko'chirish" tugmasini bloklaydi.
+  deferCount Int @default(0)
 
   // When this plan is a generated occurrence of a recurring Habit, this links
   // back to it. Editing the plan's time/status affects only this day's

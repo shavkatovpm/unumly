@@ -1,5 +1,13 @@
 export type PlanScope = "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
-export type PlanStatus = "TODO" | "IN_PROGRESS" | "DONE" | "ARCHIVED";
+/** MISSED va ARCHIVED DB'ga yozilmaydi — `effectiveStatus` o'qishda
+ *  hisoblaydi (@/lib/plan-status). CANCELLED esa saqlanadigan holat. */
+export type PlanStatus =
+  | "TODO"
+  | "IN_PROGRESS"
+  | "DONE"
+  | "MISSED"
+  | "CANCELLED"
+  | "ARCHIVED";
 export type PlanPriority = "LOW" | "MEDIUM" | "HIGH";
 
 /** Vazifa ichidagi kichik vazifa (sub-task). */
@@ -28,6 +36,9 @@ export type Plan = {
   deletedAt?: string;     // ISO datetime — set when soft-deleted; 30 days later auto-purged
   createdAt: string;      // ISO datetime
   order: number;
+  /** Muddati kelgan holda necha marta kechroq sanaga surilgan.
+   *  DEFER_LIMIT ga yetganda "Bugunga ko'chirish" bloklanadi. */
+  deferCount: number;
   /** Set when this plan is a generated occurrence of a recurring Habit. */
   habitId?: string;
   /** Set when this plan is the scheduled occurrence of a Goal step (OKR qadami). */

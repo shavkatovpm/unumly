@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { Plan, PlanPriority, PlanScope, Subtask } from "@/lib/types";
+import { DEFER_LIMIT, effectiveStatus, todayInTashkent } from "@/lib/plan-status";
 import { playOnCreate } from "@/lib/sounds";
 import * as actions from "@/lib/plans-actions";
 import { markHabitDay as markHabitDayAction } from "@/lib/habits-actions";
@@ -121,6 +122,7 @@ function rowsEqual(a: Plan[], b: Plan[]): boolean {
       x.priority !== y.priority ||
       x.notifyLeadMin !== y.notifyLeadMin ||
       x.completedAt !== y.completedAt ||
+      x.deferCount !== y.deferCount ||
       x.deletedAt !== y.deletedAt
     ) return false;
   }
@@ -191,6 +193,7 @@ export function createPlan(input: CreatePlanInput): string {
     notifyLeadMin: input.notifyLeadMin,
     createdAt: now,
     order: memoryState.length,
+    deferCount: 0,
   };
   memoryState = [...memoryState, plan];
   emit();
@@ -228,6 +231,7 @@ export function markHabitDay(habitId: string, date: string, title: string): void
     completedAt: now,
     createdAt: now,
     order: 0,
+    deferCount: 0,
     habitId,
   };
   memoryState = [...memoryState, optimistic];
@@ -339,6 +343,101 @@ export function togglePlanStatus(id: string): void {
         memoryState = memoryState.map((p) => (p.id === id ? prev : p));
         emit();
       })
+  );
+}
+
+/** "Bugunga ko'chirish" — bajarilmagan rejani bugunga tortadi.
+ *  Sana bugun bo'lgani uchun effectiveStatus o'zi TODO'ga qaytaradi. */
+export function deferPlanToToday(id: string): void {
+  const prev = memoryState.find((p) => p.id === id);
+  if (!prev) return;
+  if (prev.deferCount >= DEFER_LIMIT) return;
+  const today = todayInTashkent();
+  if (prev.scheduledFor === today) return;
+
+  const optimistic: Plan = {
+    ...prev,
+    scheduledFor: today,
+    deferCount: prev.deferCount + 1,
+  };
+  memoryState = memoryState.map((p) => (p.id === id ? optimistic : p));
+  emit();
+
+  void withPending(
+    actions.deferPlanToToday(id)
+      .then((server) => {
+        memoryState = memoryState.map((p) => (p.id === id ? server : p));
+        emit();
+      })
+      .catch(() => {
+        memoryState = memoryState.map((p) => (p.id === id ? prev : p));
+        emit();
+      })
+  );
+}
+
+/** "Kerak emas ekan" — CANCELLED qiladi. O'chirmaydi, qaytarish mumkin. */
+export function setPlanCancelled(id: string, cancelled: boolean): void {
+  const prev = memoryState.find((p) => p.id === id);
+  if (!prev) return;
+  const optimistic: Plan = {
+    ...prev,
+    status: cancelled ? "CANCELLED" : "TODO",
+    completedAt: undefined,
+  };
+  memoryState = memoryState.map((p) => (p.id === id ? optimistic : p));
+  emit();
+
+  void withPending(
+    actions.setPlanCancelled(id, cancelled)
+      .then((server) => {
+        memoryState = memoryState.map((p) => (p.id === id ? server : p));
+        emit();
+      })
+      .catch(() => {
+        memoryState = memoryState.map((p) => (p.id === id ? prev : p));
+        emit();
+      })
+  );
+}
+
+/** Arxiv yoki "Kerak emas" ro'yxatidan bugunga qaytarish. */
+export function restorePlanToToday(id: string): void {
+  const prev = memoryState.find((p) => p.id === id);
+  if (!prev) return;
+  const today = todayInTashkent();
+  const optimistic: Plan = {
+    ...prev,
+    status: "TODO",
+    scheduledFor: today,
+    deferCount: prev.scheduledFor < today ? prev.deferCount + 1 : prev.deferCount,
+  };
+  memoryState = memoryState.map((p) => (p.id === id ? optimistic : p));
+  emit();
+
+  void withPending(
+    actions.restorePlanToToday(id)
+      .then((server) => {
+        memoryState = memoryState.map((p) => (p.id === id ? server : p));
+        emit();
+      })
+      .catch(() => {
+        memoryState = memoryState.map((p) => (p.id === id ? prev : p));
+        emit();
+      })
+  );
+}
+
+/** "Kerak emas" deb belgilangan rejalar — /arxiv sahifasida ko'rinadi. */
+export function useCancelledPlans(): Plan[] {
+  const all = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  useStoreLifecycle();
+  return useMemo(
+    () =>
+      all
+        .filter((p) => !p.deletedAt && p.status === "CANCELLED")
+        .sort((a, b) => b.scheduledFor.localeCompare(a.scheduledFor)),
+    [all]
   );
 }
 
@@ -457,12 +556,41 @@ export function usePlans() {
     create: createPlan,
     update: updatePlan,
     toggleStatus: togglePlanStatus,
+    deferToToday: deferPlanToToday,
+    setCancelled: setPlanCancelled,
     remove: removePlan,
     removeMany: removeManyPlans,
     restore: restorePlan,
     purge: purgePlan,
     purgeMany: purgeManyPlans,
   };
+}
+
+/** Bajarilmagan (MISSED) rejalar — muddati o'tgan, 7 kundan kam.
+ *  Bugun sahifasining pastidagi yopiq bo'limda ko'rsatiladi. */
+export function useMissedPlans(): Plan[] {
+  const all = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  useStoreLifecycle();
+  return useMemo(() => {
+    const today = todayInTashkent();
+    return all
+      .filter((p) => !p.deletedAt && effectiveStatus(p, today) === "MISSED")
+      // Eng yaqin kechikkani tepada
+      .sort((a, b) => b.scheduledFor.localeCompare(a.scheduledFor));
+  }, [all]);
+}
+
+/** Arxivlangan rejalar — 7 kundan ko'p vaqt oldin bajarilmay qolgan.
+ *  Hech qachon o'chirilmaydi, /arxiv sahifasida ko'rinadi. */
+export function useArchivedPlans(): Plan[] {
+  const all = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  useStoreLifecycle();
+  return useMemo(() => {
+    const today = todayInTashkent();
+    return all
+      .filter((p) => !p.deletedAt && effectiveStatus(p, today) === "ARCHIVED")
+      .sort((a, b) => b.scheduledFor.localeCompare(a.scheduledFor));
+  }, [all]);
 }
 
 export function useCompletedPlans() {

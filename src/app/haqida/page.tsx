@@ -9,7 +9,7 @@ import { LangProvider } from "@/components/landing/i18n";
 export const metadata: Metadata = {
   title: "Haqida: Unumly to'liq qo'llanma va dokumentatsiya",
   description:
-    "Unumly ilovasining to'liq dokumentatsiyasi: kirish, Bugun, Agenda, Kalendar, Reja, Odat, Maqsad, Bajarilgan, O'chirilgan bo'limlari, sozlamalar, Telegram bot va ma'lumotlar saqlash haqida o'zbekcha qo'llanma.",
+    "Unumly ilovasining to'liq dokumentatsiyasi: kirish, Bugun, Agenda, Kalendar, Reja, Odat, Maqsad, Bajarilgan, Arxiv, O'chirilgan bo'limlari, sozlamalar, Telegram bot va ma'lumotlar saqlash haqida o'zbekcha qo'llanma.",
   alternates: { canonical: "/haqida" },
   openGraph: {
     title: "Haqida: Unumly to'liq qo'llanma",
@@ -107,7 +107,7 @@ const TOC = [
   { id: "odat", label: "9. Odat bo'limi" },
   { id: "maqsad", label: "10. Maqsad bo'limi" },
   { id: "moliya", label: "11. Moliya bo'limi" },
-  { id: "bajarilgan-ochirilgan", label: "12. Bajarilgan va O'chirilgan" },
+  { id: "bajarilgan-ochirilgan", label: "12. Bajarilgan, Arxiv va O'chirilgan" },
   { id: "sozlamalar", label: "13. Sozlamalar" },
   { id: "telegram-bot", label: "14. Telegram bot" },
   { id: "malumotlar", label: "15. Ma'lumotlar va xavfsizlik" },
@@ -274,28 +274,55 @@ export default function HaqidaPage() {
           <h3>Vazifalar qanday guruhlangan</h3>
           <ul>
             <li>
-              <strong>Kechikkan</strong>: o&apos;tgan kundan qolib ketgan,
-              vaqti belgilangan va hali bajarilmagan rejalar — qizil belgi
-              bilan eng tepada chiqadi
+              <strong>Kechikkan</strong>: bugungi, vaqti belgilangan va
+              belgilangan davomiyligi ham o&apos;tib ketgan, hali bajarilmagan
+              rejalar — qizil belgi bilan eng tepada chiqadi
             </li>
             <li><strong>Yarim kechasi</strong>: 00:00 dan 03:59 gacha</li>
             <li><strong>Ertalab</strong>: 04:00 dan 11:59 gacha</li>
             <li><strong>Kunduzi</strong>: 12:00 dan 16:59 gacha</li>
             <li><strong>Kechqurun</strong>: 17:00 dan 23:59 gacha</li>
             <li>
-              <strong>Vaqtsiz</strong>: vaqt belgilanmagan rejalar (o&apos;tgan
-              kunlardan qolgan vaqtsiz rejalar ham shu yerga qo&apos;shiladi)
+              <strong>Vaqtsiz</strong>: vaqt belgilanmagan bugungi rejalar
             </li>
           </ul>
+          <p className="text-faint">
+            Yuqoridagi bloklarda faqat <strong>bugungi</strong> sanaga
+            qo&apos;yilgan rejalar bo&apos;ladi.
+          </p>
 
-          <h3>Bajarilmagan rejalarning o&apos;tishi (carry-over)</h3>
+          <h3>Bajarilmagan rejalar</h3>
           <p>
-            Agar bugun yaratgan reja kun oxirigacha bajarilmasa, ertasi kun
-            ham <em>Bugun</em> ekranida turaveradi — to bajarilgunicha,
-            tahrirlangunicha yoki o&apos;chirilgunicha. Vaqtsiz rejalar oddiy
-            ko&apos;rinishda <strong>Vaqtsiz</strong> blokda, vaqti
-            belgilanganlari esa yuqoridagi <strong>Kechikkan</strong> blokda
-            qizil belgi bilan ko&apos;rinadi.
+            Kun tugagach bajarilmay qolgan reja ertasiga bugungi
+            ro&apos;yxatni to&apos;ldirib yubormaydi. U sahifaning eng
+            pastidagi yopiq <strong>&laquo;Bajarilmagan: N&raquo;</strong>{" "}
+            bo&apos;limiga tushadi — bosilganda ochiladi. Har bir vazifa uchun
+            ikki tugma bor:
+          </p>
+          <ul>
+            <li>
+              <strong>Bugunga ko&apos;chirish</strong> — vazifa bugungi sanaga
+              o&apos;tadi va yana odatdagi ro&apos;yxatda paydo bo&apos;ladi
+            </li>
+            <li>
+              <strong>Kerak emas ekan</strong> — vazifa yopiladi, lekin
+              o&apos;chirilmaydi: <em>Arxiv</em> bo&apos;limida saqlanib qoladi
+            </li>
+          </ul>
+          <p>
+            Nechanchi marta ko&apos;chirayotganingiz kartochkada
+            ko&apos;rinadi (&laquo;2-marta ko&apos;chirilyapti&raquo;).
+            Hisoblagich faqat <em>muddati kelgan yoki o&apos;tgan</em> vazifani
+            kechroqqa surganda oshadi — kelajakdagi rejani boshqa kunga
+            tartiblash bunga kirmaydi. Uch martadan keyin ko&apos;chirish
+            tugmasi bloklanadi: vazifani bajarish yoki kerak emas deb belgilash
+            kerak bo&apos;ladi.
+          </p>
+          <p>
+            Yetti kundan ortiq bajarilmay qolgan vazifa avtomatik ravishda{" "}
+            <em>Arxiv</em> bo&apos;limiga o&apos;tadi. Hech narsa
+            o&apos;chirilmaydi — arxivdan istagan vaqtda bugunga qaytarish
+            mumkin.
           </p>
 
           <h3>Foydalanuvchi nima qila oladi</h3>
@@ -654,7 +681,7 @@ Gugurt`}</pre>
         </Section>
 
         {/* ─── 12. Bajarilgan / O'chirilgan ──────────────────── */}
-        <Section id="bajarilgan-ochirilgan" title="12. Bajarilgan va O'chirilgan">
+        <Section id="bajarilgan-ochirilgan" title="12. Bajarilgan, Arxiv va O'chirilgan">
           <h3>Bajarilgan bo&apos;limi</h3>
           <p className="text-faint">URL: <code>/bajarilgan</code></p>
           <p>
@@ -665,6 +692,34 @@ Gugurt`}</pre>
             <li><strong>Qaytarish</strong>: TODO statusiga qaytadi, asosiy ro&apos;yxatga ko&apos;chadi</li>
             <li><strong>O&apos;chirish</strong>: O&apos;chirilgan bo&apos;limga 30 kunga ko&apos;chadi</li>
           </ul>
+
+          <h3>Arxiv bo&apos;limi</h3>
+          <p className="text-faint">URL: <code>/arxiv</code></p>
+          <p>
+            Bajarilmay qolgan vazifalar yo&apos;qolmaydi — ular shu yerga
+            to&apos;planadi. Ikki guruhga bo&apos;lingan:
+          </p>
+          <ul>
+            <li>
+              <strong>Arxivlangan</strong>: yetti kundan ortiq bajarilmagan
+              vazifalar. Avtomatik tushadi, hech qanday amal talab qilmaydi
+            </li>
+            <li>
+              <strong>Kerak emas</strong>: <em>Bugun</em> bo&apos;limidagi
+              &laquo;Kerak emas ekan&raquo; tugmasi bilan o&apos;zingiz
+              yopgan vazifalar
+            </li>
+          </ul>
+          <p>
+            Har bir yozuv yonidagi <strong>Bugunga</strong> tugmasi vazifani
+            bugungi sanaga qaytaradi va yana faol holatga keltiradi. Arxivdan
+            qaytarishda ko&apos;chirish limiti tekshirilmaydi.
+          </p>
+          <p className="text-faint">
+            Arxiv <em>o&apos;chirish</em> emas: bu yerdan hech narsa
+            avtomatik yo&apos;q qilinmaydi va 30 kunlik muddat ham
+            qo&apos;llanmaydi.
+          </p>
 
           <h3>O&apos;chirilgan bo&apos;limi</h3>
           <p className="text-faint">URL: <code>/ochirilgan</code></p>

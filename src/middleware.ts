@@ -15,6 +15,7 @@ const APP_ROUTES = [
   "/kalendar",
   "/reja",
   "/bajarilgan",
+  "/arxiv",
   "/ochirilgan",
   "/dashboard",
 ];
@@ -58,6 +59,7 @@ export const config = {
     "/kalendar/:path*",
     "/reja/:path*",
     "/bajarilgan/:path*",
+    "/arxiv/:path*",
     "/ochirilgan/:path*",
     "/dashboard/:path*",
   ],

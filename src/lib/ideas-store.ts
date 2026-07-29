@@ -243,6 +243,7 @@ function planFromIdea(idea: Idea): Plan {
     createdAt: idea.createdAt,
     completedAt: idea.done ? new Date().toISOString() : undefined,
     order: 0,
+    deferCount: 0,
   };
 }
 

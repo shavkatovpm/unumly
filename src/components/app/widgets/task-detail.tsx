@@ -72,7 +72,7 @@ export function TaskDetail({
   onRemove: (id: string) => void;
   /** Yangi reja yaratish rejimi — plan store'ga faqat Saqlash bosilganda yoziladi */
   draft?: boolean;
-  onCreate?: (input: Omit<Plan, "id" | "createdAt" | "order" | "status">) => string;
+  onCreate?: (input: Omit<Plan, "id" | "createdAt" | "order" | "status" | "deferCount">) => string;
 }) {
   const rejaCategoryMap = useRejaCategoryMap();
   const [title, setTitle] = useState("");
