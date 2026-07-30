@@ -590,6 +590,7 @@ export function BugunView() {
             plans={missed}
             onDefer={deferToToday}
             onCancel={setCancelled}
+            onToggle={toggleStatus}
             onOpen={setDetailId}
           />
         </div>

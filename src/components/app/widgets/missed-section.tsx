@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarPlus, ChevronDown, Ban } from "lucide-react";
+import { CalendarPlus, Check, ChevronDown, Ban } from "lucide-react";
 import type { Plan } from "@/lib/types";
 import { DEFER_LIMIT, daysBetween, deferLabel, todayInTashkent } from "@/lib/plan-status";
 import { formatDateLong, fromDateInputValue } from "@/lib/dates";
+import { playOnComplete } from "@/lib/sounds";
 import { cn } from "@/lib/utils";
+
+/** Belgilangandan keyin qator yo'qolib ketishidan oldin animatsiya
+ *  ko'rinib qolishi uchun kichik kechikish (TaskRow bilan bir xil). */
+const DONE_DELAY_MS = 700;
 
 /** Bugun sahifasining eng pastidagi yopiq bo'lim: muddati o'tgan, lekin
  *  hali 7 kun to'lmagan bajarilmagan rejalar. Har biri uchun ikki amal —
@@ -16,11 +21,14 @@ export function MissedSection({
   plans,
   onDefer,
   onCancel,
+  onToggle,
   onOpen,
 }: {
   plans: Plan[];
   onDefer: (id: string) => void;
   onCancel: (id: string, cancelled: boolean) => void;
+  /** "Bajardim" — vazifa bajarilgan, faqat belgilash esdan chiqqan bo'lsa. */
+  onToggle: (id: string) => void;
   onOpen?: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -72,6 +80,7 @@ export function MissedSection({
                   today={today}
                   onDefer={onDefer}
                   onCancel={onCancel}
+                  onToggle={onToggle}
                   onOpen={onOpen}
                 />
               ))}
@@ -88,27 +97,83 @@ function MissedRow({
   today,
   onDefer,
   onCancel,
+  onToggle,
   onOpen,
 }: {
   plan: Plan;
   today: string;
   onDefer: (id: string) => void;
   onCancel: (id: string, cancelled: boolean) => void;
+  onToggle: (id: string) => void;
   onOpen?: (id: string) => void;
 }) {
   const daysAgo = daysBetween(plan.scheduledFor, today);
   const defers = deferLabel(plan.deferCount);
   const blocked = plan.deferCount >= DEFER_LIMIT;
 
+  // Belgilangach qator ro'yxatdan chiqib ketadi — shuning uchun avval
+  // belgi ko'rinadi, keyin haqiqiy o'zgarish yuboriladi.
+  const [pendingDone, setPendingDone] = useState(false);
+  const timerRef = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  function handleToggle() {
+    if (pendingDone) {
+      // Ikkinchi bosish — bekor qilish
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+      setPendingDone(false);
+      return;
+    }
+    playOnComplete();
+    setPendingDone(true);
+    timerRef.current = window.setTimeout(() => {
+      onToggle(plan.id);
+      timerRef.current = null;
+    }, DONE_DELAY_MS);
+  }
+
   return (
     <li className="px-3 py-2.5">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-2.5">
+        <button
+          type="button"
+          onClick={handleToggle}
+          aria-label={pendingDone ? "Bekor qilish" : "Bajarildi"}
+          title="Bajardim — belgilash esdan chiqqan bo'lsa"
+          className="group/check mt-px shrink-0 cursor-pointer"
+        >
+          <span
+            className={cn(
+              "grid size-[21px] place-items-center rounded-md border transition-all duration-200",
+              pendingDone
+                ? "border-accent bg-accent check-fill"
+                : "border-border-strong group-hover/check:border-accent"
+            )}
+          >
+            {pendingDone && (
+              <Check className="size-[14px] text-background check-pop" strokeWidth={5} />
+            )}
+          </span>
+        </button>
+
         <button
           type="button"
           onClick={() => onOpen?.(plan.id)}
           className="min-w-0 flex-1 text-left"
         >
-          <p className="truncate text-[13.5px] text-foreground">{plan.title}</p>
+          <p
+            className={cn(
+              "truncate text-[13.5px] transition-colors",
+              pendingDone ? "text-faint line-through" : "text-foreground"
+            )}
+          >
+            {plan.title}
+          </p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-faint">
             <span>
               {formatDateLong(fromDateInputValue(plan.scheduledFor))}
@@ -120,7 +185,7 @@ function MissedRow({
         </button>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-[31px]">
         <button
           type="button"
           disabled={blocked}
@@ -151,7 +216,7 @@ function MissedRow({
       </div>
 
       {blocked && (
-        <p className="mt-1.5 text-[10.5px] text-warning">
+        <p className="mt-1.5 pl-[31px] text-[10.5px] text-warning">
           {DEFER_LIMIT} marta ko&apos;chirilgan — bugun bajaring yoki kerak emas deb belgilang.
         </p>
       )}

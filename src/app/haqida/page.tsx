@@ -297,9 +297,15 @@ export default function HaqidaPage() {
             ro&apos;yxatni to&apos;ldirib yubormaydi. U sahifaning eng
             pastidagi yopiq <strong>&laquo;Bajarilmagan: N&raquo;</strong>{" "}
             bo&apos;limiga tushadi — bosilganda ochiladi. Har bir vazifa uchun
-            ikki tugma bor:
+            uch amal bor:
           </p>
           <ul>
+            <li>
+              <strong>Bajarildi belgisi</strong> — chapdagi doira. Vazifani
+              haqiqatda bajargan, lekin belgilashni esdan chiqargan
+              bo&apos;lsangiz shu yerdan belgilaysiz: vazifa{" "}
+              <em>Bajarilgan</em> bo&apos;limiga o&apos;tadi
+            </li>
             <li>
               <strong>Bugunga ko&apos;chirish</strong> — vazifa bugungi sanaga
               o&apos;tadi va yana odatdagi ro&apos;yxatda paydo bo&apos;ladi
