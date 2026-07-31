@@ -1,78 +1,88 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { BLOG_POSTS } from "@/lib/blog-posts";
+import { BLOG_POSTS_RU } from "@/lib/blog-posts";
 import { BlogLangSwitch } from "@/components/blog/lang-switch";
 
 export const metadata: Metadata = {
-  title: "Blog: Productivity va vaqt boshqarish haqida",
+  title: "Блог о продуктивности и планировании",
   description:
-    "Unumly blogi: vaqt boshqarish, rejalashtirish va samaradorlik haqida o'zbek tilidagi maqolalar. Time blocking, Pomodoro, kunlik reja tuzish va boshqalar.",
+    "Блог Unumly на русском: планирование дня, постановка целей, методы продуктивности и разбор мыслительных приёмов вроде обратного мышления.",
   alternates: {
-    canonical: "/blog",
+    canonical: "/blog/ru",
     languages: {
-      "uz-UZ": "/blog",
       "ru-RU": "/blog/ru",
+      "uz-UZ": "/blog",
     },
   },
   openGraph: {
-    title: "Blog: Unumly",
+    type: "website",
+    locale: "ru_RU",
+    title: "Блог Unumly",
     description:
-      "Vaqt boshqarish, rejalashtirish va samaradorlik haqida o'zbek tilidagi maqolalar.",
-    url: "https://unumly.uz/blog",
+      "Планирование дня, цели и методы продуктивности — статьи на русском языке.",
+    url: "https://unumly.uz/blog/ru",
   },
 };
 
 function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("uz-UZ", {
+  return new Date(iso).toLocaleDateString("ru-RU", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
 }
 
-export default function BlogPage() {
+export default function BlogRuPage() {
   return (
     <>
-      <main className="mx-auto min-h-screen max-w-3xl px-6 py-12 sm:px-8 sm:py-16">
+      <main
+        lang="ru"
+        className="mx-auto min-h-screen max-w-3xl px-6 py-12 sm:px-8 sm:py-16"
+      >
         <nav
           className="mb-12 flex items-center justify-between gap-4"
-          aria-label="Breadcrumb"
+          aria-label="Хлебные крошки"
         >
           <Link
             href="/"
             className="font-mono text-[11px] uppercase tracking-[0.2em] text-faint hover:text-foreground"
           >
-            ← Bosh sahifa
+            ← Главная
           </Link>
-          <BlogLangSwitch active="uz" uzHref="/blog" ruHref="/blog/ru" />
+          <BlogLangSwitch active="ru" uzHref="/blog" ruHref="/blog/ru" />
         </nav>
 
         <header className="mb-12">
           <p className="font-mono text-[10.5px] uppercase tracking-[0.22em] text-faint">
-            Blog
+            Блог
           </p>
           <h1 className="mt-3 text-balance text-[clamp(2rem,5vw,3rem)] font-medium leading-[1.05] tracking-[-0.025em]">
-            Vaqt va rejalashtirish haqida
+            О времени и планировании
           </h1>
           <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-muted">
-            Vaqtni boshqarish, kunlik rejalashtirish, samaradorlik uslublari va
-            Unumly ilovasidan unumli foydalanish bo&apos;yicha o&apos;zbekcha
-            maqolalar.
+            Статьи на русском о планировании дня, постановке целей и способах
+            довести задуманное до конца. Полный архив пока на узбекском —{" "}
+            <Link
+              href="/blog"
+              className="text-foreground underline-offset-4 hover:underline"
+            >
+              смотреть все статьи
+            </Link>
+            .
           </p>
         </header>
 
         <section className="divide-y divide-border/70">
-          {BLOG_POSTS.map((p) => (
+          {BLOG_POSTS_RU.map((p) => (
             <article key={p.slug} className="py-6 first:pt-0">
-              <Link href={`/blog/${p.slug}`} className="group block">
+              <Link href={`/blog/ru/${p.slug}`} className="group block">
                 <div className="flex items-center gap-3 font-mono text-[10.5px] uppercase tracking-[0.18em] text-faint">
                   <time dateTime={p.publishedAt}>
                     {formatDate(p.publishedAt)}
                   </time>
                   <span aria-hidden>·</span>
-                  <span>{p.readingMinutes} daqiqa o&apos;qish</span>
+                  <span>{p.readingMinutes} мин чтения</span>
                 </div>
                 <h2 className="mt-2 flex items-start gap-2 text-[18px] font-medium leading-snug tracking-[-0.01em] transition-colors group-hover:text-foreground">
                   <span className="flex-1 text-balance">{p.title}</span>
@@ -98,37 +108,37 @@ export default function BlogPage() {
                 {
                   "@type": "ListItem",
                   position: 1,
-                  name: "Bosh sahifa",
+                  name: "Главная",
                   item: "https://unumly.uz/",
                 },
                 {
                   "@type": "ListItem",
                   position: 2,
-                  name: "Blog",
-                  item: "https://unumly.uz/blog",
+                  name: "Блог",
+                  item: "https://unumly.uz/blog/ru",
                 },
               ],
             },
             {
               "@context": "https://schema.org",
               "@type": "Blog",
-              name: "Unumly Blog",
+              name: "Блог Unumly",
               description:
-                "Vaqt boshqarish, kunlik rejalashtirish va samaradorlik haqida o'zbek tilidagi maqolalar.",
-              url: "https://unumly.uz/blog",
-              inLanguage: "uz",
+                "Планирование дня, цели и методы продуктивности — статьи на русском языке.",
+              url: "https://unumly.uz/blog/ru",
+              inLanguage: "ru",
               publisher: {
                 "@type": "Organization",
                 name: "Unumly",
                 url: "https://unumly.uz",
               },
-              blogPost: BLOG_POSTS.map((p) => ({
+              blogPost: BLOG_POSTS_RU.map((p) => ({
                 "@type": "BlogPosting",
                 headline: p.title,
                 description: p.description,
-                url: `https://unumly.uz/blog/${p.slug}`,
+                url: `https://unumly.uz/blog/ru/${p.slug}`,
                 datePublished: p.publishedAt,
-                inLanguage: "uz",
+                inLanguage: "ru",
               })),
             },
           ]),

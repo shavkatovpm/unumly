@@ -8,6 +8,14 @@ export type BlogPost = {
 
 export const BLOG_POSTS: BlogPost[] = [
   {
+    slug: "teskari-fikrlash",
+    title: "Teskari fikrlash: inversion usuli va 4 qadamli amaliyot",
+    description:
+      "Teskari fikrlash (inversion) — maqsadga erishish yo'lini emas, unga xalaqit beradigan sabablarni topish usuli. Ta'rif, misollar va rejaga qo'shish tartibi.",
+    publishedAt: "2026-07-31",
+    readingMinutes: 7,
+  },
+  {
     slug: "vaqtni-boshqarish",
     title: "Vaqtni boshqarish: boshlovchilar uchun to'liq qo'llanma",
     description:
@@ -44,3 +52,24 @@ export const BLOG_POSTS: BlogPost[] = [
 export function getBlogPost(slug: string): BlogPost | undefined {
   return BLOG_POSTS.find((p) => p.slug === slug);
 }
+
+/** Ruscha versiyalari mavjud maqolalar (`/blog/ru/<slug>`). */
+export const BLOG_POSTS_RU: BlogPost[] = [
+  {
+    slug: "obratnoe-myshlenie",
+    title: "Обратное мышление (инверсия): как думать от провала",
+    description:
+      "Обратное мышление — метод, при котором вы ищете не путь к цели, а причины провала. Определение, примеры, 4 шага и как встроить это в план.",
+    publishedAt: "2026-07-31",
+    readingMinutes: 7,
+  },
+];
+
+export function getBlogPostRu(slug: string): BlogPost | undefined {
+  return BLOG_POSTS_RU.find((p) => p.slug === slug);
+}
+
+/** uz slug → ru slug (til almashtirgich va hreflang uchun). */
+export const BLOG_TRANSLATIONS: Record<string, string> = {
+  "teskari-fikrlash": "obratnoe-myshlenie",
+};
