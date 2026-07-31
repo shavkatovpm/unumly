@@ -1,51 +1,47 @@
 import Link from "next/link";
+import type { BlogLang } from "@/lib/blog-posts";
+
+const LABEL: Record<BlogLang, string> = { uz: "Uz", ru: "Ru", en: "En" };
+const ORDER: BlogLang[] = ["uz", "ru", "en"];
 
 type Props = {
   /** Joriy sahifa tili */
-  active: "uz" | "ru";
-  /** O'zbekcha versiya yo'li */
-  uzHref: string;
-  /** Ruscha versiya yo'li */
-  ruHref: string;
+  active: BlogLang;
+  /** Har til uchun yo'l — maqolaning shu tildagi versiyasi */
+  paths: Record<BlogLang, string>;
 };
 
 /**
- * Blog uchun kichik til almashtirgich (UZ / RU).
- * Faqat tarjimasi mavjud sahifalarda ko'rsatiladi.
+ * Blog uchun til almashtirgich (Uz / Ru / En).
+ * Server component — qo'shimcha client JS yuklamaydi.
  */
-export function BlogLangSwitch({ active, uzHref, ruHref }: Props) {
+export function BlogLangSwitch({ active, paths }: Props) {
   const base =
     "rounded px-1.5 py-0.5 font-mono text-[10.5px] uppercase tracking-[0.18em] transition-colors";
 
   return (
-    <div className="flex items-center gap-1" aria-label="Til / Язык">
-      <Link
-        href={uzHref}
-        hrefLang="uz"
-        aria-current={active === "uz" ? "page" : undefined}
-        className={
-          active === "uz"
-            ? `${base} bg-subtle text-foreground`
-            : `${base} text-faint hover:text-foreground`
-        }
-      >
-        Uz
-      </Link>
-      <span aria-hidden className="text-faint/60">
-        /
-      </span>
-      <Link
-        href={ruHref}
-        hrefLang="ru"
-        aria-current={active === "ru" ? "page" : undefined}
-        className={
-          active === "ru"
-            ? `${base} bg-subtle text-foreground`
-            : `${base} text-faint hover:text-foreground`
-        }
-      >
-        Ru
-      </Link>
+    <div className="flex items-center gap-0.5" aria-label="Til / Язык / Language">
+      {ORDER.map((lang, i) => (
+        <span key={lang} className="flex items-center gap-0.5">
+          {i > 0 && (
+            <span aria-hidden className="text-faint/50">
+              /
+            </span>
+          )}
+          <Link
+            href={paths[lang]}
+            hrefLang={lang}
+            aria-current={active === lang ? "page" : undefined}
+            className={
+              active === lang
+                ? `${base} bg-subtle text-foreground`
+                : `${base} text-faint hover:text-foreground`
+            }
+          >
+            {LABEL[lang]}
+          </Link>
+        </span>
+      ))}
     </div>
   );
 }
