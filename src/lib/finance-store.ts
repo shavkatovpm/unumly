@@ -59,7 +59,7 @@ function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
   void loadAll()
-    .then((s) => { snapshot = s; hydrated = true; emit(); })
+    .then((s) => { hydrated = true; if (pending === 0) snapshot = s; emit(); })
     .catch(() => { hydrated = true; emit(); })
     .finally(() => { hydrating = false; });
 }

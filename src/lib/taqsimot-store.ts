@@ -16,9 +16,16 @@ let categoryPct: Record<string, number> = DEFAULT_PCT;
 let focus: Record<string, number> = {};
 let hydrated = false;
 let hydrating = false;
+let pending = 0;
 const listeners = new Set<() => void>();
 function emit() {
   for (const l of listeners) l();
+}
+function withPending<T>(p: Promise<T>): Promise<T> {
+  pending++;
+  return p.finally(() => {
+    pending = Math.max(0, pending - 1);
+  });
 }
 
 function hydrateOnce() {
@@ -26,12 +33,17 @@ function hydrateOnce() {
   hydrating = true;
   void Promise.all([settingsActions.getTaqsimotSettings(), focusActions.getFocusCounts()])
     .then(([settings, counts]) => {
-      if (settings) {
-        capacity = settings.weeklyCapacity;
-        categoryPct = settings.categoryPct;
-      }
-      focus = counts;
       hydrated = true;
+      // Shu birinchi fetch davomida optimistik mutatsiya (masalan, sig'im
+      // yoki fokus sonini o'zgartirish) boshlangan bo'lsa — eski snapshot
+      // bilan ustidan yozib yubormaymiz.
+      if (pending === 0) {
+        if (settings) {
+          capacity = settings.weeklyCapacity;
+          categoryPct = settings.categoryPct;
+        }
+        focus = counts;
+      }
       emit();
     })
     .catch(() => {
@@ -59,56 +71,64 @@ export function setCapacityDay(i: number, val: number) {
   const prev = capacity;
   capacity = capacity.map((v, idx) => (idx === i ? val : v));
   emit();
-  void settingsActions
-    .updateTaqsimotSettings({ weeklyCapacity: capacity })
-    .catch(() => {
-      capacity = prev;
-      emit();
-    });
+  void withPending(
+    settingsActions
+      .updateTaqsimotSettings({ weeklyCapacity: capacity })
+      .catch(() => {
+        capacity = prev;
+        emit();
+      })
+  );
 }
 
 export function setCategoryPct(kat: string, val: number) {
   const prev = categoryPct;
   categoryPct = { ...categoryPct, [kat]: val };
   emit();
-  void settingsActions
-    .updateTaqsimotSettings({ categoryPct })
-    .catch(() => {
-      categoryPct = prev;
-      emit();
-    });
+  void withPending(
+    settingsActions
+      .updateTaqsimotSettings({ categoryPct })
+      .catch(() => {
+        categoryPct = prev;
+        emit();
+      })
+  );
 }
 
 export function incFocus(id: string) {
   const prev = focus;
   focus = { ...focus, [id]: (focus[id] ?? 0) + 1 };
   emit();
-  void focusActions
-    .incFocus(id)
-    .then((count) => {
-      focus = { ...focus, [id]: count };
-      emit();
-    })
-    .catch(() => {
-      focus = prev;
-      emit();
-    });
+  void withPending(
+    focusActions
+      .incFocus(id)
+      .then((count) => {
+        focus = { ...focus, [id]: count };
+        emit();
+      })
+      .catch(() => {
+        focus = prev;
+        emit();
+      })
+  );
 }
 
 export function decFocus(id: string) {
   const prev = focus;
   focus = { ...focus, [id]: Math.max(0, (focus[id] ?? 0) - 1) };
   emit();
-  void focusActions
-    .decFocus(id)
-    .then((count) => {
-      focus = { ...focus, [id]: count };
-      emit();
-    })
-    .catch(() => {
-      focus = prev;
-      emit();
-    });
+  void withPending(
+    focusActions
+      .decFocus(id)
+      .then((count) => {
+        focus = { ...focus, [id]: count };
+        emit();
+      })
+      .catch(() => {
+        focus = prev;
+        emit();
+      })
+  );
 }
 
 export function useTaqsimotSettings() {

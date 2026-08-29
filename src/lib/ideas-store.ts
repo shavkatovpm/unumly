@@ -136,8 +136,10 @@ function hydrateOnce(key: string, projectId?: string) {
   void actions
     .listIdeas(projectId)
     .then((rows) => {
-      s.ideas = rows;
       s.hydrated = true;
+      // Shu birinchi fetch davomida optimistik mutatsiya boshlangan
+      // bo'lsa — eski snapshot bilan ustidan yozib yubormaymiz.
+      if (s.pendingMutations === 0) s.ideas = rows;
       emit(key);
     })
     .catch(() => {

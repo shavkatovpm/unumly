@@ -39,8 +39,12 @@ function hydrateOnce() {
   void actions
     .listPlans()
     .then((rows) => {
-      memoryState = rows;
       hydrated = true;
+      // Agar shu birinchi fetch davomida optimistik mutatsiya (masalan,
+      // sahifa ochilishi bilanoq task yaratish) boshlangan bo'lsa — bu
+      // eski (mutatsiyagacha bo'lgan) snapshot bilan uni ustidan yozib
+      // yubormaymiz. Keyingi poll o'zi moslashtiradi.
+      if (pendingMutations === 0) memoryState = rows;
       emit();
     })
     .catch(() => {
