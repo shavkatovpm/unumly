@@ -179,6 +179,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    // /kod — direct OTP resend, independent of the /start deep-link param
+    // (fallback for clients where "?start=login" doesn't reach us intact).
+    if (text.toLowerCase() === "/kod") {
+      const kodUser = await prisma.user.findUnique({
+        where: { telegramId: BigInt(from.id) },
+      });
+      if (kodUser?.phone) {
+        await prisma.user.update({
+          where: { id: kodUser.id },
+          data: { lastSeenAt: new Date() },
+        });
+        await issueAndSendOtp({
+          telegramId: kodUser.telegramId,
+          phone: kodUser.phone,
+        });
+      } else {
+        await askForContact(chatId);
+      }
+      return NextResponse.json({ ok: true });
+    }
+
     // From here on: arbitrary text. Behaviour depends on user state.
     const user = await prisma.user.findUnique({
       where: { telegramId: BigInt(from.id) },

@@ -50,8 +50,9 @@ function priorityClasses(p: PlanPriority | undefined, done: boolean) {
   };
 }
 
-const START_HOUR = 6;
+const START_HOUR = 0;
 const END_HOUR = 23;
+const DEFAULT_SCROLL_HOUR = 6;
 const HOUR_HEIGHT = 56;
 const SNAP = 15;
 const TOTAL_HOURS = END_HOUR - START_HOUR + 1;
@@ -134,14 +135,15 @@ export function HaftaView({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Hafta ochilganda:
-  // - Vertikal: joriy soat tepada, o'tib ketgan soatlar yashirinadi
+  // - Vertikal: to'liq 24 soat render qilinadi, lekin default holatda ekran
+  //   06:00'dan boshlab ko'rinadi (yuqoriga — kechqurun/tunga — scroll qilish
+  //   imkoni saqlanadi)
   // - Gorizontal (mobile): bugungi kun chap chetda, o'tib ketgan kunlar yashirinadi
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const nowH = Math.max(START_HOUR, Math.min(END_HOUR, new Date().getHours()));
-    el.scrollTop = Math.max(0, (nowH - START_HOUR) * HOUR_HEIGHT);
+    el.scrollTop = DEFAULT_SCROLL_HOUR * HOUR_HEIGHT;
 
     // Today this week dami? Agar shu hafta ichida bo'lsa, gorizontal
     // scroll qilamiz. requestAnimationFrame layoutdan keyin o'lchaymiz.

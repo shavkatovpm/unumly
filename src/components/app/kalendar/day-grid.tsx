@@ -20,7 +20,7 @@ function priorityClasses(p: PlanPriority | undefined, done: boolean) {
   return { border: "border-border-strong", bg: "bg-subtle/60 hover:bg-subtle" };
 }
 
-const START_HOUR = 6;
+const START_HOUR = 0;
 const END_HOUR = 23;
 const HOUR_HEIGHT = 56;
 const SNAP = 15;
