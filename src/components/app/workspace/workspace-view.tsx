@@ -24,24 +24,21 @@ import { WorkspaceTaskPicker } from "./workspace-task-picker";
 import { WorkspaceProjectMenu } from "./workspace-project-menu";
 import { ListLoader } from "../widgets/list-loader";
 
-type UiTheme = "obsidian" | "smoke" | "orbit";
+type UiTheme = "obsidian" | "smoke" | "orbit" | "expand";
 type BoardStatus = "Rejada" | "Jarayonda" | "Tugallangan";
 
 const uiThemes: { id: UiTheme; number: string; name: string; note: string }[] = [
   { id: "smoke", number: "04", name: "Index", note: "Project list" },
   { id: "orbit", number: "11", name: "Orbit 3D", note: "Circular" },
+  { id: "expand", number: "17", name: "Fokus", note: "Kengaygan card" },
 ];
 
 const THEME_STORAGE_KEY = "unumly:workspace:theme";
-const BACKGROUND_STORAGE_KEY = "unumly:workspace:background";
-const backgrounds = [
-  { id: "graphite", name: "Grafit", swatch: "#555b60", value: "radial-gradient(ellipse at 50% 0%, #353b40, transparent 65%), #0c0f12" },
-  { id: "midnight", name: "Tun", swatch: "#426da8", value: "radial-gradient(ellipse at 80% 15%, #173a64, transparent 65%), radial-gradient(ellipse at 10% 90%, #13243e, transparent 60%), #070d19" },
-  { id: "forest", name: "O‘rmon", swatch: "#459579", value: "radial-gradient(ellipse at 15% 25%, #204f3b, transparent 65%), radial-gradient(ellipse at 85% 85%, #143c38, transparent 60%), #080f0c" },
-  { id: "aurora", name: "Aurora", swatch: "#9a72d0", value: "radial-gradient(ellipse at 10% 15%, #41285f, transparent 55%), radial-gradient(ellipse at 90% 75%, #164b54, transparent 60%), #100d1b" },
-  { id: "ember", name: "Shafaq", swatch: "#bd8055", value: "radial-gradient(ellipse at 75% 10%, #583727, transparent 60%), radial-gradient(ellipse at 10% 90%, #3e202f, transparent 60%), #140e0c" },
-] as const;
-type BackgroundId = typeof backgrounds[number]["id"];
+// Shuncha pikseldan ko'p siljisa "karuselni aylantirish", aks holda "loyihani
+// ochish" (klik) deb hisoblanadi. 8px juda tor edi — oddiy sichqoncha/trackpad
+// bosishida ham tabiiy titrash shuncha masofani osongina bosib o'tadi, natijada
+// klik doim "drag" deb noto'g'ri belgilanib, loyiha hech ochilmasdi.
+const ORBIT_DRAG_THRESHOLD = 18;
 
 function taskStatus(t: ProjectTask): BoardStatus {
   if (t.done) return "Tugallangan";
@@ -65,21 +62,6 @@ function projectTint(color?: WorkspaceProjectRow["color"]): { tint: string; glow
 const MOBILE_QUERY = "(max-width: 700px)";
 
 export function WorkspaceView() {
-  const [background, setBackground] = useState<BackgroundId>("graphite");
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      try {
-        const saved = window.localStorage.getItem(BACKGROUND_STORAGE_KEY);
-        const match = backgrounds.find((item) => item.id === saved);
-        if (match) setBackground(match.id);
-      } catch { /* Storage may be unavailable. */ }
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-  function changeBackground(next: BackgroundId) {
-    setBackground(next);
-    try { window.localStorage.setItem(BACKGROUND_STORAGE_KEY, next); } catch { /* Keep the selection for this session. */ }
-  }
   const [theme, setTheme] = useState<UiTheme>(() => {
     if (typeof window === "undefined") return "smoke";
     const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -132,7 +114,7 @@ export function WorkspaceView() {
   const selectedProject = selectedProjectId ? projects.find((p) => p.id === selectedProjectId) ?? null : null;
 
   return (
-    <main data-background={background} style={{ "--workspace-backdrop": backgrounds.find((item) => item.id === background)!.value } as React.CSSProperties} className={cn("workspace-lab theme-obsidian min-h-[100dvh] overflow-hidden", `theme-${selectedProject ? "obsidian" : effectiveTheme}`, "index-graphite", "orbit-mono")}>
+    <main data-background="graphite" className={cn("workspace-lab theme-obsidian h-[100dvh] overflow-x-hidden overflow-y-auto", `theme-${selectedProject ? "obsidian" : effectiveTheme}`, "index-graphite", "orbit-mono")}>
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
       <div className="workspace-noise" />
@@ -157,14 +139,6 @@ export function WorkspaceView() {
         />
       )}
 
-      <div className="workspace-background-dock" role="group" aria-label="Workspace foni">
-        {backgrounds.map((item) => (
-          <button key={item.id} type="button" aria-pressed={background === item.id} title={`${item.name} fon`} onClick={() => changeBackground(item.id)}>
-            <span className="background-swatch" style={{ background: item.swatch }}>{background === item.id && <Check aria-hidden="true" className="size-3" />}</span>
-            <span>{item.name}</span>
-          </button>
-        ))}
-      </div>
       <style>{styles}</style>
     </main>
   );
@@ -176,7 +150,7 @@ function BackToMain() {
       href="/bugun"
       aria-label="Asosiy qismga qaytish"
       title="Asosiy qismga qaytish"
-      className="navbar-brand flex shrink-0 items-center gap-3 rounded-xl transition-colors hover:bg-white/[.06] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70"
+      className="navbar-brand -ml-2.5 flex shrink-0 items-center gap-3 rounded-xl py-1.5 pl-2.5 pr-3.5 transition-colors hover:bg-white/[.06] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70"
     >
       <span className="grid size-9 place-items-center rounded-xl border border-white/10 bg-white/[.06] shadow-inner backdrop-blur-xl"><ArrowLeft aria-hidden="true" className="size-[17px]" /></span>
       <span className="text-[15px] font-semibold tracking-[-.02em]">Asosiy qism</span>
@@ -236,7 +210,7 @@ function ProjectGrid({
   const [orbitDragging, setOrbitDragging] = useState(false);
   const [orbitGliding, setOrbitGliding] = useState(false);
   const [orbitSnapping, setOrbitSnapping] = useState(false);
-  const orbitDrag = useRef({ startX: 0, startRotation: 0, lastX: 0, lastTime: 0, velocity: 0 });
+  const orbitDrag = useRef({ startX: 0, startRotation: 0, lastX: 0, lastTime: 0, velocity: 0, active: false });
   const orbitFrame = useRef<number | null>(null);
   const suppressProjectClick = useRef(false);
   const orbitPointerCaptured = useRef(false);
@@ -287,13 +261,18 @@ function ProjectGrid({
     if (orbitSnapEndTimer.current !== null) window.clearTimeout(orbitSnapEndTimer.current);
     setOrbitSnapping(false);
     const now = performance.now();
-    orbitDrag.current = { startX: event.clientX, startRotation: orbitRotation, lastX: event.clientX, lastTime: now, velocity: 0 };
+    // `active` shu yerda ref orqali (state emas) — pointerup/pointermove
+    // handler'lari React holat yangilanishi hali render'ga tushmagan bo'lsa
+    // ham (tez klikda mumkin) darhol to'g'ri qiymatni ko'rishi kerak, aks
+    // holda ular vaqtinchalik eski `orbitDragging=false`ni ko'rib hech
+    // narsa qilmay chiqib ketishi va gest cho'zilib qolishi mumkin edi.
+    orbitDrag.current = { startX: event.clientX, startRotation: orbitRotation, lastX: event.clientX, lastTime: now, velocity: 0, active: true };
     suppressProjectClick.current = false;
     setOrbitDragging(true);
   }
 
   function onOrbitPointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    if (theme !== "orbit" || !orbitDragging) return;
+    if (theme !== "orbit" || !orbitDrag.current.active) return;
     const now = performance.now();
     const elapsed = Math.max(8, now - orbitDrag.current.lastTime);
     const movement = event.clientX - orbitDrag.current.lastX;
@@ -301,7 +280,7 @@ function ProjectGrid({
     orbitDrag.current.lastX = event.clientX;
     orbitDrag.current.lastTime = now;
     const distance = event.clientX - orbitDrag.current.startX;
-    if (Math.abs(distance) > 8) {
+    if (Math.abs(distance) > ORBIT_DRAG_THRESHOLD) {
       suppressProjectClick.current = true;
       if (!orbitPointerCaptured.current) {
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -312,7 +291,8 @@ function ProjectGrid({
   }
 
   function onOrbitPointerUp(event: React.PointerEvent<HTMLDivElement>) {
-    if (theme !== "orbit" || !orbitDragging) return;
+    if (theme !== "orbit" || !orbitDrag.current.active) return;
+    orbitDrag.current.active = false;
     if (orbitPointerCaptured.current && event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -337,6 +317,27 @@ function ProjectGrid({
     };
     orbitFrame.current = window.requestAnimationFrame(glide);
   }
+  if (theme === "expand") {
+    return (
+      <div className="workspace-grid-page relative z-[2] min-h-[100dvh]">
+        <Header theme={theme} onThemeChange={onThemeChange} onAddProject={() => setPickerOpen(true)} hideOrbitOption={hideOrbitOption} />
+        <ExpandGrid
+          projects={projects}
+          hydrated={hydrated}
+          onAddProject={() => setPickerOpen(true)}
+          onRemoveProject={onRemoveProject}
+          onProjectColor={onProjectColor}
+        />
+        <WorkspaceProjectPicker
+          open={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          onPick={onAddProject}
+          excludeIds={projects.map((p) => p.id)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="workspace-grid-page relative z-[2] min-h-[100dvh]">
       <Header theme={theme} onThemeChange={onThemeChange} onAddProject={() => setPickerOpen(true)} hideOrbitOption={hideOrbitOption} />
@@ -380,7 +381,7 @@ function ProjectGrid({
                     onProject(project.id);
                   }}
                 />
-                <span className="grid size-10 place-items-center rounded-xl" style={{ background: "color-mix(in oklch, var(--tint) 16%, transparent)", color: tint }}>
+                <span className="project-card-icon grid size-10 place-items-center rounded-xl" style={{ background: "color-mix(in oklch, var(--tint) 16%, transparent)", color: tint }}>
                   <ProjectIcon k={project.icon} className="size-[18px]" />
                 </span>
                 <span className="project-arrow"><ArrowUpRight className="size-4" /></span>
@@ -436,24 +437,210 @@ function getThreeDCardStyle(theme: UiTheme, index: number, orbitRotation: number
   return {};
 }
 
-function ProjectBoard({
+/** "Fokus" (expand) — loyihalar 3x N grid'da, bosilganda o'sha karta joyida
+ *  kengayadi (tasklar shu yerning o'zida ko'rinadi), boshqalari o'ng
+ *  tomonga siqiladi — alohida ProjectBoard sahifasiga o'tmasdan. */
+function ExpandGrid({
+  projects,
+  hydrated,
+  onAddProject,
+  onRemoveProject,
+  onProjectColor,
+}: {
+  projects: WorkspaceProjectRow[];
+  hydrated: boolean;
+  onAddProject: () => void;
+  onRemoveProject: (projectId: string) => void;
+  onProjectColor: (projectId: string, color: NonNullable<Project["color"]>) => void;
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const columns = 3;
+  const rows = Math.max(1, Math.ceil(projects.length / columns));
+  const others = projects.filter((p) => p.id !== expandedId);
+
+  function getCellStyle(project: WorkspaceProjectRow, index: number): React.CSSProperties {
+    if (expandedId === null) {
+      const col = index % columns;
+      const row = Math.floor(index / columns);
+      return { left: `${(col / columns) * 100}%`, top: `${(row / rows) * 100}%`, width: `${100 / columns}%`, height: `${100 / rows}%` };
+    }
+    if (project.id === expandedId) {
+      return { left: 0, top: 0, width: `${(2 / 3) * 100}%`, height: "100%" };
+    }
+    const pos = others.findIndex((item) => item.id === project.id);
+    const slotHeight = 100 / Math.max(1, others.length);
+    return { left: `${(2 / 3) * 100}%`, top: `${pos * slotHeight}%`, width: `${(1 / 3) * 100}%`, height: `${slotHeight}%` };
+  }
+
+  if (!hydrated) {
+    return <section className="expand-shell"><p className="py-24 text-center text-[13px] text-white/30">Yuklanmoqda...</p></section>;
+  }
+
+  return (
+    <section className="expand-shell">
+      <div className="expand-grid">
+        {projects.map((project, index) => (
+          <div key={project.id} className="expand-cell" style={getCellStyle(project, index)}>
+            {project.id === expandedId ? (
+              <ExpandedProjectCard
+                project={project}
+                onClose={() => setExpandedId(null)}
+                onRemoveProject={() => { onRemoveProject(project.id); setExpandedId(null); }}
+                onProjectColor={(color) => onProjectColor(project.id, color)}
+              />
+            ) : (
+              <CollapsedProjectCard
+                project={project}
+                compact={expandedId !== null}
+                onOpen={() => setExpandedId(project.id)}
+                onRemoveProject={() => onRemoveProject(project.id)}
+                onProjectColor={(color) => onProjectColor(project.id, color)}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      {projects.length === 0 && <p className="py-24 text-center text-[13px] text-white/30">Hali loyiha yo&apos;q</p>}
+      <button type="button" className="expand-fab" onClick={onAddProject} aria-label="Yangi loyiha"><Plus className="size-5" /></button>
+    </section>
+  );
+}
+
+function CollapsedProjectCard({
   project,
-  onBack,
-  onRemoveFromWorkspace,
+  compact,
+  onOpen,
+  onRemoveProject,
+  onProjectColor,
 }: {
   project: WorkspaceProjectRow;
-  onBack: () => void;
-  onRemoveFromWorkspace: () => void;
+  compact: boolean;
+  onOpen: () => void;
+  onRemoveProject: () => void;
+  onProjectColor: (color: NonNullable<Project["color"]>) => void;
 }) {
-  const { tasks, hydrated, create, update } = useProjectTasks(project.id);
+  const { tint, glow } = projectTint(project.color);
+  const percent = project.total ? Math.round((project.done / project.total) * 100) : 0;
+  return (
+    <div className={cn("expand-card", compact && "is-compact")} style={{ "--tint": tint, "--glow": glow } as React.CSSProperties}>
+      <button type="button" aria-label={`${project.title} loyihasini kengaytirish`} className="absolute inset-0 z-[1] rounded-[inherit] focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white/70" onClick={onOpen} />
+      <div className="flex items-start justify-between">
+        <span className="project-card-icon grid size-10 place-items-center rounded-xl" style={{ background: "color-mix(in oklch, var(--tint) 16%, transparent)", color: tint }}>
+          <ProjectIcon k={project.icon} className="size-[18px]" />
+        </span>
+        <span className="project-arrow"><ArrowUpRight className="size-4" /></span>
+      </div>
+      <div className="expand-card-mid">
+        <h2 className="project-title">{project.title}</h2>
+      </div>
+      <div>
+        <div className="mb-3 flex items-end justify-between">
+          <span className="project-task-count"><b>{project.done}</b> / {project.total} task</span>
+          <span className="project-percent" style={{ color: tint }}>{percent}%</span>
+        </div>
+        <div className="project-progress"><div style={{ width: `${percent}%`, background: tint }} /></div>
+      </div>
+      <WorkspaceProjectMenu title={project.title} color={project.color} onColor={onProjectColor} onRemove={onRemoveProject} />
+    </div>
+  );
+}
+
+function ExpandedProjectCard({
+  project,
+  onClose,
+  onRemoveProject,
+  onProjectColor,
+}: {
+  project: WorkspaceProjectRow;
+  onClose: () => void;
+  onRemoveProject: () => void;
+  onProjectColor: (color: NonNullable<Project["color"]>) => void;
+}) {
+  const { tint, glow } = projectTint(project.color);
+  const board = useProjectBoard(project.id);
   const [openedTask, setOpenedTask] = useState<ProjectTask | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  return (
+    <div className="expand-card is-expanded" style={{ "--tint": tint, "--glow": glow } as React.CSSProperties}>
+      <div className="expand-open-head">
+        <div className="flex items-start gap-4">
+          <span className="project-card-icon grid size-10 shrink-0 place-items-center rounded-xl" style={{ background: "color-mix(in oklch, var(--tint) 16%, transparent)", color: tint }}>
+            <ProjectIcon k={project.icon} className="size-[18px]" />
+          </span>
+          <h2 className="expand-open-title">{project.title}</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="expand-open-percent" style={{ color: tint }}>{board.taskProgress}%</span>
+          <WorkspaceProjectMenu placement="inline" title={project.title} color={project.color} onColor={onProjectColor} onRemove={onRemoveProject} />
+          <button type="button" className="glass-button" onClick={onClose} aria-label="Yopish"><X className="size-4" /></button>
+        </div>
+      </div>
+
+      <div className="expand-open-progress"><div style={{ width: `${board.taskProgress}%`, background: tint }} /></div>
+
+      <div className="expand-open-body">
+        <div className="expand-open-list-head">
+          <span className="eyebrow">TASKLAR</span>
+          <button type="button" className="expand-add-trigger" onClick={() => setPickerOpen(true)}>
+            <Plus className="size-3.5" />Task qo‘shish
+          </button>
+        </div>
+
+        {!board.hydrated ? (
+          <p className="expand-empty">Yuklanmoqda...</p>
+        ) : (
+          <div className="expand-task-list">
+            {board.activeTasks.map((task, index) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                index={index + 1}
+                dragging={board.draggedTaskId === task.id}
+                onOpen={() => setOpenedTask(task)}
+                onToggle={() => board.toggleTask(task.id)}
+                onDragStart={() => board.setDraggedTaskId(task.id)}
+                onDragOver={() => board.handleDragOver(task.id)}
+                onDrop={board.handleDragFinish}
+                onDragEnd={board.handleDragFinish}
+              />
+            ))}
+            {board.activeTasks.length === 0 && <p className="expand-empty">Barcha tasklar bajarildi.</p>}
+          </div>
+        )}
+      </div>
+
+      {openedTask && (
+        <TaskStatusModal
+          task={openedTask}
+          onClose={() => setOpenedTask(null)}
+          onDurationChange={(hours) => { board.update(openedTask.id, { durationHours: hours }); setOpenedTask({ ...openedTask, durationHours: hours }); }}
+          onSetStatus={(status) => { board.setStatus(openedTask.id, status); setOpenedTask(null); }}
+          onFinish={() => { board.setStatus(openedTask.id, "Tugallangan"); setOpenedTask(null); }}
+          onRemoveFromWorkspace={() => { board.removeFromWorkspace(openedTask.id); setOpenedTask(null); }}
+        />
+      )}
+
+      <WorkspaceTaskPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        tasks={board.notInWorkspace}
+        onCreate={(title, hours) => { board.createTask(title, hours); setPickerOpen(false); }}
+        onAddExisting={(taskId, hours) => { board.addExistingTask(taskId, hours); setPickerOpen(false); }}
+      />
+    </div>
+  );
+}
+
+/** ProjectBoard (Index/Orbit) va ExpandedProjectCard (Fokus) o'rtasida
+ *  umumiy — bitta loyihaning workspace-tasklarini yuklash, tartiblash va
+ *  ularga amal qilish (holat/davomiylik/drag-tartib/workspace'dan olib
+ *  tashlash) mantiqi. */
+function useProjectBoard(projectId: string) {
+  const { tasks, hydrated, create, update } = useProjectTasks(projectId);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOrderIds, setDragOrderIds] = useState<string[] | null>(null);
   const [finishingCurrent, setFinishingCurrent] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const { tint, glow } = projectTint(project.color);
 
   const boardTasksBase = useMemo(
     () => tasks.filter((t) => t.inWorkspaceAt).sort((a, b) => (a.workspaceOrder ?? 0) - (b.workspaceOrder ?? 0)),
@@ -470,38 +657,6 @@ function ProjectBoard({
   const completedTasks = boardTasks.filter((t) => t.done);
   const currentTask = boardTasks.find((t) => t.inProgress && !t.done) ?? null;
   const taskProgress = boardTasks.length ? Math.round((completedTasks.length / boardTasks.length) * 100) : 0;
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
-        if (!pickerOpen && !openedTask && !menuOpen) return;
-        event.preventDefault();
-        if (pickerOpen) setPickerOpen(false);
-        else if (openedTask) setOpenedTask(null);
-        else setMenuOpen(false);
-        return;
-      }
-      const matchesModifier = event.altKey && !event.metaKey && !event.ctrlKey;
-      if (event.code !== "KeyN" || !matchesModifier || event.shiftKey || event.isComposing || event.defaultPrevented) return;
-      const target = event.target;
-      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox']"))) return;
-      event.preventDefault();
-      if (event.repeat || pickerOpen || openedTask) return;
-      setMenuOpen(false);
-      setPickerOpen(true);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [pickerOpen, openedTask, menuOpen]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onDown(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [menuOpen]);
 
   function toggleTask(taskId: string) {
     const t = boardTasks.find((x) => x.id === taskId);
@@ -557,6 +712,131 @@ function ProjectBoard({
     void refreshWorkspaceProjects();
   }
 
+  function createTask(title: string, hours: number) {
+    create({ title, durationHours: hours, inWorkspaceAt: new Date().toISOString(), workspaceOrder: boardTasks.length });
+  }
+
+  function addExistingTask(taskId: string, hours: number) {
+    update(taskId, { inWorkspaceAt: new Date().toISOString(), workspaceOrder: boardTasks.length, durationHours: hours });
+    void refreshWorkspaceProjects();
+  }
+
+  return {
+    tasks, hydrated, update,
+    boardTasks, notInWorkspace, activeTasks, completedTasks, currentTask, taskProgress,
+    toggleTask, setStatus, removeFromWorkspace, createTask, addExistingTask,
+    draggedTaskId, setDraggedTaskId, handleDragOver, handleDragFinish,
+    finishingCurrent, finishCurrentTask,
+  };
+}
+
+/** Task holati/davomiyligi/workspace'dan chiqarish — ProjectBoard va
+ *  ExpandedProjectCard bir xil modalni ishlatadi. `onFinish` chaqiruvchiga
+ *  qoldirilgan: ProjectBoard "hozirgi task" widget'ini animatsiya bilan
+ *  yopadi, Fokus'da esa bunday widget yo'q — to'g'ridan-to'g'ri yakunlaydi. */
+function TaskStatusModal({
+  task,
+  onClose,
+  onDurationChange,
+  onSetStatus,
+  onFinish,
+  onRemoveFromWorkspace,
+}: {
+  task: ProjectTask;
+  onClose: () => void;
+  onDurationChange: (hours: number) => void;
+  onSetStatus: (status: BoardStatus) => void;
+  onFinish: () => void;
+  onRemoveFromWorkspace: () => void;
+}) {
+  return (
+    <div className="task-status-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div className="task-status-modal">
+        <div className="task-status-modal-head"><span>Task holati</span><button type="button" onClick={onClose}><X className="size-4" /></button></div>
+        <h3>{task.title}</h3>
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-[13px] text-white/45">Davomiyligi</span>
+          <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[.03] p-0.5 text-[11px] font-medium">
+            {[1, 4].map((h) => (
+              <button
+                key={h}
+                type="button"
+                onClick={() => onDurationChange(h)}
+                className={cn("rounded-md px-2.5 py-1 transition-colors", (task.durationHours ?? 1) === h ? "bg-white/15 text-white" : "text-white/40 hover:text-white/70")}
+              >
+                {h} soat
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="task-status-actions">
+          {taskStatus(task) === "Jarayonda" ? (
+            <button type="button" className="start" onClick={() => onSetStatus("Rejada")}><ArrowLeft className="size-4" /><span><b>Rejaga qaytarish</b><small>Task kutuvdagi tasklar qatoriga qaytadi</small></span></button>
+          ) : (
+            <button type="button" className="start" onClick={() => onSetStatus("Jarayonda")}><Play className="size-4 fill-current" /><span><b>Jarayonga o‘tkazish</b><small>Faol/joriy task deb belgilanadi</small></span></button>
+          )}
+          <button type="button" className="finish" onClick={onFinish}><Check className="size-4" /><span><b>Bajarildi</b><small>Task yakunlanganlar ro‘yxatiga o‘tadi</small></span></button>
+        </div>
+        <button
+          type="button"
+          onClick={onRemoveFromWorkspace}
+          className="mt-3 w-full rounded-xl border border-white/10 py-2.5 text-center text-[12.5px] font-medium text-white/45 transition-colors hover:bg-white/[.04] hover:text-white/75"
+        >
+          Workspace&apos;dan olib tashlash
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ProjectBoard({
+  project,
+  onBack,
+  onRemoveFromWorkspace,
+}: {
+  project: WorkspaceProjectRow;
+  onBack: () => void;
+  onRemoveFromWorkspace: () => void;
+}) {
+  const board = useProjectBoard(project.id);
+  const [openedTask, setOpenedTask] = useState<ProjectTask | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { tint, glow } = projectTint(project.color);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
+        if (!pickerOpen && !openedTask && !menuOpen) return;
+        event.preventDefault();
+        if (pickerOpen) setPickerOpen(false);
+        else if (openedTask) setOpenedTask(null);
+        else setMenuOpen(false);
+        return;
+      }
+      const matchesModifier = event.altKey && !event.metaKey && !event.ctrlKey;
+      if (event.code !== "KeyN" || !matchesModifier || event.shiftKey || event.isComposing || event.defaultPrevented) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox']"))) return;
+      event.preventDefault();
+      if (event.repeat || pickerOpen || openedTask) return;
+      setMenuOpen(false);
+      setPickerOpen(true);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pickerOpen, openedTask, menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
+
   return (
     <div className="relative z-[2] min-h-[100dvh]">
       <header className="flex h-[76px] items-center justify-between border-b border-white/[.07] px-5 md:px-9">
@@ -578,96 +858,67 @@ function ProjectBoard({
       </header>
       <section className="project-board-content px-5 py-5 md:px-9 md:py-7" style={{ "--tint": tint, "--glow": glow } as React.CSSProperties}>
         <div className="project-hero mb-5">
-          <div className={cn("hero-current-task", currentTask && "has-task", finishingCurrent && "is-finishing")} role={currentTask ? "button" : undefined} tabIndex={currentTask ? 0 : undefined} onClick={() => currentTask && !finishingCurrent && setOpenedTask(currentTask)} onKeyDown={(event) => { if (event.target === event.currentTarget && currentTask && (event.key === "Enter" || event.key === " ")) setOpenedTask(currentTask); }}>
+          <div className={cn("hero-current-task", board.currentTask && "has-task", board.finishingCurrent && "is-finishing")} role={board.currentTask ? "button" : undefined} tabIndex={board.currentTask ? 0 : undefined} onClick={() => board.currentTask && !board.finishingCurrent && setOpenedTask(board.currentTask)} onKeyDown={(event) => { if (event.target === event.currentTarget && board.currentTask && (event.key === "Enter" || event.key === " ")) setOpenedTask(board.currentTask); }}>
             <span><span className="live-bars"><i /><i /><i /></span>JARAYONDA</span>
-            {currentTask ? <strong>{currentTask.title}</strong> : <strong className="empty">Aktiv task yo‘q</strong>}
-            {currentTask && <div className="hero-current-footer"><small>{formatDuration(currentTask.durationHours)} · Cardni bosib holatini boshqaring</small><button type="button" onClick={(event) => { event.stopPropagation(); finishCurrentTask(); }} aria-label="Taskni bajarildi deb belgilash" className="hero-task-checkbox">{finishingCurrent && <Check className="task-check-icon size-4" />}</button></div>}
+            {board.currentTask ? <strong>{board.currentTask.title}</strong> : <strong className="empty">Aktiv task yo‘q</strong>}
+            {board.currentTask && <div className="hero-current-footer"><small>{formatDuration(board.currentTask.durationHours)} · Cardni bosib holatini boshqaring</small><button type="button" onClick={(event) => { event.stopPropagation(); board.finishCurrentTask(); }} aria-label="Taskni bajarildi deb belgilash" className="hero-task-checkbox">{board.finishingCurrent && <Check className="task-check-icon size-4" />}</button></div>}
           </div>
           <div className="project-hero-summary">
             <div>
               <h1 className="text-[clamp(32px,4vw,56px)] font-semibold leading-none tracking-[-.055em]">{project.title}</h1>
             </div>
-            <div className="project-score"><strong>{taskProgress}%</strong><span>yakunlandi</span></div>
+            <div className="project-score"><strong>{board.taskProgress}%</strong><span>yakunlandi</span></div>
           </div>
         </div>
 
         <div className="space-layout">
           <section className="task-feed">
             <div className="section-heading"><div><span className="eyebrow">FOCUSED WORK</span><h2>Hozirgi tasklar</h2></div><button type="button" onClick={() => setPickerOpen(true)} className="new-project"><Plus className="size-4" />Task qo‘shish</button></div>
-            {!hydrated ? (
+            {!board.hydrated ? (
               <ListLoader />
-            ) : activeTasks.length === 0 && completedTasks.length === 0 ? (
+            ) : board.activeTasks.length === 0 && board.completedTasks.length === 0 ? (
               <p className="py-16 text-center text-[13px] text-white/30">Hali task yo&apos;q — &quot;Task qo&apos;shish&quot;ni bosing</p>
             ) : (
-            <div className="task-list">{activeTasks.map((task, index) => <TaskRow key={task.id} task={task} index={index + 1} dragging={draggedTaskId === task.id} onOpen={() => setOpenedTask(task)} onToggle={() => toggleTask(task.id)} onDragStart={() => setDraggedTaskId(task.id)} onDragOver={() => handleDragOver(task.id)} onDrop={handleDragFinish} onDragEnd={handleDragFinish} />)}</div>
+            <div className="task-list">{board.activeTasks.map((task, index) => <TaskRow key={task.id} task={task} index={index + 1} dragging={board.draggedTaskId === task.id} onOpen={() => setOpenedTask(task)} onToggle={() => board.toggleTask(task.id)} onDragStart={() => board.setDraggedTaskId(task.id)} onDragOver={() => board.handleDragOver(task.id)} onDrop={board.handleDragFinish} onDragEnd={board.handleDragFinish} />)}</div>
             )}
           </section>
 
           <aside className="project-aside">
             <div className="aside-block">
               <span className="eyebrow">PROGRESS</span>
-              <div className="mt-5 flex items-end justify-between"><strong className="text-[48px] font-medium leading-none tracking-[-.06em]">{completedTasks.length}<span className="text-white/22">/{boardTasks.length}</span></strong><span className="pb-1 text-[12px] text-white/35">task</span></div>
-              <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/[.07]"><div className="h-full rounded-full" style={{ width: `${taskProgress}%`, background: tint }} /></div>
+              <div className="mt-5 flex items-end justify-between"><strong className="text-[48px] font-medium leading-none tracking-[-.06em]">{board.completedTasks.length}<span className="text-white/22">/{board.boardTasks.length}</span></strong><span className="pb-1 text-[12px] text-white/35">task</span></div>
+              <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/[.07]"><div className="h-full rounded-full" style={{ width: `${board.taskProgress}%`, background: tint }} /></div>
             </div>
             <div className="aside-block">
-              <div className="mb-3 flex items-center justify-between"><span className="eyebrow">YAKUNLANGAN</span><span className="text-[10px] text-white/25">{completedTasks.length}</span></div>
-              {completedTasks.map((task) => <div key={task.id} className="flex w-full items-center gap-3 border-t border-white/[.07] py-3"><span className="min-w-0 flex-1 text-[11.5px] text-white/38 line-through">{task.title}</span><button type="button" onClick={() => toggleTask(task.id)} aria-label={`${task.title} taskini qayta ochish`} className="grid size-5 shrink-0 place-items-center rounded-md bg-[#a9d6c1] text-[#183127]"><Check className="size-3" /></button></div>)}
+              <div className="mb-3 flex items-center justify-between"><span className="eyebrow">YAKUNLANGAN</span><span className="text-[10px] text-white/25">{board.completedTasks.length}</span></div>
+              {board.completedTasks.map((task) => <div key={task.id} className="flex w-full items-center gap-3 border-t border-white/[.07] py-3"><span className="min-w-0 flex-1 text-[11.5px] text-white/38 line-through">{task.title}</span><button type="button" onClick={() => board.toggleTask(task.id)} aria-label={`${task.title} taskini qayta ochish`} className="grid size-5 shrink-0 place-items-center rounded-md bg-[#a9d6c1] text-[#183127]"><Check className="size-3" /></button></div>)}
             </div>
           </aside>
         </div>
       </section>
+
       {openedTask && (
-        <div className="task-status-modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setOpenedTask(null)}>
-          <div className="task-status-modal">
-            <div className="task-status-modal-head"><span>Task holati</span><button type="button" onClick={() => setOpenedTask(null)}><X className="size-4" /></button></div>
-            <h3>{openedTask.title}</h3>
-            <div className="mt-3 flex items-center justify-between">
-              <span className="text-[13px] text-white/45">Davomiyligi</span>
-              <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[.03] p-0.5 text-[11px] font-medium">
-                {[1, 4].map((h) => (
-                  <button
-                    key={h}
-                    type="button"
-                    onClick={() => { update(openedTask.id, { durationHours: h }); setOpenedTask({ ...openedTask, durationHours: h }); }}
-                    className={cn("rounded-md px-2.5 py-1 transition-colors", (openedTask.durationHours ?? 1) === h ? "bg-white/15 text-white" : "text-white/40 hover:text-white/70")}
-                  >
-                    {h} soat
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="task-status-actions">
-              {taskStatus(openedTask) === "Jarayonda" ? (
-                <button type="button" className="start" onClick={() => { setStatus(openedTask.id, "Rejada"); setOpenedTask(null); }}><ArrowLeft className="size-4" /><span><b>Rejaga qaytarish</b><small>Task kutuvdagi tasklar qatoriga qaytadi</small></span></button>
-              ) : (
-                <button type="button" className="start" onClick={() => { setStatus(openedTask.id, "Jarayonda"); setOpenedTask(null); }}><Play className="size-4 fill-current" /><span><b>Jarayonga o‘tkazish</b><small>Headerda aktiv task bo‘lib ko‘rinadi</small></span></button>
-              )}
-              <button type="button" className="finish" onClick={() => { const isCurrent = taskStatus(openedTask) === "Jarayonda"; setOpenedTask(null); if (isCurrent) finishCurrentTask(); else setStatus(openedTask.id, "Tugallangan"); }}><Check className="size-4" /><span><b>Bajarildi</b><small>Task yakunlanganlar ro‘yxatiga o‘tadi</small></span></button>
-            </div>
-            <button
-              type="button"
-              onClick={() => { removeFromWorkspace(openedTask.id); setOpenedTask(null); }}
-              className="mt-3 w-full rounded-xl border border-white/10 py-2.5 text-center text-[12.5px] font-medium text-white/45 transition-colors hover:bg-white/[.04] hover:text-white/75"
-            >
-              Workspace&apos;dan olib tashlash
-            </button>
-          </div>
-        </div>
+        <TaskStatusModal
+          task={openedTask}
+          onClose={() => setOpenedTask(null)}
+          onDurationChange={(hours) => { board.update(openedTask.id, { durationHours: hours }); setOpenedTask({ ...openedTask, durationHours: hours }); }}
+          onSetStatus={(status) => { board.setStatus(openedTask.id, status); setOpenedTask(null); }}
+          onFinish={() => {
+            const isCurrent = taskStatus(openedTask) === "Jarayonda";
+            setOpenedTask(null);
+            if (isCurrent) board.finishCurrentTask();
+            else board.setStatus(openedTask.id, "Tugallangan");
+          }}
+          onRemoveFromWorkspace={() => { board.removeFromWorkspace(openedTask.id); setOpenedTask(null); }}
+        />
       )}
 
       <WorkspaceTaskPicker
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        tasks={notInWorkspace}
-        onCreate={(title, hours) => {
-          create({ title, durationHours: hours, inWorkspaceAt: new Date().toISOString(), workspaceOrder: boardTasks.length });
-          setPickerOpen(false);
-        }}
-        onAddExisting={(taskId, hours) => {
-          update(taskId, { inWorkspaceAt: new Date().toISOString(), workspaceOrder: boardTasks.length, durationHours: hours });
-          void refreshWorkspaceProjects();
-          setPickerOpen(false);
-        }}
+        tasks={board.notInWorkspace}
+        onCreate={(title, hours) => { board.createTask(title, hours); setPickerOpen(false); }}
+        onAddExisting={(taskId, hours) => { board.addExistingTask(taskId, hours); setPickerOpen(false); }}
       />
     </div>
   );
@@ -719,7 +970,7 @@ const styles = `
   .ambient { position: fixed; border-radius: 999px; filter: blur(90px); pointer-events: none; opacity: .18; }
   .ambient-one { width: 34vw; height: 34vw; left: -12vw; top: 18vh; background: #5c8f78; }
   .ambient-two { width: 28vw; height: 28vw; right: -8vw; bottom: -8vh; background: #826c91; }
-  .workspace-header { height:80px;padding-block:8px; }
+  .workspace-header { position:sticky;top:0;z-index:30;height:80px;padding-block:8px;background:rgba(12,15,18,.72);backdrop-filter:blur(20px) saturate(140%); }
   .navbar-inner { width:calc(100% - 72px);height:100%;display:flex;align-items:center;justify-content:space-between;margin-inline:auto; }
   .glass-button { display: flex; height: 38px; width: 38px; flex-shrink:0; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.09); border-radius: 10px; background: rgba(255,255,255,.045); color: rgba(255,255,255,.6); font-size: 13px; backdrop-filter: blur(18px); transition: .2s ease; }
   .glass-button:hover { background: rgba(255,255,255,.09); color: white; }
@@ -1488,20 +1739,57 @@ const styles = `
     .theme-obsidian .task-feed,.theme-obsidian .project-aside { height:auto;overflow:visible; }
     .theme-obsidian .task-list { overflow:visible; }
   }
-  .workspace-lab[data-background] { --background-dock-space:calc(80px + env(safe-area-inset-bottom, 0px));padding-bottom:var(--background-dock-space);background:#0c0f12; }
-  .workspace-lab[data-background]::before { background:var(--workspace-backdrop);pointer-events:none; }
-  .workspace-lab[data-background] > .ambient { display:none; }
-  .workspace-lab[data-background] .workspace-grid-page { min-height:calc(100dvh - var(--background-dock-space)); }
-  .workspace-lab[data-background] .project-board-content { height:calc(100dvh - 76px - var(--background-dock-space)); }
-  .workspace-lab[data-background] > div:has(> .project-board-content) { min-height:calc(100dvh - var(--background-dock-space)); }
-  .workspace-lab[data-background].theme-orbit .project-grid { height:max(560px,calc(100dvh - 80px - var(--background-dock-space))); }
-  .workspace-background-dock { position:fixed;z-index:10;bottom:calc(12px + env(safe-area-inset-bottom, 0px));left:50%;transform:translateX(-50%);display:flex;gap:4px;max-width:calc(100vw - 16px);padding:6px;border:1px solid rgba(255,255,255,.14);border-radius:18px;background:rgba(12,15,18,.88);backdrop-filter:blur(24px);box-shadow:0 8px 32px rgba(0,0,0,.3); }
-  .workspace-background-dock button { display:flex;min-width:0;min-height:44px;align-items:center;justify-content:center;gap:7px;padding:8px 12px;border-radius:12px;color:rgba(255,255,255,.6);font-size:12px;white-space:nowrap;transition:background .2s,color .2s; }
-  .workspace-background-dock button:hover { background:rgba(255,255,255,.07);color:white; }
-  .workspace-background-dock button[aria-pressed="true"] { background:rgba(255,255,255,.13);color:white; }
-  .workspace-background-dock button:focus-visible { outline:2px solid white;outline-offset:1px; }
-  .background-swatch { display:grid;place-items:center;width:20px;height:20px;flex-shrink:0;border-radius:50%;border:1px solid rgba(255,255,255,.25);color:white; }
-  @media (max-width:920px) { .workspace-lab[data-background] .project-board-content { height:auto;min-height:calc(100dvh - 76px - var(--background-dock-space)); } }
-  @media (max-width:560px) { .workspace-background-dock { width:calc(100% - 24px);gap:2px;padding:4px; } .workspace-background-dock button { flex:1;flex-direction:column;gap:4px;padding:5px 2px;font-size:10px; } }
+  .workspace-lab[data-background="graphite"] { background:#0c0f12; }
+  .workspace-lab[data-background="graphite"]::before { background:radial-gradient(ellipse at 50% 0%, #353b40, transparent 65%), #0c0f12;pointer-events:none; }
+  .workspace-lab[data-background="graphite"] > .ambient { display:none; }
+  @media (max-width:700px) {
+    .theme-smoke .project-grid-section { padding:1px; }
+    .theme-smoke .project-grid { flex:none;grid-auto-rows:auto;gap:1px; }
+    .theme-smoke .project-card { display:block;min-height:132px;padding:16px 16px 42px; }
+    .theme-smoke .project-card-icon { display:none; }
+    .theme-smoke .project-card > div:nth-child(2) { margin-top:0;padding-right:88px; }
+    .theme-smoke .project-title { font-size:26px;line-height:1.15;overflow-wrap:anywhere; }
+    .theme-smoke .project-card > div:nth-child(3) { margin-top:14px; }
+    .theme-smoke .project-percent { position:absolute;top:16px;right:16px;font-size:34px;line-height:1; }
+    .theme-smoke .project-card > div:nth-child(3) > div:first-child { margin-bottom:8px; }
+    .theme-smoke .add-card { min-height:64px; }
+  }
   @media (prefers-reduced-motion: reduce) { .project-card, .task-panel { animation: none; } }
+
+  /* 17 Fokus — kattalashuvchi card, tasklar shu yerning o'zida */
+  .expand-shell { position:relative; width:100%; height:calc(100dvh - 80px); box-sizing:border-box; padding:14px; }
+  .expand-grid { position:relative; width:100%; height:100%; }
+  .expand-cell { position:absolute; box-sizing:border-box; padding:7px; transition:left .55s cubic-bezier(.16,1,.3,1),top .55s cubic-bezier(.16,1,.3,1),width .55s cubic-bezier(.16,1,.3,1),height .55s cubic-bezier(.16,1,.3,1); }
+  .expand-card { position:relative; display:flex; width:100%; height:100%; flex-direction:column; justify-content:space-between; overflow:hidden; border:1px solid rgba(255,255,255,.105); border-radius:22px; background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.022)); box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 20px 55px rgba(0,0,0,.18); backdrop-filter:blur(26px) saturate(118%); padding:24px; text-align:left; transition:background .25s ease,border-color .25s ease,padding .3s ease; }
+  .expand-card::before { content:""; position:absolute; z-index:0; width:180px; height:180px; right:-60px; top:-70px; border-radius:999px; background:var(--glow); filter:blur(38px); opacity:.6; pointer-events:none; }
+  .expand-card > *:not(button.absolute) { position:relative; z-index:1; }
+  .expand-card:hover { border-color:color-mix(in srgb,var(--tint) 35%,transparent); background:linear-gradient(145deg,rgba(255,255,255,.105),rgba(255,255,255,.032)); }
+  .expand-card-mid { margin:14px 0; }
+  .expand-card.is-compact { padding:16px; }
+  .expand-card.is-compact .expand-card-mid { margin:8px 0; }
+  .expand-card.is-compact .project-title { font-size:17px; }
+  .expand-card.is-compact .project-card-icon { width:32px; height:32px; font-size:11px; border-radius:9px; }
+  .expand-card.is-compact .project-arrow { width:26px; height:26px; }
+  .expand-card.is-expanded { padding:28px; }
+  .expand-open-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+  .expand-open-title { margin-top:2px; font-size:clamp(22px,2.4vw,32px); font-weight:650; letter-spacing:-.04em; color:rgba(255,255,255,.94); }
+  .expand-open-percent { font-size:22px; font-weight:650; letter-spacing:-.03em; }
+  .expand-open-progress { margin-top:18px; height:7px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.09); }
+  .expand-open-progress > div { height:100%; border-radius:inherit; transition:width .4s ease; }
+  .expand-open-body { display:flex; flex:1; min-height:0; flex-direction:column; margin-top:20px; }
+  .expand-open-list-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .expand-add-trigger { display:flex; align-items:center; gap:6px; height:34px; flex-shrink:0; border-radius:9px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); padding:0 12px; color:rgba(255,255,255,.7); font-size:12px; font-weight:600; transition:.2s ease; }
+  .expand-add-trigger:hover { background:rgba(255,255,255,.09); color:#fff; }
+  .expand-task-list { flex:1; min-height:0; margin-top:14px; overflow-y:auto; padding-right:2px; }
+  .expand-task-list .task-row { margin-bottom:9px; }
+  .expand-empty { margin-top:20px; color:rgba(255,255,255,.32); font-size:13px; }
+  .expand-fab { position:fixed; z-index:40; right:22px; bottom:22px; display:grid; place-items:center; width:52px; height:52px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:#e8e8e5; color:#151716; box-shadow:0 18px 45px rgba(0,0,0,.35); transition:.2s ease; }
+  .expand-fab:hover { background:#fff; transform:translateY(-2px); }
+  @media (max-width: 760px) {
+    .expand-shell { padding:12px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+    .expand-grid { position:static !important; height:auto !important; display:flex !important; flex-direction:column !important; gap:10px !important; padding-bottom:90px; }
+    .expand-cell { position:relative !important; inset:auto !important; left:auto !important; top:auto !important; width:100% !important; height:auto !important; padding:0 !important; }
+    .expand-card { min-height:170px; }
+    .expand-card.is-expanded { min-height:520px; }
+  }
 `;

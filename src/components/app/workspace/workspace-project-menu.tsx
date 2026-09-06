@@ -3,14 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, MoreHorizontal } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { CATEGORY_COLOR_KEYS, CATEGORY_PALETTE } from "@/lib/category-palette";
 import type { CategoryColor } from "@/lib/types";
 
-export function WorkspaceProjectMenu({ title, color, onColor, onRemove }: {
+export function WorkspaceProjectMenu({ title, color, onColor, onRemove, placement = "corner" }: {
   title: string;
   color?: CategoryColor;
   onColor: (color: CategoryColor) => void;
   onRemove: () => void;
+  /** "corner" — kartaning pastki-o'ng burchagiga mutlaq joylashadi (grid
+   *  kartalari). "inline" — chaqiruvchi o'z flex-qatoriga joylashtiradi
+   *  (masalan Fokus'ning kengaygan sarlavhasi). */
+  placement?: "corner" | "inline";
 }) {
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -37,7 +42,10 @@ export function WorkspaceProjectMenu({ title, color, onColor, onRemove }: {
   }, [position]);
   return <>
     <button ref={trigger} type="button" aria-label={`${title}: loyiha amallari`} aria-expanded={!!position} aria-haspopup="dialog"
-      className="absolute bottom-2 right-2 z-[2] grid size-8 place-items-center rounded-lg text-white/60 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white/70"
+      className={cn(
+        "z-[2] grid size-8 shrink-0 place-items-center rounded-lg text-white/60 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white/70",
+        placement === "corner" ? "absolute bottom-2 right-2" : "relative"
+      )}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={() => {
         if (position) { close(); return; }
