@@ -37,7 +37,7 @@ const THEME_STORAGE_KEY = "unumly:workspace:theme";
 // ochish" (klik) deb hisoblanadi. 8px juda tor edi — oddiy sichqoncha/trackpad
 // bosishida ham tabiiy titrash shuncha masofani osongina bosib o'tadi, natijada
 // klik doim "drag" deb noto'g'ri belgilanib, loyiha hech ochilmasdi.
-const ORBIT_DRAG_THRESHOLD = 18;
+const ORBIT_DRAG_THRESHOLD = 40;
 // Fokus — "boshqalar" ustunidagi har bir kichik kartaning sobit balandligi
 // (piksel, foiz emas) — shu bilan ichidagi nom/foiz/progress hech qachon
 // kesilib qolmaydi, loyihalar soni qancha ko'p bo'lishidan qat'iy nazar.
@@ -225,12 +225,25 @@ function ProjectGrid({
   const orbitSnapTimer = useRef<number | null>(null);
   const orbitSnapEndTimer = useRef<number | null>(null);
 
+  // Cmd+N (Mac) yoki Alt+N (Option+N/boshqa platforma) — loyiha qo'shish
+  // oynasini ochadi; Escape — ochiq bo'lsa yopadi.
   useEffect(() => {
-    if (!pickerOpen) return;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape" || event.isComposing || event.defaultPrevented) return;
+      if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
+        if (!pickerOpen) return;
+        event.preventDefault();
+        setPickerOpen(false);
+        return;
+      }
+      const matchesModifier =
+        (event.metaKey && !event.altKey && !event.ctrlKey) ||
+        (event.altKey && !event.metaKey && !event.ctrlKey);
+      if (event.code !== "KeyN" || !matchesModifier || event.shiftKey || event.isComposing || event.defaultPrevented) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox']"))) return;
       event.preventDefault();
-      setPickerOpen(false);
+      if (event.repeat || pickerOpen) return;
+      setPickerOpen(true);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -367,7 +380,10 @@ function ProjectGrid({
             return (
             <div
               key={project.id}
-              className="project-card group text-left"
+              role="button"
+              tabIndex={0}
+              aria-label={`${project.title} loyihasini ochish`}
+              className="project-card group cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white/70"
               style={{
                 "--tint": tint,
                 "--glow": glow,
@@ -375,20 +391,28 @@ function ProjectGrid({
                 animationDelay: `${index * 55}ms`,
                 ...getThreeDCardStyle(theme, index, orbitRotation, projects.length),
               } as React.CSSProperties}
+              // Klik to'g'ridan-to'g'ri shu kartaning o'ziga — ichidagi
+              // istalgan element (matn, ikonka) ustiga bosilsa ham, brauzer
+              // klikni yuqoriga (bubbling) shu yergacha ko'taradi, shu sabab
+              // 3D burilish/qatlamlash bilan bog'liq nozik hit-testing
+              // holatlariga (masalan sarlavha ustidan bosish ishlamasligi)
+              // butunlay bog'liq emas.
+              onClick={() => {
+                if (suppressProjectClick.current) {
+                  suppressProjectClick.current = false;
+                  return;
+                }
+                onProject(project.id);
+              }}
+              onKeyDown={(event) => {
+                if (event.target !== event.currentTarget) return;
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onProject(project.id);
+                }
+              }}
             >
               <div className="flex items-start justify-between">
-                <button
-                  type="button"
-                  aria-label={`${project.title} loyihasini ochish`}
-                  className="absolute inset-0 z-[1] rounded-[inherit] focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white/70"
-                  onClick={() => {
-                    if (suppressProjectClick.current) {
-                      suppressProjectClick.current = false;
-                      return;
-                    }
-                    onProject(project.id);
-                  }}
-                />
                 <span className="project-arrow ml-auto"><ArrowUpRight className="size-4" /></span>
               </div>
               <div className="mt-14 lg:mt-20">
@@ -436,6 +460,11 @@ function getThreeDCardStyle(theme: UiTheme, index: number, orbitRotation: number
       transform: `translate3d(calc(var(--orbit-radius) * ${Math.sin(angle)}), ${(1 - depth) * 58}px, ${depth * 380 - 190}px) rotateY(${-Math.sin(angle) * 46}deg) scale(${.58 + depth * .42})`,
       zIndex: Math.round(depth * 20),
       opacity: .58 + depth * .42,
+      // Faqat old (eng oldingi) karta bosilishi mumkin — orqadagi/yon
+      // kartalar 3D burchakda ekranda old kartaning ustiga (masalan
+      // sarlavha atrofiga) qisman kirib qolishi mumkin edi va ba'zida
+      // ularning ko'rinmas tugmasi bosishni "o'g'irlab" ketardi.
+      pointerEvents: depth > 0.85 ? "auto" : "none",
     };
   }
 
@@ -909,7 +938,7 @@ function ProjectBoard({
           </div>
           <div className="project-hero-summary">
             <div>
-              <h1 className="text-[clamp(32px,4vw,56px)] font-semibold leading-none tracking-[-.055em]">{project.title}</h1>
+              <h1 className="project-hero-title font-semibold tracking-[-.055em]">{project.title}</h1>
             </div>
             <div className="project-score"><strong>{board.taskProgress}%</strong><span>yakunlandi</span></div>
           </div>
@@ -994,13 +1023,25 @@ function TaskRow({ task, index, dragging, onOpen, onToggle, onDragStart, onDragO
       onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }}
       onDrop={(event) => { event.preventDefault(); onDrop(); }}
       onDragEnd={onDragEnd}
-      onClick={() => { if (wasDragged.current) { wasDragged.current = false; return; } onOpen(); }}
+      // O'ng tarafdagi 20% qism — kichik checkbox'ning o'ziga emas, shu
+      // butun zonaga bosilsa ham "bajarildi" ishlaydi (checkbox judayam
+      // kichik va aniq bosish qiyin edi). Qolgan 80% — batafsil oynani ochadi.
+      // Checkbox klaviatura bilan fokuslanib Enter/Space bilan ham
+      // ishlashi uchun saqlanib qoldi — shu holatda ham to'g'ri ishlaydi.
+      onClick={(event) => {
+        if (wasDragged.current) { wasDragged.current = false; return; }
+        const target = event.target as HTMLElement;
+        const rect = event.currentTarget.getBoundingClientRect();
+        const relativeX = (event.clientX - rect.left) / rect.width;
+        if (target.closest(".task-checkbox") || relativeX >= 0.8) completeTask();
+        else onOpen();
+      }}
       className={cn("task-row group w-full cursor-grab text-left active:cursor-grabbing", completing && "is-completing", collapsing && "is-collapsing", dragging && "is-dragging")}
     >
       <span className="task-index"><GripVertical className="task-grip size-4" />{String(index).padStart(2, "0")}</span>
       <span className="min-w-0 flex-1"><strong>{task.title}</strong></span>
       <span className="task-duration">{formatDuration(task.durationHours)}</span>
-      <button type="button" onClick={(event) => { event.stopPropagation(); completeTask(); }} disabled={completing} className="task-checkbox" aria-pressed={completing} aria-label={`${task.title} taskini bajarildi deb belgilash`}>
+      <button type="button" disabled={completing} className="task-checkbox" aria-pressed={completing} aria-label={`${task.title} taskini bajarildi deb belgilash`}>
         {completing && <Check className="task-check-icon size-3.5" />}
       </button>
     </div>
@@ -1755,7 +1796,12 @@ const styles = `
   .theme-obsidian .task-row.is-completing:hover { animation:taskGreenCard .7s cubic-bezier(.16,1,.3,1) forwards; }
   .project-board-content { width:100%;height:calc(100dvh - 76px);display:flex;flex-direction:column;overflow:hidden; }
   .theme-obsidian .project-hero { flex-shrink:0;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,.65fr);align-items:stretch;column-gap:18px; }
-  .project-hero-summary { position:relative;z-index:1;display:flex;min-width:0;flex-direction:column;justify-content:space-between;align-items:flex-end;padding:4px 0 2px;text-align:right; }
+  .project-hero-summary { position:relative;z-index:1;display:flex;min-width:0;flex-direction:column;justify-content:space-between;align-items:flex-end;padding:4px 0 2px;text-align:right;container-type:inline-size; }
+  /* Sarlavha o'lchami endi viewport'ga (vw) emas, shu ustunning HAQIQIY
+     kengligiga (container query, cqw) qarab moslashadi — nom uzun bo'lsa
+     ham hech qachon "Jarayonda" zonasiga o'tib ketmaydi, o'z joyida
+     kichrayadi va kerak bo'lsa 2 qatorgacha buriladi. */
+  .project-hero-title { min-width:0;max-width:100%;font-size:clamp(20px,9cqi,56px);line-height:1.08;overflow-wrap:break-word;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden; }
   .project-hero-summary .project-score { align-items:flex-end; }
   /* space-layout o'zi bitta cheklangan balandlikka ega bo'lib (flex:1 +
      min-height:0), ichida task-feed/aside mustaqil scroll qiladi (desktop,

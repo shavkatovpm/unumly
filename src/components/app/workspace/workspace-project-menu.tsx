@@ -47,14 +47,16 @@ export function WorkspaceProjectMenu({ title, color, onColor, onRemove, placemen
         placement === "corner" ? "absolute bottom-2 right-2" : "relative"
       )}
       onPointerDown={(event) => event.stopPropagation()}
-      onClick={() => {
+      onClick={(event) => {
+        event.stopPropagation();
         if (position) { close(); return; }
         const rect = trigger.current!.getBoundingClientRect();
         setPosition({ left: Math.max(8, Math.min(rect.right - 248, window.innerWidth - 256)), top: Math.max(8, Math.min(rect.top - 244, window.innerHeight - 252)) });
       }}><MoreHorizontal className="size-4" /></button>
     {position && createPortal(
       <div ref={panel} role="dialog" aria-label={`${title}: loyiha amallari`} className="fixed z-[100] w-[248px] max-h-[calc(100dvh-16px)] overflow-y-auto rounded-xl border border-white/15 bg-[#141615] p-3 text-white shadow-2xl" style={position}
-        onPointerDown={(event) => event.stopPropagation()}>
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}>
         <p className="mb-3 text-sm text-white/60">Rangini o‘zgartirish</p>
         <div className="grid grid-cols-6 gap-2">
           {CATEGORY_COLOR_KEYS.map((key) => <button key={key} type="button" title={CATEGORY_PALETTE[key].label} aria-label={CATEGORY_PALETTE[key].label} aria-pressed={(color ?? "slate") === key}
