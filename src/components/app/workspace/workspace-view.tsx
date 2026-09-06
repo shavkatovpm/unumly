@@ -18,7 +18,6 @@ import type { WorkspaceProjectRow } from "@/lib/projects-actions";
 import { useWorkspaceProjects, refreshWorkspaceProjects } from "@/lib/workspace-store";
 import { useProjectTasks } from "@/lib/project-tasks-store";
 import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
-import { ProjectIcon } from "../loyiha-icons";
 import { WorkspaceProjectPicker } from "./workspace-project-picker";
 import { WorkspaceTaskPicker } from "./workspace-task-picker";
 import { WorkspaceProjectMenu } from "./workspace-project-menu";
@@ -39,6 +38,15 @@ const THEME_STORAGE_KEY = "unumly:workspace:theme";
 // bosishida ham tabiiy titrash shuncha masofani osongina bosib o'tadi, natijada
 // klik doim "drag" deb noto'g'ri belgilanib, loyiha hech ochilmasdi.
 const ORBIT_DRAG_THRESHOLD = 18;
+// Fokus — "boshqalar" ustunidagi har bir kichik kartaning sobit balandligi
+// (piksel, foiz emas) — shu bilan ichidagi nom/foiz/progress hech qachon
+// kesilib qolmaydi, loyihalar soni qancha ko'p bo'lishidan qat'iy nazar.
+const OTHERS_CARD_HEIGHT = 160;
+const OTHERS_GAP = 10;
+// Fokus — grid rejimida har bir loyiha kartasining sobit qator balandligi
+// (piksel) — loyihalar ko'payib, qatorlar oshganda kartalar torayib
+// qolmasligi uchun (ilgari foizga asoslangan edi, endi emas).
+const GRID_CARD_HEIGHT = 300;
 
 function taskStatus(t: ProjectTask): BoardStatus {
   if (t.done) return "Tugallangan";
@@ -381,10 +389,7 @@ function ProjectGrid({
                     onProject(project.id);
                   }}
                 />
-                <span className="project-card-icon grid size-10 place-items-center rounded-xl" style={{ background: "color-mix(in oklch, var(--tint) 16%, transparent)", color: tint }}>
-                  <ProjectIcon k={project.icon} className="size-[18px]" />
-                </span>
-                <span className="project-arrow"><ArrowUpRight className="size-4" /></span>
+                <span className="project-arrow ml-auto"><ArrowUpRight className="size-4" /></span>
               </div>
               <div className="mt-14 lg:mt-20">
                 <h2 className="project-title">{project.title}</h2>
@@ -455,32 +460,37 @@ function ExpandGrid({
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const columns = 3;
-  const rows = Math.max(1, Math.ceil(projects.length / columns));
   const others = projects.filter((p) => p.id !== expandedId);
 
-  function getCellStyle(project: WorkspaceProjectRow, index: number): React.CSSProperties {
+  // Prototipdagi asl animatsiya: bosilgan karta o'zining grid pozitsiyasidan
+  // kengaygan (asosiy) joyga silliq o'tadi — bu bitta DOM elementi bo'lib
+  // qoladi (key={project.id}), shu sabab CSS transition ishlaydi. Balandlik
+  // foizga emas (loyihalar ko'payganda torayib ketmasligi uchun) sobit
+  // piksel qatorga asoslanadi.
+  function getMainCellStyle(project: WorkspaceProjectRow, index: number): React.CSSProperties {
     if (expandedId === null) {
       const col = index % columns;
       const row = Math.floor(index / columns);
-      return { left: `${(col / columns) * 100}%`, top: `${(row / rows) * 100}%`, width: `${100 / columns}%`, height: `${100 / rows}%` };
+      return { left: `${(col / columns) * 100}%`, top: `calc(${row} * ${GRID_CARD_HEIGHT}px)`, width: `${100 / columns}%`, height: `${GRID_CARD_HEIGHT}px` };
     }
-    if (project.id === expandedId) {
-      return { left: 0, top: 0, width: `${(2 / 3) * 100}%`, height: "100%" };
-    }
-    const pos = others.findIndex((item) => item.id === project.id);
-    const slotHeight = 100 / Math.max(1, others.length);
-    return { left: `${(2 / 3) * 100}%`, top: `${pos * slotHeight}%`, width: `${(1 / 3) * 100}%`, height: `${slotHeight}%` };
+    return { left: 0, top: 0, width: `${(2 / 3) * 100}%`, height: "100%" };
   }
 
   if (!hydrated) {
     return <section className="expand-shell"><p className="py-24 text-center text-[13px] text-white/30">Yuklanmoqda...</p></section>;
   }
 
+  // Asosiy (kengaygan yoki hali tanlanmagan) kartalar — grid <-> kengaygan
+  // orasida animatsiyalanadigan yagona to'plam. Kengaytirilganda faqat
+  // TANLANGAN loyiha shu yerda qoladi (o'z joyida, harakatsiz) — qolganlari
+  // pastdagi mustaqil scroll qiladigan ustunga o'tadi.
+  const mainProjects = expandedId === null ? projects : projects.filter((p) => p.id === expandedId);
+
   return (
     <section className="expand-shell">
       <div className="expand-grid">
-        {projects.map((project, index) => (
-          <div key={project.id} className="expand-cell" style={getCellStyle(project, index)}>
+        {mainProjects.map((project, index) => (
+          <div key={project.id} className="expand-cell" style={getMainCellStyle(project, index)}>
             {project.id === expandedId ? (
               <ExpandedProjectCard
                 project={project}
@@ -491,7 +501,7 @@ function ExpandGrid({
             ) : (
               <CollapsedProjectCard
                 project={project}
-                compact={expandedId !== null}
+                compact={false}
                 onOpen={() => setExpandedId(project.id)}
                 onRemoveProject={() => onRemoveProject(project.id)}
                 onProjectColor={(color) => onProjectColor(project.id, color)}
@@ -499,6 +509,21 @@ function ExpandGrid({
             )}
           </div>
         ))}
+        {expandedId !== null && (
+          <div className="expand-others-viewport">
+            {others.map((project) => (
+              <div key={project.id} className="expand-others-cell">
+                <CollapsedProjectCard
+                  project={project}
+                  compact
+                  onOpen={() => setExpandedId(project.id)}
+                  onRemoveProject={() => onRemoveProject(project.id)}
+                  onProjectColor={(color) => onProjectColor(project.id, color)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       {projects.length === 0 && <p className="py-24 text-center text-[13px] text-white/30">Hali loyiha yo&apos;q</p>}
       <button type="button" className="expand-fab" onClick={onAddProject} aria-label="Yangi loyiha"><Plus className="size-5" /></button>
@@ -523,17 +548,14 @@ function CollapsedProjectCard({
   const percent = project.total ? Math.round((project.done / project.total) * 100) : 0;
   return (
     <div className={cn("expand-card", compact && "is-compact")} style={{ "--tint": tint, "--glow": glow } as React.CSSProperties}>
-      <button type="button" aria-label={`${project.title} loyihasini kengaytirish`} className="absolute inset-0 z-[1] rounded-[inherit] focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white/70" onClick={onOpen} />
-      <div className="flex items-start justify-between">
-        <span className="project-card-icon grid size-10 place-items-center rounded-xl" style={{ background: "color-mix(in oklch, var(--tint) 16%, transparent)", color: tint }}>
-          <ProjectIcon k={project.icon} className="size-[18px]" />
-        </span>
+      <button type="button" aria-label={`${project.title} loyihasini kengaytirish`} className="absolute inset-0 z-[2] rounded-[inherit] focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white/70" onClick={onOpen} />
+      <div className="flex items-start justify-end">
         <span className="project-arrow"><ArrowUpRight className="size-4" /></span>
       </div>
       <div className="expand-card-mid">
         <h2 className="project-title">{project.title}</h2>
       </div>
-      <div>
+      <div className="expand-card-footer">
         <div className="mb-3 flex items-end justify-between">
           <span className="project-task-count"><b>{project.done}</b> / {project.total} task</span>
           <span className="project-percent" style={{ color: tint }}>{percent}%</span>
@@ -561,13 +583,35 @@ function ExpandedProjectCard({
   const [openedTask, setOpenedTask] = useState<ProjectTask | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  // Alt+N (Option+N) — shu ochiq loyihaga tez task qo'shish oynasini ochadi;
+  // Escape — ochiq oyna/modalni ustuvorlik tartibida yopadi. ProjectBoard'dagi
+  // bilan bir xil qisqa yo'l, faqat "..." menyusiz (u o'z holatini o'zi
+  // boshqaradi).
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
+        if (!pickerOpen && !openedTask) return;
+        event.preventDefault();
+        if (pickerOpen) setPickerOpen(false);
+        else setOpenedTask(null);
+        return;
+      }
+      const matchesModifier = event.altKey && !event.metaKey && !event.ctrlKey;
+      if (event.code !== "KeyN" || !matchesModifier || event.shiftKey || event.isComposing || event.defaultPrevented) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox']"))) return;
+      event.preventDefault();
+      if (event.repeat || pickerOpen || openedTask) return;
+      setPickerOpen(true);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pickerOpen, openedTask]);
+
   return (
     <div className="expand-card is-expanded" style={{ "--tint": tint, "--glow": glow } as React.CSSProperties}>
       <div className="expand-open-head">
         <div className="flex items-start gap-4">
-          <span className="project-card-icon grid size-10 shrink-0 place-items-center rounded-xl" style={{ background: "color-mix(in oklch, var(--tint) 16%, transparent)", color: tint }}>
-            <ProjectIcon k={project.icon} className="size-[18px]" />
-          </span>
           <h2 className="expand-open-title">{project.title}</h2>
         </div>
         <div className="flex items-center gap-2">
@@ -1757,18 +1801,28 @@ const styles = `
   @media (prefers-reduced-motion: reduce) { .project-card, .task-panel { animation: none; } }
 
   /* 17 Fokus — kattalashuvchi card, tasklar shu yerning o'zida */
-  .expand-shell { position:relative; width:100%; height:calc(100dvh - 80px); box-sizing:border-box; padding:14px; }
+  .expand-shell { position:relative; width:100%; height:calc(100dvh - 80px); box-sizing:border-box; padding:14px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
   .expand-grid { position:relative; width:100%; height:100%; }
   .expand-cell { position:absolute; box-sizing:border-box; padding:7px; transition:left .55s cubic-bezier(.16,1,.3,1),top .55s cubic-bezier(.16,1,.3,1),width .55s cubic-bezier(.16,1,.3,1),height .55s cubic-bezier(.16,1,.3,1); }
-  .expand-card { position:relative; display:flex; width:100%; height:100%; flex-direction:column; justify-content:space-between; overflow:hidden; border:1px solid rgba(255,255,255,.105); border-radius:22px; background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.022)); box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 20px 55px rgba(0,0,0,.18); backdrop-filter:blur(26px) saturate(118%); padding:24px; text-align:left; transition:background .25s ease,border-color .25s ease,padding .3s ease; }
+  /* Boshqalar — asosiy kartadan mustaqil, o'z ichida scroll qiladigan
+     alohida oyna: asosiy karta scroll qilinganda ham joyidan qo'zg'almaydi. */
+  .expand-others-viewport { position:absolute; left:66.6667%; top:0; width:33.3333%; height:100%; box-sizing:border-box; padding:7px 7px 7px 0; overflow-y:auto; }
+  .expand-others-cell { height:${OTHERS_CARD_HEIGHT}px; margin-bottom:${OTHERS_GAP}px; animation:expandFadeIn .25s ease both; }
+  .expand-others-cell:last-child { margin-bottom:0; }
+  @keyframes expandFadeIn { from { opacity:0; } to { opacity:1; } }
+  .expand-card { position:relative; display:flex; width:100%; height:100%; flex-direction:column; overflow:hidden; border:1px solid rgba(255,255,255,.105); border-radius:22px; background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.022)); box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 20px 55px rgba(0,0,0,.18); backdrop-filter:blur(20px) saturate(118%); padding:24px; text-align:left; transition:background .25s ease,border-color .25s ease,padding .3s ease; }
   .expand-card::before { content:""; position:absolute; z-index:0; width:180px; height:180px; right:-60px; top:-70px; border-radius:999px; background:var(--glow); filter:blur(38px); opacity:.6; pointer-events:none; }
+  /* Kontent overlay tugmadan (z-2) pastroq (z-1) qatlamda — shu sabab
+     kartaning istalgan nuqtasiga (matn/ikonka ustiga ham) bosish har doim
+     ochish tugmasiga yetib boradi, matn uni "to'sib" qo'ymaydi. */
   .expand-card > *:not(button.absolute) { position:relative; z-index:1; }
   .expand-card:hover { border-color:color-mix(in srgb,var(--tint) 35%,transparent); background:linear-gradient(145deg,rgba(255,255,255,.105),rgba(255,255,255,.032)); }
   .expand-card-mid { margin:14px 0; }
+  .expand-card-footer { margin-top:auto; padding-top:18px; }
   .expand-card.is-compact { padding:16px; }
   .expand-card.is-compact .expand-card-mid { margin:8px 0; }
   .expand-card.is-compact .project-title { font-size:17px; }
-  .expand-card.is-compact .project-card-icon { width:32px; height:32px; font-size:11px; border-radius:9px; }
+  .expand-card.is-compact .project-card-icon { border-radius:9px; }
   .expand-card.is-compact .project-arrow { width:26px; height:26px; }
   .expand-card.is-expanded { padding:28px; }
   .expand-open-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
@@ -1789,6 +1843,7 @@ const styles = `
     .expand-shell { padding:12px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
     .expand-grid { position:static !important; height:auto !important; display:flex !important; flex-direction:column !important; gap:10px !important; padding-bottom:90px; }
     .expand-cell { position:relative !important; inset:auto !important; left:auto !important; top:auto !important; width:100% !important; height:auto !important; padding:0 !important; }
+    .expand-others-viewport { position:relative !important; left:auto !important; top:auto !important; width:100% !important; height:auto !important; padding:0 !important; overflow-y:visible !important; margin-top:10px; }
     .expand-card { min-height:170px; }
     .expand-card.is-expanded { min-height:520px; }
   }
