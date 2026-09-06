@@ -38,7 +38,7 @@ function rowsEqual(a: State, b: State) {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
     const x = a[i], y = b[i];
-    if (x.id !== y.id || x.title !== y.title || x.icon !== y.icon || x.color !== y.color || x.order !== y.order || x.archivedAt !== y.archivedAt || x.category !== y.category || x.targetHours !== y.targetHours) return false;
+    if (x.id !== y.id || x.title !== y.title || x.icon !== y.icon || x.color !== y.color || x.order !== y.order || x.archivedAt !== y.archivedAt || x.category !== y.category || x.targetHours !== y.targetHours || x.inWorkspaceAt !== y.inWorkspaceAt || x.workspaceOrder !== y.workspaceOrder) return false;
   }
   return true;
 }
@@ -64,10 +64,24 @@ export function createProject(input: CreateProjectInput): string {
   return id;
 }
 
-export function updateProject(id: string, patch: Partial<Project>): void {
+export function updateProject(id: string, patch: actions.UpdateProjectPatch): void {
   const prev = memoryState.find((p) => p.id === id);
   if (!prev) return;
-  memoryState = memoryState.map((p) => (p.id === id ? { ...p, ...patch } : p));
+  // `patch` (server-bound) allows explicit `null` to clear a nullable column;
+  // `Project` (in-memory) only ever has `string | undefined` for those same
+  // fields, so `null` is normalized to `undefined` before merging locally.
+  const localPatch: Partial<Project> = {
+    ...(patch.title !== undefined && { title: patch.title }),
+    ...(patch.icon !== undefined && { icon: patch.icon ?? undefined }),
+    ...(patch.color !== undefined && { color: patch.color ?? undefined }),
+    ...(patch.order !== undefined && { order: patch.order }),
+    ...(patch.archivedAt !== undefined && { archivedAt: patch.archivedAt ?? undefined }),
+    ...(patch.category !== undefined && { category: patch.category ?? undefined }),
+    ...(patch.targetHours !== undefined && { targetHours: patch.targetHours ?? undefined }),
+    ...(patch.inWorkspaceAt !== undefined && { inWorkspaceAt: patch.inWorkspaceAt ?? undefined }),
+    ...(patch.workspaceOrder !== undefined && { workspaceOrder: patch.workspaceOrder ?? undefined }),
+  };
+  memoryState = memoryState.map((p) => (p.id === id ? { ...p, ...localPatch } : p));
   emit();
   void withPending(actions.updateProject(id, {
     ...(patch.title !== undefined && { title: patch.title }),
@@ -77,6 +91,8 @@ export function updateProject(id: string, patch: Partial<Project>): void {
     ...(patch.archivedAt !== undefined && { archivedAt: patch.archivedAt ?? null }),
     ...(patch.category !== undefined && { category: patch.category ?? null }),
     ...(patch.targetHours !== undefined && { targetHours: patch.targetHours ?? null }),
+    ...(patch.inWorkspaceAt !== undefined && { inWorkspaceAt: patch.inWorkspaceAt ?? null }),
+    ...(patch.workspaceOrder !== undefined && { workspaceOrder: patch.workspaceOrder ?? null }),
   }).then((server) => { memoryState = memoryState.map((p) => (p.id === id ? server : p)); emit(); })
     .catch(() => { memoryState = memoryState.map((p) => (p.id === id ? prev : p)); emit(); }));
 }

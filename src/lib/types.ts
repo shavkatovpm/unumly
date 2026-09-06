@@ -170,6 +170,8 @@ export type Project = {
   archivedAt?: string;  // ISO datetime
   category?: LoyihaKategoriya;
   targetHours?: number; // haftalik maqsad soat
+  inWorkspaceAt?: string;  // ISO datetime — /workspace grid'ida bormi
+  workspaceOrder?: number;
 };
 
 /** Node in a project's page tree (Notion-style nested pages, arbitrary
@@ -199,6 +201,13 @@ export type ProjectTask = {
   dueDate?: string;  // YYYY-MM-DD
   order: number;
   createdAt: string; // ISO datetime
+  // Workspace (/workspace) — shu asosiy Jadval yozuvidan qo'shimcha,
+  // izolyatsiyalangan holat: haqiqiy o'chirish emas, faqat kesimga
+  // ko'rinish/tartib bayrog'i.
+  inProgress?: boolean;
+  durationHours?: number; // 1 yoki 4
+  inWorkspaceAt?: string; // ISO datetime
+  workspaceOrder?: number;
 };
 
 /* ─── Moliya (Finance) ─── */

@@ -27,6 +27,10 @@ function toTask(t: DbTask): ProjectTask {
     dueDate: t.dueDate ?? undefined,
     order: t.order,
     createdAt: t.createdAt.toISOString(),
+    inProgress: t.inProgress,
+    durationHours: t.durationHours ?? undefined,
+    inWorkspaceAt: t.inWorkspaceAt ? t.inWorkspaceAt.toISOString() : undefined,
+    workspaceOrder: t.workspaceOrder ?? undefined,
   };
 }
 
@@ -102,6 +106,9 @@ export type CreateProjectTaskInput = {
   title: string;
   priority?: PlanPriority;
   dueDate?: string;
+  durationHours?: number;
+  inWorkspaceAt?: string;
+  workspaceOrder?: number;
 };
 
 export async function createProjectTask(input: CreateProjectTaskInput): Promise<ProjectTask> {
@@ -120,6 +127,9 @@ export async function createProjectTask(input: CreateProjectTaskInput): Promise<
       priority: input.priority,
       dueDate: input.dueDate,
       order: (last?.order ?? -1) + 1,
+      durationHours: input.durationHours,
+      inWorkspaceAt: input.inWorkspaceAt ? new Date(input.inWorkspaceAt) : undefined,
+      workspaceOrder: input.workspaceOrder,
     },
   });
   if (row.dueDate) {
@@ -139,6 +149,10 @@ export type UpdateProjectTaskPatch = Partial<{
   priority: PlanPriority | null;
   dueDate: string | null;
   order: number;
+  inProgress: boolean;
+  durationHours: number | null;
+  inWorkspaceAt: string | null;
+  workspaceOrder: number | null;
 }>;
 
 export async function updateProjectTask(id: string, patch: UpdateProjectTaskPatch): Promise<ProjectTask> {
@@ -157,6 +171,12 @@ export async function updateProjectTask(id: string, patch: UpdateProjectTaskPatc
       ...(patch.priority !== undefined && { priority: patch.priority }),
       ...(patch.dueDate !== undefined && { dueDate: patch.dueDate }),
       ...(patch.order !== undefined && { order: patch.order }),
+      ...(patch.inProgress !== undefined && { inProgress: patch.inProgress }),
+      ...(patch.durationHours !== undefined && { durationHours: patch.durationHours }),
+      ...(patch.inWorkspaceAt !== undefined && {
+        inWorkspaceAt: patch.inWorkspaceAt ? new Date(patch.inWorkspaceAt) : null,
+      }),
+      ...(patch.workspaceOrder !== undefined && { workspaceOrder: patch.workspaceOrder }),
     },
   });
 

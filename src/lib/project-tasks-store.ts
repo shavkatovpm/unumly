@@ -49,7 +49,7 @@ export function useProjectTasks(projectId: string | null) {
   const hydrated = projectId ? cache.has(projectId) : false;
   const tasks = (projectId && cache.get(projectId)) || [];
 
-  const create = useCallback((input: { title: string; priority?: PlanPriority; dueDate?: string }): string => {
+  const create = useCallback((input: { title: string; priority?: PlanPriority; dueDate?: string; durationHours?: number; inWorkspaceAt?: string; workspaceOrder?: number }): string => {
     if (!projectId) return "";
     const id = nextId();
     const optimistic: ProjectTask = {
@@ -57,10 +57,16 @@ export function useProjectTasks(projectId: string | null) {
       priority: input.priority, dueDate: input.dueDate,
       order: (cache.get(projectId) ?? []).length,
       createdAt: new Date().toISOString(),
+      durationHours: input.durationHours,
+      inWorkspaceAt: input.inWorkspaceAt,
+      workspaceOrder: input.workspaceOrder,
     };
     cache.set(projectId, [...(cache.get(projectId) ?? []), optimistic]);
     emit(projectId);
-    void actions.createProjectTask({ id, projectId, title: optimistic.title, priority: input.priority, dueDate: input.dueDate })
+    void actions.createProjectTask({
+      id, projectId, title: optimistic.title, priority: input.priority, dueDate: input.dueDate,
+      durationHours: input.durationHours, inWorkspaceAt: input.inWorkspaceAt, workspaceOrder: input.workspaceOrder,
+    })
       .then((server) => {
         cache.set(projectId, (cache.get(projectId) ?? []).map((t) => (t.id === id ? server : t)));
         emit(projectId);
@@ -90,6 +96,10 @@ export function useProjectTasks(projectId: string | null) {
       ...("priority" in patch && { priority: patch.priority ?? null }),
       ...("dueDate" in patch && { dueDate: patch.dueDate ?? null }),
       ...(patch.order !== undefined && { order: patch.order }),
+      ...(patch.inProgress !== undefined && { inProgress: patch.inProgress }),
+      ...("durationHours" in patch && { durationHours: patch.durationHours ?? null }),
+      ...("inWorkspaceAt" in patch && { inWorkspaceAt: patch.inWorkspaceAt ?? null }),
+      ...("workspaceOrder" in patch && { workspaceOrder: patch.workspaceOrder ?? null }),
     }).catch(() => {
       cache.set(projectId, (cache.get(projectId) ?? []).map((t) => (t.id === id ? prev : t)));
       emit(projectId);

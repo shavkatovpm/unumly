@@ -364,6 +364,12 @@ model Project {
   category    String?
   targetHours Int?
 
+  // Workspace (/workspace): loyiha shu kesimga qo'shilganmi (null = yo'q) va
+  // grid'dagi tartibi. /loyiha'ning o'zi bilan bog'liq emas — faqat
+  // Workspace grid'ida ko'rinish-tartib uchun.
+  inWorkspaceAt  DateTime?
+  workspaceOrder Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -411,6 +417,14 @@ model ProjectTask {
   priority PlanPriority?
   dueDate  String?       @db.VarChar(10) // YYYY-MM-DD, ixtiyoriy
   order    Int           @default(0)
+
+  // Workspace (/workspace): shu task o'sha kesimga qo'shilganmi (null =
+  // yo'q), aktiv/hozir ishlanayotgan holati va taxminiy davomiyligi (1 yoki
+  // 4 soat, UI darajasida tekshiriladi — priority/color kabi erkin maydon).
+  inProgress     Boolean   @default(false)
+  durationHours  Int?
+  inWorkspaceAt  DateTime?
+  workspaceOrder Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
