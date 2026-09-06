@@ -61,6 +61,12 @@ export function useWorkspaceProjects() {
     emit();
   }
 
+  function changeProjectColor(id: string, color: NonNullable<Project["color"]>) {
+    updateProject(id, { color });
+    memoryState = memoryState.map((project) => project.id === id ? { ...project, color } : project);
+    emit();
+  }
+
   function reorder(ids: string[]) {
     const byId = new Map(memoryState.map((p) => [p.id, p]));
     memoryState = ids.map((id) => byId.get(id)).filter((p): p is WorkspaceProjectRow => !!p);
@@ -68,5 +74,5 @@ export function useWorkspaceProjects() {
     ids.forEach((id, i) => updateProject(id, { workspaceOrder: i }));
   }
 
-  return { projects, hydrated: isHydrated, addProject, removeProject, reorder };
+  return { projects, hydrated: isHydrated, addProject, removeProject, changeProjectColor, reorder };
 }

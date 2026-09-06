@@ -1,17 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   ArrowLeft,
   ArrowUpRight,
   Check,
-  Command,
   GripVertical,
   MoreHorizontal,
   Play,
   Plus,
-  Search,
-  Sparkles,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,6 +21,8 @@ import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
 import { ProjectIcon } from "../loyiha-icons";
 import { WorkspaceProjectPicker } from "./workspace-project-picker";
 import { WorkspaceTaskPicker } from "./workspace-task-picker";
+import { WorkspaceProjectMenu } from "./workspace-project-menu";
+import { ListLoader } from "../widgets/list-loader";
 
 type UiTheme = "obsidian" | "smoke" | "orbit";
 type BoardStatus = "Rejada" | "Jarayonda" | "Tugallangan";
@@ -33,6 +33,15 @@ const uiThemes: { id: UiTheme; number: string; name: string; note: string }[] = 
 ];
 
 const THEME_STORAGE_KEY = "unumly:workspace:theme";
+const BACKGROUND_STORAGE_KEY = "unumly:workspace:background";
+const backgrounds = [
+  { id: "graphite", name: "Grafit", swatch: "#555b60", value: "radial-gradient(ellipse at 50% 0%, #353b40, transparent 65%), #0c0f12" },
+  { id: "midnight", name: "Tun", swatch: "#426da8", value: "radial-gradient(ellipse at 80% 15%, #173a64, transparent 65%), radial-gradient(ellipse at 10% 90%, #13243e, transparent 60%), #070d19" },
+  { id: "forest", name: "O‘rmon", swatch: "#459579", value: "radial-gradient(ellipse at 15% 25%, #204f3b, transparent 65%), radial-gradient(ellipse at 85% 85%, #143c38, transparent 60%), #080f0c" },
+  { id: "aurora", name: "Aurora", swatch: "#9a72d0", value: "radial-gradient(ellipse at 10% 15%, #41285f, transparent 55%), radial-gradient(ellipse at 90% 75%, #164b54, transparent 60%), #100d1b" },
+  { id: "ember", name: "Shafaq", swatch: "#bd8055", value: "radial-gradient(ellipse at 75% 10%, #583727, transparent 60%), radial-gradient(ellipse at 10% 90%, #3e202f, transparent 60%), #140e0c" },
+] as const;
+type BackgroundId = typeof backgrounds[number]["id"];
 
 function taskStatus(t: ProjectTask): BoardStatus {
   if (t.done) return "Tugallangan";
@@ -56,6 +65,21 @@ function projectTint(color?: WorkspaceProjectRow["color"]): { tint: string; glow
 const MOBILE_QUERY = "(max-width: 700px)";
 
 export function WorkspaceView() {
+  const [background, setBackground] = useState<BackgroundId>("graphite");
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        const saved = window.localStorage.getItem(BACKGROUND_STORAGE_KEY);
+        const match = backgrounds.find((item) => item.id === saved);
+        if (match) setBackground(match.id);
+      } catch { /* Storage may be unavailable. */ }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+  function changeBackground(next: BackgroundId) {
+    setBackground(next);
+    try { window.localStorage.setItem(BACKGROUND_STORAGE_KEY, next); } catch { /* Keep the selection for this session. */ }
+  }
   const [theme, setTheme] = useState<UiTheme>(() => {
     if (typeof window === "undefined") return "smoke";
     const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -75,7 +99,30 @@ export function WorkspaceView() {
   const effectiveTheme: UiTheme = isMobile && theme === "orbit" ? "smoke" : theme;
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const { projects, hydrated, addProject, removeProject } = useWorkspaceProjects();
+  const { projects, hydrated, addProject, removeProject, changeProjectColor } = useWorkspaceProjects();
+  const sortedProjects = useMemo(
+    () => [...projects].sort((a, b) => {
+      const aProgress = a.total ? a.done / a.total : 0;
+      const bProgress = b.total ? b.done / b.total : 0;
+      return aProgress - bProgress;
+    }),
+    [projects]
+  );
+
+  useEffect(() => {
+    const restore = () => setSelectedProjectId(new URL(window.location.href).searchParams.get("project"));
+    restore();
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, []);
+
+  function selectProject(id: string | null) {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("project", id);
+    else url.searchParams.delete("project");
+    window.history.pushState(null, "", url);
+    setSelectedProjectId(id);
+  }
 
   function changeTheme(next: UiTheme) {
     setTheme(next);
@@ -85,7 +132,7 @@ export function WorkspaceView() {
   const selectedProject = selectedProjectId ? projects.find((p) => p.id === selectedProjectId) ?? null : null;
 
   return (
-    <main className={cn("workspace-lab theme-obsidian min-h-[100dvh] overflow-hidden", `theme-${selectedProject ? "obsidian" : effectiveTheme}`, "index-graphite", "orbit-mono")}>
+    <main data-background={background} style={{ "--workspace-backdrop": backgrounds.find((item) => item.id === background)!.value } as React.CSSProperties} className={cn("workspace-lab theme-obsidian min-h-[100dvh] overflow-hidden", `theme-${selectedProject ? "obsidian" : effectiveTheme}`, "index-graphite", "orbit-mono")}>
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
       <div className="workspace-noise" />
@@ -93,34 +140,47 @@ export function WorkspaceView() {
       {selectedProject ? (
         <ProjectBoard
           project={selectedProject}
-          onBack={() => setSelectedProjectId(null)}
-          onRemoveFromWorkspace={() => { removeProject(selectedProject.id); setSelectedProjectId(null); }}
+          onBack={() => selectProject(null)}
+          onRemoveFromWorkspace={() => { removeProject(selectedProject.id); selectProject(null); }}
         />
       ) : (
         <ProjectGrid
           theme={effectiveTheme}
           onThemeChange={changeTheme}
           hideOrbitOption={isMobile}
-          projects={projects}
+          projects={sortedProjects}
           hydrated={hydrated}
           onAddProject={addProject}
-          onProject={(id) => setSelectedProjectId(id)}
+          onRemoveProject={removeProject}
+          onProjectColor={changeProjectColor}
+          onProject={selectProject}
         />
       )}
 
+      <div className="workspace-background-dock" role="group" aria-label="Workspace foni">
+        {backgrounds.map((item) => (
+          <button key={item.id} type="button" aria-pressed={background === item.id} title={`${item.name} fon`} onClick={() => changeBackground(item.id)}>
+            <span className="background-swatch" style={{ background: item.swatch }}>{background === item.id && <Check aria-hidden="true" className="size-3" />}</span>
+            <span>{item.name}</span>
+          </button>
+        ))}
+      </div>
       <style>{styles}</style>
     </main>
   );
 }
 
-function Brand() {
+function BackToMain() {
   return (
-    <div className="navbar-brand flex shrink-0 items-center gap-3">
-      <div className="grid size-9 place-items-center rounded-xl border border-white/10 bg-white/[.06] shadow-inner backdrop-blur-xl"><Command className="size-[17px]" /></div>
-      <span className="text-[15px] font-semibold tracking-[-.02em]">unumly</span>
-      <span className="hidden h-4 w-px bg-white/15 sm:block" />
-      <span className="hidden text-[12px] text-white/38 sm:block">workspace</span>
-    </div>
+    <Link
+      href="/bugun"
+      aria-label="Asosiy qismga qaytish"
+      title="Asosiy qismga qaytish"
+      className="navbar-brand flex shrink-0 items-center gap-3 rounded-xl transition-colors hover:bg-white/[.06] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70"
+    >
+      <span className="grid size-9 place-items-center rounded-xl border border-white/10 bg-white/[.06] shadow-inner backdrop-blur-xl"><ArrowLeft aria-hidden="true" className="size-[17px]" /></span>
+      <span className="text-[15px] font-semibold tracking-[-.02em]">Asosiy qism</span>
+    </Link>
   );
 }
 
@@ -129,11 +189,9 @@ function Header({ theme, onThemeChange, onAddProject, hideOrbitOption }: { theme
   return (
     <header className="workspace-header relative z-10 h-[72px] border-b border-white/[.07]">
       <div className="navbar-inner">
-        <Brand />
+        <BackToMain />
         <div className="header-actions flex items-center gap-2">
         <div className="header-action-group">
-          <button aria-label="Qidiruv" className="glass-button"><Search className="size-4" /></button>
-          <button className="glass-button focus-button hidden gap-2 px-3 sm:flex"><Sparkles className="size-3.5 shrink-0" /><span>Bugungi fokus</span></button>
           <button type="button" onClick={onAddProject} className="navbar-new-project"><Plus className="size-4 shrink-0" /><span>Yangi loyiha</span></button>
         </div>
         {theme && onThemeChange && visibleThemes.length > 1 && (
@@ -159,6 +217,8 @@ function ProjectGrid({
   projects,
   hydrated,
   onAddProject,
+  onRemoveProject,
+  onProjectColor,
   onProject,
 }: {
   theme: UiTheme;
@@ -167,6 +227,8 @@ function ProjectGrid({
   projects: WorkspaceProjectRow[];
   hydrated: boolean;
   onAddProject: (project: Project) => void;
+  onRemoveProject: (projectId: string) => void;
+  onProjectColor: (projectId: string, color: NonNullable<Project["color"]>) => void;
   onProject: (projectId: string) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -180,6 +242,17 @@ function ProjectGrid({
   const orbitPointerCaptured = useRef(false);
   const orbitSnapTimer = useRef<number | null>(null);
   const orbitSnapEndTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape" || event.isComposing || event.defaultPrevented) return;
+      event.preventDefault();
+      setPickerOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pickerOpen]);
 
   useEffect(() => () => {
     if (orbitFrame.current !== null) window.cancelAnimationFrame(orbitFrame.current);
@@ -267,9 +340,9 @@ function ProjectGrid({
   return (
     <div className="workspace-grid-page relative z-[2] min-h-[100dvh]">
       <Header theme={theme} onThemeChange={onThemeChange} onAddProject={() => setPickerOpen(true)} hideOrbitOption={hideOrbitOption} />
-      <section className="project-grid-section mx-auto max-w-[1480px] px-5 pb-14 pt-5 md:px-9 md:pt-7">
+      <section className="project-grid-section w-full px-5 py-5 md:px-9 md:py-7">
         {!hydrated ? (
-          <p className="py-24 text-center text-[13px] text-white/30">Yuklanmoqda...</p>
+          <ListLoader />
         ) : (
         <div
           className={cn("project-grid", theme === "orbit" && "orbit-draggable", orbitDragging && "is-dragging", orbitGliding && "is-gliding", orbitSnapping && "is-snapping")}
@@ -283,15 +356,8 @@ function ProjectGrid({
             const { tint, glow } = projectTint(project.color);
             const pct = project.total ? Math.round((project.done / project.total) * 100) : 0;
             return (
-            <button
+            <div
               key={project.id}
-              onClick={() => {
-                if (suppressProjectClick.current) {
-                  suppressProjectClick.current = false;
-                  return;
-                }
-                onProject(project.id);
-              }}
               className="project-card group text-left"
               style={{
                 "--tint": tint,
@@ -302,6 +368,18 @@ function ProjectGrid({
               } as React.CSSProperties}
             >
               <div className="flex items-start justify-between">
+                <button
+                  type="button"
+                  aria-label={`${project.title} loyihasini ochish`}
+                  className="absolute inset-0 z-[1] rounded-[inherit] focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white/70"
+                  onClick={() => {
+                    if (suppressProjectClick.current) {
+                      suppressProjectClick.current = false;
+                      return;
+                    }
+                    onProject(project.id);
+                  }}
+                />
                 <span className="grid size-10 place-items-center rounded-xl" style={{ background: "color-mix(in oklch, var(--tint) 16%, transparent)", color: tint }}>
                   <ProjectIcon k={project.icon} className="size-[18px]" />
                 </span>
@@ -317,7 +395,13 @@ function ProjectGrid({
                 </div>
                 <div className="project-progress"><div style={{ width: `${pct}%`, background: tint }} /></div>
               </div>
-            </button>
+                <WorkspaceProjectMenu
+                  title={project.title}
+                  color={project.color}
+                  onColor={(color) => onProjectColor(project.id, color)}
+                  onRemove={() => onRemoveProject(project.id)}
+                />
+            </div>
             );
           })}
           <button className="add-card" onClick={() => setPickerOpen(true)}><Plus className="size-5" /><span>Yangi loyiha</span></button>
@@ -343,7 +427,7 @@ function getThreeDCardStyle(theme: UiTheme, index: number, orbitRotation: number
     const angle = delta * (Math.PI * 2 / total);
     const depth = (Math.cos(angle) + 1) / 2;
     return {
-      transform: `translate3d(${Math.sin(angle) * 500}px, ${(1 - depth) * 58}px, ${depth * 380 - 190}px) rotateY(${-Math.sin(angle) * 46}deg) scale(${.58 + depth * .42})`,
+      transform: `translate3d(calc(var(--orbit-radius) * ${Math.sin(angle)}), ${(1 - depth) * 58}px, ${depth * 380 - 190}px) rotateY(${-Math.sin(angle) * 46}deg) scale(${.58 + depth * .42})`,
       zIndex: Math.round(depth * 20),
       opacity: .58 + depth * .42,
     };
@@ -386,6 +470,29 @@ function ProjectBoard({
   const completedTasks = boardTasks.filter((t) => t.done);
   const currentTask = boardTasks.find((t) => t.inProgress && !t.done) ?? null;
   const taskProgress = boardTasks.length ? Math.round((completedTasks.length / boardTasks.length) * 100) : 0;
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
+        if (!pickerOpen && !openedTask && !menuOpen) return;
+        event.preventDefault();
+        if (pickerOpen) setPickerOpen(false);
+        else if (openedTask) setOpenedTask(null);
+        else setMenuOpen(false);
+        return;
+      }
+      const matchesModifier = event.altKey && !event.metaKey && !event.ctrlKey;
+      if (event.code !== "KeyN" || !matchesModifier || event.shiftKey || event.isComposing || event.defaultPrevented) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox']"))) return;
+      event.preventDefault();
+      if (event.repeat || pickerOpen || openedTask) return;
+      setMenuOpen(false);
+      setPickerOpen(true);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pickerOpen, openedTask, menuOpen]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -454,7 +561,6 @@ function ProjectBoard({
     <div className="relative z-[2] min-h-[100dvh]">
       <header className="flex h-[76px] items-center justify-between border-b border-white/[.07] px-5 md:px-9">
         <button onClick={onBack} className="flex items-center gap-3 text-[13px] text-white/54 transition hover:text-white"><span className="glass-button"><ArrowLeft className="size-4" /></span><span className="hidden sm:inline">Loyihalar</span></button>
-        <Brand />
         <div ref={menuRef} className="relative">
           <button type="button" onClick={() => setMenuOpen((v) => !v)} className="glass-button"><MoreHorizontal className="size-4" /></button>
           {menuOpen && (
@@ -470,7 +576,7 @@ function ProjectBoard({
           )}
         </div>
       </header>
-      <section className="project-board-content mx-auto max-w-[1320px] px-5 pb-12 pt-8 md:px-9 md:pt-11" style={{ "--tint": tint, "--glow": glow } as React.CSSProperties}>
+      <section className="project-board-content px-5 py-5 md:px-9 md:py-7" style={{ "--tint": tint, "--glow": glow } as React.CSSProperties}>
         <div className="project-hero mb-5">
           <div className={cn("hero-current-task", currentTask && "has-task", finishingCurrent && "is-finishing")} role={currentTask ? "button" : undefined} tabIndex={currentTask ? 0 : undefined} onClick={() => currentTask && !finishingCurrent && setOpenedTask(currentTask)} onKeyDown={(event) => { if (event.target === event.currentTarget && currentTask && (event.key === "Enter" || event.key === " ")) setOpenedTask(currentTask); }}>
             <span><span className="live-bars"><i /><i /><i /></span>JARAYONDA</span>
@@ -489,7 +595,7 @@ function ProjectBoard({
           <section className="task-feed">
             <div className="section-heading"><div><span className="eyebrow">FOCUSED WORK</span><h2>Hozirgi tasklar</h2></div><button type="button" onClick={() => setPickerOpen(true)} className="new-project"><Plus className="size-4" />Task qo‘shish</button></div>
             {!hydrated ? (
-              <p className="py-16 text-center text-[13px] text-white/30">Yuklanmoqda...</p>
+              <ListLoader />
             ) : activeTasks.length === 0 && completedTasks.length === 0 ? (
               <p className="py-16 text-center text-[13px] text-white/30">Hali task yo&apos;q — &quot;Task qo&apos;shish&quot;ni bosing</p>
             ) : (
@@ -614,13 +720,12 @@ const styles = `
   .ambient-one { width: 34vw; height: 34vw; left: -12vw; top: 18vh; background: #5c8f78; }
   .ambient-two { width: 28vw; height: 28vw; right: -8vw; bottom: -8vh; background: #826c91; }
   .workspace-header { height:80px;padding-block:8px; }
-  .navbar-inner { width:min(100% - 48px,1320px);height:100%;display:flex;align-items:center;justify-content:space-between;margin-inline:auto; }
+  .navbar-inner { width:calc(100% - 72px);height:100%;display:flex;align-items:center;justify-content:space-between;margin-inline:auto; }
   .glass-button { display: flex; height: 38px; width: 38px; flex-shrink:0; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.09); border-radius: 10px; background: rgba(255,255,255,.045); color: rgba(255,255,255,.6); font-size: 13px; backdrop-filter: blur(18px); transition: .2s ease; }
   .glass-button:hover { background: rgba(255,255,255,.09); color: white; }
   .header-actions,.header-action-group { display:flex;align-items:center; }
   .header-actions { flex-shrink:0;gap:7px; }
   .header-action-group { gap:6px;padding-right:1px; }
-  .focus-button { width:auto;min-width:max-content;white-space:nowrap; }
   .navbar-new-project { display:flex;height:38px;min-width:max-content;flex-shrink:0;align-items:center;justify-content:center;gap:6px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:#e8e8e5;padding:0 12px;color:#151716;font-size:12px;font-weight:700;white-space:nowrap;transition:background .2s ease,transform .2s ease; }
   .navbar-new-project:hover { background:#fff;transform:translateY(-1px); }
   .navbar-view-toggle { display:flex;height:34px;flex-shrink:0;align-items:center;gap:2px;border:1px solid rgba(255,255,255,.09);border-radius:9px;background:rgba(255,255,255,.035);padding:3px;backdrop-filter:blur(18px); }
@@ -673,7 +778,7 @@ const styles = `
   .hero-current-task.is-finishing::before { content:"";position:absolute;z-index:0;inset:0;background:linear-gradient(90deg,transparent,rgba(188,244,216,.2),rgba(169,214,193,.08),transparent);transform:translateX(-110%);animation:taskSweep .72s cubic-bezier(.2,.75,.2,1) forwards; }
   .hero-current-task.is-finishing .hero-task-checkbox::after { content:"";position:absolute;inset:-9px;border:1px solid rgba(169,214,193,.55);border-radius:14px;animation:checkRing .68s ease-out forwards; }
   .hero-current-task.is-finishing .task-check-icon { animation:checkDraw .38s .08s cubic-bezier(.2,.9,.2,1) both; }
-  .space-layout { display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 14px; }
+  .space-layout { display: grid; grid-template-columns: minmax(0,1fr) minmax(280px,.3fr); gap: 14px; }
   .task-feed, .project-aside { border: 1px solid rgba(255,255,255,.07); border-radius: 20px; background: rgba(255,255,255,.025); padding: 18px; backdrop-filter: blur(22px); }
   .section-heading { display: flex; min-height: 78px; align-items: flex-start; justify-content: space-between; gap: 20px; }
   .section-heading h2 { margin-top: 6px; font-size: 28px; font-weight: 550; letter-spacing: -.045em; }
@@ -1081,7 +1186,7 @@ const styles = `
   .theme-frost .project-card { min-height:230px;display:grid;grid-template-columns:1fr 1.35fr;grid-template-rows:auto 1fr;column-gap:28px;align-items:start; }
   .theme-frost .project-card > div:first-child { grid-column:1;grid-row:1; }
   .theme-frost .project-card > div:nth-child(2) { grid-column:1 / -1;grid-row:2;align-self:end;margin-top:38px; }
-  .theme-frost .project-card > div:last-child { grid-column:2;grid-row:1;align-self:start;margin-top:0;padding-top:5px; }
+  .theme-frost .project-card > div:nth-child(3) { grid-column:2;grid-row:1;align-self:start;margin-top:0;padding-top:5px; }
   .theme-frost .project-title { font-size:clamp(30px,3vw,46px); }
   .theme-frost .add-card { min-height:230px; }
   .theme-frost .space-layout { grid-template-columns:1fr; }
@@ -1102,7 +1207,9 @@ const styles = `
   .theme-aurora .task-row > span:nth-last-child(2) { display:none; }
 
   /* 04 Index — cardsiz, katta full-width project qatorlari */
-  .theme-smoke .project-grid { grid-template-columns:1fr;gap:0;border-top:1px solid var(--cv-line); }
+  .theme-smoke .workspace-grid-page { display:flex;flex-direction:column; }
+  .theme-smoke .project-grid-section { flex:1;display:flex;flex-direction:column; }
+  .theme-smoke .project-grid { flex:1;grid-template-columns:1fr;grid-auto-rows:minmax(100px,1fr);gap:0;border-top:1px solid var(--cv-line); }
   .theme-smoke .project-card { min-height:170px;display:grid;grid-template-columns:minmax(0,1fr) minmax(270px,.7fr);align-items:center;gap:28px;border-width:0 1px 1px;border-radius:0;padding:24px 22px;background:transparent;box-shadow:none;backdrop-filter:none; }
   .theme-smoke .project-card:first-child { border-top-width:1px; }
   .theme-smoke .project-card::before { display:none; }
@@ -1110,10 +1217,10 @@ const styles = `
   .theme-smoke .project-card > div:first-child { display:contents; }
   .theme-smoke .project-arrow { display:none; }
   .theme-smoke .project-card > div:nth-child(2) { grid-column:1;grid-row:1;margin-top:0; }
-  .theme-smoke .project-card > div:last-child { grid-column:2;grid-row:1;margin-top:0; }
+  .theme-smoke .project-card > div:nth-child(3) { grid-column:2;grid-row:1;margin-top:0; }
   .theme-smoke .project-title { font-size:clamp(34px,4vw,58px); }
   .theme-smoke .project-percent { display:block;width:auto;height:auto;flex:none;border-radius:0;background:none;font-size:48px;font-weight:650;line-height:.9;letter-spacing:-.065em;box-shadow:none; }
-  .theme-smoke .project-card > div:last-child > div:first-child { align-items:center; }
+  .theme-smoke .project-card > div:nth-child(3) > div:first-child { align-items:center; }
   .theme-smoke .add-card { min-height:100px;border-width:0 0 1px;border-radius:0; }
   .theme-smoke .space-layout { grid-template-columns:290px minmax(0,1fr); }
   .theme-smoke .project-aside { order:-1; }
@@ -1183,7 +1290,7 @@ const styles = `
   .theme-neon .project-card { min-height:210px;display:grid;grid-template-columns:110px minmax(0,1fr) 190px;align-items:center;gap:22px; }
   .theme-neon .project-card > div:first-child { grid-column:1; }
   .theme-neon .project-card > div:nth-child(2) { grid-column:2;margin-top:0; }
-  .theme-neon .project-card > div:last-child { grid-column:3;margin-top:0; }
+  .theme-neon .project-card > div:nth-child(3) { grid-column:3;margin-top:0; }
   .theme-neon .project-arrow { display:none; }
   .theme-neon .project-title { font-size:clamp(30px,4vw,50px); }
   .theme-neon .add-card { min-height:120px; }
@@ -1219,12 +1326,12 @@ const styles = `
   .theme-orbit { --cv-page:#070a0f;--cv-ink:#f3f7ff;--cv-muted:rgba(225,235,250,.5);--cv-accent:#91caff;--cv-line:rgba(145,202,255,.12);--cv-header:rgba(7,10,15,.4);--cv-backdrop:radial-gradient(circle at 50% 38%,#172f48,transparent 42%),#070a0f;--cv-card:linear-gradient(145deg,rgba(145,202,255,.13),rgba(255,255,255,.035));--cv-card-hover:linear-gradient(145deg,rgba(145,202,255,.2),rgba(255,255,255,.06));--cv-border:1px solid rgba(145,202,255,.17);--cv-border-hover:1px solid rgba(175,218,255,.55);--cv-shadow:0 30px 80px rgba(0,0,0,.35);--cv-shadow-hover:0 45px 110px rgba(0,0,0,.5),0 0 45px rgba(80,166,255,.13);--cv-shine:rgba(220,240,255,.12);--cv-panel:rgba(15,29,43,.65);--cv-panel-border:1px solid rgba(145,202,255,.13);--cv-panel-shadow:none;--cv-row:rgba(145,202,255,.04);--cv-row-hover:rgba(145,202,255,.1);--cv-row-border:1px solid rgba(145,202,255,.09);--cv-row-border-hover:1px solid rgba(145,202,255,.26);--cv-row-shadow:none;--cv-code-bg:rgba(145,202,255,.08);--cv-code-border:1px solid rgba(145,202,255,.28);--cv-progress:#91caff;--cv-progress-track:rgba(145,202,255,.09);--cv-progress-glow:0 0 18px rgba(80,166,255,.4);--cv-drawer:rgba(7,13,20,.9);--cv-button:rgba(145,202,255,.04);--cv-button-border:1px solid rgba(145,202,255,.13);--cv-font:var(--font-manrope),sans-serif;--cv-display:var(--font-manrope),sans-serif;--cv-title-weight:650;--cv-card-radius:24px;--cv-panel-radius:24px;--cv-row-radius:15px;--cv-code-radius:999px;--cv-button-radius:999px;--cv-progress-radius:999px;--cv-progress-height:8px;--cv-blur:28px;--cv-sat:135%;--cv-glow-blur:38px;--cv-glow-opacity:.55;--cv-noise:.05;--cv-animation:orbitIn .75s both cubic-bezier(.18,.85,.2,1);--cv-transition:.5s cubic-bezier(.18,.85,.2,1);--cv-hover-transform:none;--cv-hover-filter:none;--cv-row-transform:translateX(4px); }
   .theme-orbit .workspace-grid-page { display:flex;flex-direction:column; }
   .theme-orbit .project-grid-section { flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding-top:0;padding-bottom:0; }
-  .theme-orbit .project-grid { position:relative;display:block;width:100%;height:640px;max-height:100%;perspective:1750px;transform-style:preserve-3d; }
+  .theme-orbit .project-grid { --orbit-radius:calc(36vw - 64px);position:relative;display:block;width:100%;height:max(640px,calc(100dvh - 80px));perspective:1750px;transform-style:preserve-3d; }
   .theme-orbit .orbit-draggable { cursor:grab;touch-action:none;user-select:none; }
   .theme-orbit .orbit-draggable.is-dragging { cursor:grabbing; }
   .theme-orbit .orbit-draggable:is(.is-dragging,.is-gliding) .project-card { transition:opacity .2s ease,background .2s ease,border-color .2s ease,box-shadow .2s ease; }
   .theme-orbit .orbit-draggable.is-snapping .project-card { transition:transform .58s cubic-bezier(.16,1,.3,1),opacity .35s ease; }
-  .theme-orbit .project-card { position:absolute;left:50%;top:50%;width:min(460px,40vw);min-height:520px;margin-top:-260px;translate:-50% 0;transform-style:preserve-3d;will-change:transform; }
+  .theme-orbit .project-card { position:absolute;left:50%;top:50%;width:clamp(280px,30vw,760px);min-height:clamp(420px,60dvh,900px);margin-top:0;translate:-50% -50%;transform-style:preserve-3d;will-change:transform; }
   .theme-orbit .project-percent { display:block;width:auto;height:auto;flex:none;border-radius:0;background:none;font-size:52px;font-weight:650;line-height:.88;letter-spacing:-.065em;box-shadow:none; }
   .theme-orbit .project-card:nth-child(1) { transform:translateX(-118%) translateZ(-180px) rotateY(48deg) scale(.78);z-index:1; }
   .theme-orbit .project-card:nth-child(2) { transform:translateX(-72%) translateZ(-80px) rotateY(28deg) scale(.9);z-index:2; }
@@ -1297,7 +1404,7 @@ const styles = `
   .theme-portfolio .project-code { grid-column:1; }
   .theme-portfolio .project-arrow { display:none; }
   .theme-portfolio .project-card > div:nth-child(2) { grid-column:2;margin-top:0; }
-  .theme-portfolio .project-card > div:last-child { grid-column:3;margin-top:0; }
+  .theme-portfolio .project-card > div:nth-child(3) { grid-column:3;margin-top:0; }
   .theme-portfolio .project-title { font-size:27px; }
   .theme-portfolio .project-description { margin-top:4px;font-size:13px; }
   .theme-portfolio .add-card { min-height:80px;border:0;border-radius:0; }
@@ -1352,7 +1459,7 @@ const styles = `
   .theme-obsidian .task-row.is-completing,
   .theme-obsidian .task-row.is-completing:hover { animation:taskGreenCard .7s cubic-bezier(.16,1,.3,1) forwards; }
   .project-board-content { width:100%;height:calc(100dvh - 76px);display:flex;flex-direction:column;overflow:hidden; }
-  .theme-obsidian .project-hero { display:grid;grid-template-columns:minmax(520px,1.55fr) minmax(300px,.65fr);align-items:stretch;column-gap:18px; }
+  .theme-obsidian .project-hero { flex-shrink:0;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,.65fr);align-items:stretch;column-gap:18px; }
   .project-hero-summary { position:relative;z-index:1;display:flex;min-width:0;flex-direction:column;justify-content:space-between;align-items:flex-end;padding:4px 0 2px;text-align:right; }
   .project-hero-summary .project-score { align-items:flex-end; }
   /* space-layout o'zi bitta cheklangan balandlikka ega bo'lib (flex:1 +
@@ -1364,17 +1471,37 @@ const styles = `
   .theme-obsidian .task-feed { min-height:0;height:100%;display:flex;flex-direction:column;overflow:hidden; }
   .theme-obsidian .task-list { flex:1;min-height:0;overflow-y:auto; }
   .theme-obsidian .project-aside { min-height:0;height:100%;overflow-y:auto; }
-  @media (max-width: 1100px) { .focus-button { display:none !important; } }
   @media (max-width: 700px) { .workspace-header { height:auto;min-height:104px;padding-block:9px; } .navbar-inner { width:calc(100% - 32px);height:auto;min-height:86px;align-content:center;flex-wrap:wrap;gap:10px;padding-block:0; } .navbar-brand { min-height:34px;align-self:center; } .header-actions { width:100%;justify-content:space-between;align-self:center;gap:6px; } .header-action-group { gap:6px;padding:0; } .navbar-view-toggle button { padding-inline:9px; } }
   @media (max-width: 560px) { .navbar-new-project { width:42px;min-width:42px;padding:0; } .navbar-new-project span { display:none; } }
   @media (max-width: 390px) { .navbar-inner { width:calc(100% - 24px); } .header-actions { gap:4px; } .glass-button,.navbar-new-project { width:34px;min-width:34px;height:34px; } .navbar-view-toggle { height:32px; } .navbar-view-toggle button { height:24px;padding-inline:7px;font-size:11px; } .profile-button { width:32px;height:32px; } }
   @media (max-width: 920px) { .project-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .project-card { min-height: 280px; } .space-layout { grid-template-columns: 1fr; } .project-aside { display: grid; grid-template-columns: 1fr 1fr; } .aside-block + .aside-block { border-top: 0; border-left: 1px solid rgba(255,255,255,.07); } .theme-pearl .project-card:nth-child(n),.theme-luxe .project-card:nth-child(n),.theme-pearl .add-card,.theme-luxe .add-card { grid-column:span 1;grid-row:span 1; } .theme-terminal .project-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } .theme-command .project-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .theme-portfolio .space-layout { grid-template-columns:1fr; } }
   @media (max-width:920px) { .theme-obsidian .project-hero { grid-template-columns:1fr; } .theme-obsidian .hero-current-task { grid-column:1;grid-row:1; } .project-hero-summary { grid-row:2;gap:24px; } }
-  @media (max-width: 600px) { .project-grid { grid-template-columns: 1fr; } .project-card { min-height: 250px; } .add-card { min-height: 110px; } .project-hero { min-height: 250px; align-items: flex-start; flex-direction: column; } .project-score { align-items: flex-start; } .task-row { grid-template-columns: 24px 7px minmax(0,1fr) 30px; gap: 9px; } .project-aside { grid-template-columns: 1fr; } .aside-block + .aside-block { border-top: 1px solid rgba(255,255,255,.07); border-left: 0; } .task-panel { max-width: 100%; } .theme-switcher { gap: 3px; padding: 4px; border-radius: 15px; } .theme-switcher button { display: flex; min-height: 46px; justify-content: center; padding: 5px 3px; text-align:center; } .theme-switcher .theme-number, .theme-switcher small { display:none; } .theme-switcher strong { font-size: 11px; } .theme-frost .project-card,.theme-smoke .project-card,.theme-neon .project-card { display:block; } .theme-frost .project-card > div:nth-child(2),.theme-smoke .project-card > div:nth-child(2),.theme-neon .project-card > div:nth-child(2) { margin-top:55px; } .theme-frost .project-card > div:last-child,.theme-smoke .project-card > div:last-child,.theme-neon .project-card > div:last-child { margin-top:32px; } .theme-terminal .project-grid,.theme-command .project-grid { grid-template-columns:1fr; } .theme-editorial .project-card { flex-basis:86vw; } .theme-editorial .project-grid { margin-inline:-20px;padding-inline:20px; } .theme-aurora .task-feed > [class~="space-y-2.5"],.theme-pearl .task-feed > [class~="space-y-2.5"],.theme-swiss .task-feed > [class~="space-y-2.5"],.theme-terminal .task-feed > [class~="space-y-2.5"],.theme-luxe .task-feed > [class~="space-y-2.5"],.theme-command .task-feed > [class~="space-y-2.5"] { grid-template-columns:1fr; } .theme-orbit .project-grid { height:auto;display:grid;perspective:none; } .theme-orbit .project-card { position:relative;inset:auto;width:auto;margin:0;transform:none !important; } .theme-coverflow .project-grid { height:520px;margin-inline:-20px; } .theme-coverflow .project-card { width:145px;margin-left:-72px; } .theme-timeline .project-grid::before { left:10px; } .theme-timeline .project-card,.theme-timeline .add-card { width:calc(100% - 34px);align-self:flex-end; } .theme-timeline .project-card:nth-child(odd)::after,.theme-timeline .project-card:nth-child(even)::after { left:-31px;right:auto; } .theme-portfolio .project-card { display:block; } .theme-portfolio .project-card > div:nth-child(2) { margin-top:38px; } .theme-portfolio .project-card > div:last-child { margin-top:24px; } }
+  @media (max-width: 600px) { .project-grid { grid-template-columns: 1fr; } .project-card { min-height: 250px; } .add-card { min-height: 110px; } .project-hero { min-height: 250px; align-items: flex-start; flex-direction: column; } .project-score { align-items: flex-start; } .task-row { grid-template-columns: 24px 7px minmax(0,1fr) 30px; gap: 9px; } .project-aside { grid-template-columns: 1fr; } .aside-block + .aside-block { border-top: 1px solid rgba(255,255,255,.07); border-left: 0; } .task-panel { max-width: 100%; } .theme-switcher { gap: 3px; padding: 4px; border-radius: 15px; } .theme-switcher button { display: flex; min-height: 46px; justify-content: center; padding: 5px 3px; text-align:center; } .theme-switcher .theme-number, .theme-switcher small { display:none; } .theme-switcher strong { font-size: 11px; } .theme-frost .project-card,.theme-smoke .project-card,.theme-neon .project-card { display:block; } .theme-frost .project-card > div:nth-child(2),.theme-smoke .project-card > div:nth-child(2),.theme-neon .project-card > div:nth-child(2) { margin-top:55px; } .theme-frost .project-card > div:nth-child(3),.theme-smoke .project-card > div:nth-child(3),.theme-neon .project-card > div:nth-child(3) { margin-top:32px; } .theme-terminal .project-grid,.theme-command .project-grid { grid-template-columns:1fr; } .theme-editorial .project-card { flex-basis:86vw; } .theme-editorial .project-grid { margin-inline:-20px;padding-inline:20px; } .theme-aurora .task-feed > [class~="space-y-2.5"],.theme-pearl .task-feed > [class~="space-y-2.5"],.theme-swiss .task-feed > [class~="space-y-2.5"],.theme-terminal .task-feed > [class~="space-y-2.5"],.theme-luxe .task-feed > [class~="space-y-2.5"],.theme-command .task-feed > [class~="space-y-2.5"] { grid-template-columns:1fr; } .theme-orbit .project-grid { height:auto;display:grid;perspective:none; } .theme-orbit .project-card { position:relative;inset:auto;width:auto;margin:0;transform:none !important; } .theme-coverflow .project-grid { height:520px;margin-inline:-20px; } .theme-coverflow .project-card { width:145px;margin-left:-72px; } .theme-timeline .project-grid::before { left:10px; } .theme-timeline .project-card,.theme-timeline .add-card { width:calc(100% - 34px);align-self:flex-end; } .theme-timeline .project-card:nth-child(odd)::after,.theme-timeline .project-card:nth-child(even)::after { left:-31px;right:auto; } .theme-portfolio .project-card { display:block; } .theme-portfolio .project-card > div:nth-child(2) { margin-top:38px; } .theme-portfolio .project-card > div:nth-child(3) { margin-top:24px; } }
   @media (max-width:600px) { .theme-coverflow .project-card { width:180px;margin-left:-90px; } .theme-coverflowClassic .project-card { width:280px;margin-left:-140px; } }
   @media (max-width:600px) { .theme-smoke .project-card > div:nth-child(2) { margin-top:0; } }
   @media (max-width:600px) { .theme-orbit .project-grid { min-height:0; } .theme-orbit .project-card { min-height:250px;translate:none; } }
   @media (max-width:600px) { .task-row { grid-template-columns:24px minmax(0,1fr) 22px;gap:9px; } .task-duration { display:none; } }
   @media (max-width:600px) { .theme-obsidian .project-hero { display:grid;grid-template-columns:1fr; } .theme-obsidian .project-score { align-items:flex-end; } .hero-current-task { width:100%; } .task-status-actions { grid-template-columns:1fr; } }
+  @media (max-width:920px) {
+    .project-board-content { height:auto;min-height:calc(100dvh - 76px);overflow:visible; }
+    .project-board-content .space-layout { flex:none;overflow:visible; }
+    .theme-obsidian .task-feed,.theme-obsidian .project-aside { height:auto;overflow:visible; }
+    .theme-obsidian .task-list { overflow:visible; }
+  }
+  .workspace-lab[data-background] { --background-dock-space:calc(80px + env(safe-area-inset-bottom, 0px));padding-bottom:var(--background-dock-space);background:#0c0f12; }
+  .workspace-lab[data-background]::before { background:var(--workspace-backdrop);pointer-events:none; }
+  .workspace-lab[data-background] > .ambient { display:none; }
+  .workspace-lab[data-background] .workspace-grid-page { min-height:calc(100dvh - var(--background-dock-space)); }
+  .workspace-lab[data-background] .project-board-content { height:calc(100dvh - 76px - var(--background-dock-space)); }
+  .workspace-lab[data-background] > div:has(> .project-board-content) { min-height:calc(100dvh - var(--background-dock-space)); }
+  .workspace-lab[data-background].theme-orbit .project-grid { height:max(560px,calc(100dvh - 80px - var(--background-dock-space))); }
+  .workspace-background-dock { position:fixed;z-index:10;bottom:calc(12px + env(safe-area-inset-bottom, 0px));left:50%;transform:translateX(-50%);display:flex;gap:4px;max-width:calc(100vw - 16px);padding:6px;border:1px solid rgba(255,255,255,.14);border-radius:18px;background:rgba(12,15,18,.88);backdrop-filter:blur(24px);box-shadow:0 8px 32px rgba(0,0,0,.3); }
+  .workspace-background-dock button { display:flex;min-width:0;min-height:44px;align-items:center;justify-content:center;gap:7px;padding:8px 12px;border-radius:12px;color:rgba(255,255,255,.6);font-size:12px;white-space:nowrap;transition:background .2s,color .2s; }
+  .workspace-background-dock button:hover { background:rgba(255,255,255,.07);color:white; }
+  .workspace-background-dock button[aria-pressed="true"] { background:rgba(255,255,255,.13);color:white; }
+  .workspace-background-dock button:focus-visible { outline:2px solid white;outline-offset:1px; }
+  .background-swatch { display:grid;place-items:center;width:20px;height:20px;flex-shrink:0;border-radius:50%;border:1px solid rgba(255,255,255,.25);color:white; }
+  @media (max-width:920px) { .workspace-lab[data-background] .project-board-content { height:auto;min-height:calc(100dvh - 76px - var(--background-dock-space)); } }
+  @media (max-width:560px) { .workspace-background-dock { width:calc(100% - 24px);gap:2px;padding:4px; } .workspace-background-dock button { flex:1;flex-direction:column;gap:4px;padding:5px 2px;font-size:10px; } }
   @media (prefers-reduced-motion: reduce) { .project-card, .task-panel { animation: none; } }
 `;

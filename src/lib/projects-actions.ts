@@ -41,6 +41,7 @@ export type CreateProjectInput = {
   title: string;
   icon?: string;
   color?: CategoryColor;
+  addToWorkspace?: boolean;
 };
 
 export async function createProject(input: CreateProjectInput): Promise<Project> {
@@ -53,6 +54,7 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
       title: input.title.trim(),
       icon: input.icon,
       color: input.color,
+      ...(input.addToWorkspace && { inWorkspaceAt: new Date() }),
       order: (last?.order ?? -1) + 1,
     },
   });

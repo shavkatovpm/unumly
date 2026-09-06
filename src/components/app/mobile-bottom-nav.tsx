@@ -55,7 +55,7 @@ const BOSHQARUV_ROUTES = ["/bajarilgan", "/arxiv", "/ochirilgan"];
 // Boshqaruv sheet'da ko'rsatish tartibi — asosiy nav'da BO'LMAGAN
 // (o'chirilgan) barcha bo'limlar shu tartibda chiqadi (hech biri yo'qolmaydi).
 const SHEET_ORDER: NavItemId[] = [
-  "agenda", "reja", "odat", "maqsad", "kalendar", "bugun", "tezkor", "moliya",
+  "workspace", "agenda", "reja", "odat", "maqsad", "kalendar", "bugun", "tezkor", "moliya",
 ];
 
 export function MobileBottomNav({ todayCount }: { todayCount: number }) {
@@ -88,7 +88,7 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const primaryHrefs = new Set(primary.map((p) => p.href));
   const isBoshqaruvActive =
     !sheetOpen &&
-    [...BOSHQARUV_ROUTES, "/agenda", "/reja", "/kalendar", "/odat", "/maqsad"].some(
+    [...BOSHQARUV_ROUTES, "/agenda", "/reja", "/kalendar", "/odat", "/maqsad", "/workspace"].some(
       (href) => !primaryHrefs.has(href) && isActive(href)
     );
 
