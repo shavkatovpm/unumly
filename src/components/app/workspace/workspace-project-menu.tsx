@@ -7,10 +7,15 @@ import { cn } from "@/lib/utils";
 import { CATEGORY_COLOR_KEYS, CATEGORY_PALETTE } from "@/lib/category-palette";
 import type { CategoryColor } from "@/lib/types";
 
-export function WorkspaceProjectMenu({ title, color, onColor, onRemove, placement = "corner" }: {
+const PRIORITY_COLORS: Record<number, string> = { 1: "rgba(255,255,255,.5)", 2: "#eab308", 3: "#ef4444" };
+const PRIORITY_LABELS: Record<number, string> = { 1: "Oddiy", 2: "Muhim", 3: "Juda muhim" };
+
+export function WorkspaceProjectMenu({ title, color, onColor, priority, onPriority, onRemove, placement = "corner" }: {
   title: string;
   color?: CategoryColor;
   onColor: (color: CategoryColor) => void;
+  priority: number;
+  onPriority: (priority: number) => void;
   onRemove: () => void;
   /** "corner" — kartaning pastki-o'ng burchagiga mutlaq joylashadi (grid
    *  kartalari). "inline" — chaqiruvchi o'z flex-qatoriga joylashtiradi
@@ -64,6 +69,25 @@ export function WorkspaceProjectMenu({ title, color, onColor, onRemove, placemen
             style={{ background: key === "white" ? "#d8d8d2" : CATEGORY_PALETTE[key].oklch }}
             onClick={() => { onColor(key); close(); }}>{(color ?? "slate") === key && <Check className="size-4 text-black" />}</button>)}
         </div>
+        <p className="mb-2 mt-4 text-sm text-white/60">Muhimlik darajasi</p>
+        <div className="grid grid-cols-3 gap-2">
+          {[1, 2, 3].map((level) => (
+            <button
+              key={level}
+              type="button"
+              aria-pressed={(priority ?? 1) === level}
+              onClick={() => { onPriority(level); close(); }}
+              className={cn(
+                "flex flex-col items-center gap-1 rounded-lg border px-2 py-2 text-[11px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+                (priority ?? 1) === level ? "border-white/40 bg-white/10 text-white" : "border-white/10 text-white/50 hover:bg-white/5 hover:text-white/80"
+              )}
+            >
+              <span className="size-2.5 rounded-full" style={{ background: PRIORITY_COLORS[level] }} />
+              {level}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-[11px] text-white/35">{PRIORITY_LABELS[priority ?? 1]} — workspace&apos;da shu bo‘yicha tartiblanadi</p>
         <button type="button" className="mt-3 w-full rounded-lg border-t border-white/10 px-2 py-3 text-left text-sm text-red-300 hover:bg-white/5" onClick={() => { close(); onRemove(); }}>Workspace’dan olib tashlash</button>
       </div>, document.body
     )}

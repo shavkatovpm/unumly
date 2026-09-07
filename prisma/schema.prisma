@@ -369,6 +369,10 @@ model Project {
   // Workspace grid'ida ko'rinish-tartib uchun.
   inWorkspaceAt  DateTime?
   workspaceOrder Int?
+  // Workspace grid'idagi muhimlik darajasi (1-3, 3 = eng muhim) — grid
+  // avtomatik shu bo'yicha (keyin teng bo'lsa % bo'yicha, kami muhimroq)
+  // tartiblanadi. /loyiha'dagi A/B/C/D "category"dan alohida tushuncha.
+  workspacePriority Int @default(1)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

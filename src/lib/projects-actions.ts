@@ -24,6 +24,7 @@ function toProject(p: DbProject): Project {
     targetHours: p.targetHours ?? undefined,
     inWorkspaceAt: p.inWorkspaceAt ? p.inWorkspaceAt.toISOString() : undefined,
     workspaceOrder: p.workspaceOrder ?? undefined,
+    workspacePriority: p.workspacePriority,
   };
 }
 
@@ -71,6 +72,7 @@ export type UpdateProjectPatch = Partial<{
   targetHours: number | null;
   inWorkspaceAt: string | null;
   workspaceOrder: number | null;
+  workspacePriority: number;
 }>;
 
 export async function updateProject(id: string, patch: UpdateProjectPatch): Promise<Project> {
@@ -92,6 +94,7 @@ export async function updateProject(id: string, patch: UpdateProjectPatch): Prom
         inWorkspaceAt: patch.inWorkspaceAt ? new Date(patch.inWorkspaceAt) : null,
       }),
       ...(patch.workspaceOrder !== undefined && { workspaceOrder: patch.workspaceOrder }),
+      ...(patch.workspacePriority !== undefined && { workspacePriority: patch.workspacePriority }),
     },
   });
   return toProject(row);
@@ -114,6 +117,7 @@ export type WorkspaceProjectRow = {
   color?: CategoryColor;
   done: number;
   total: number;
+  priority: number; // 1-3, 3 = eng muhim
 };
 
 export async function listWorkspaceProjects(): Promise<WorkspaceProjectRow[]> {
@@ -130,5 +134,6 @@ export async function listWorkspaceProjects(): Promise<WorkspaceProjectRow[]> {
     color: (p.color as CategoryColor | null) ?? undefined,
     done: p.tasks.filter((t) => t.done).length,
     total: p.tasks.length,
+    priority: p.workspacePriority,
   }));
 }

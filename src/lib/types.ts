@@ -172,6 +172,7 @@ export type Project = {
   targetHours?: number; // haftalik maqsad soat
   inWorkspaceAt?: string;  // ISO datetime — /workspace grid'ida bormi
   workspaceOrder?: number;
+  workspacePriority?: number; // 1-3, workspace grid tartibi uchun (3 = eng muhim, yo'q bo'lsa 1)
 };
 
 /** Node in a project's page tree (Notion-style nested pages, arbitrary

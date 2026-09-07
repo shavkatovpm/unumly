@@ -49,7 +49,7 @@ export function useWorkspaceProjects() {
     if (memoryState.some((p) => p.id === project.id)) return;
     memoryState = [
       ...memoryState,
-      { id: project.id, title: project.title, icon: project.icon, color: project.color, done: 0, total: 0 },
+      { id: project.id, title: project.title, icon: project.icon, color: project.color, done: 0, total: 0, priority: 1 },
     ];
     emit();
     updateProject(project.id, { inWorkspaceAt: new Date().toISOString(), workspaceOrder: memoryState.length - 1 });
@@ -67,6 +67,12 @@ export function useWorkspaceProjects() {
     emit();
   }
 
+  function changeProjectPriority(id: string, priority: number) {
+    updateProject(id, { workspacePriority: priority });
+    memoryState = memoryState.map((project) => project.id === id ? { ...project, priority } : project);
+    emit();
+  }
+
   function reorder(ids: string[]) {
     const byId = new Map(memoryState.map((p) => [p.id, p]));
     memoryState = ids.map((id) => byId.get(id)).filter((p): p is WorkspaceProjectRow => !!p);
@@ -74,5 +80,5 @@ export function useWorkspaceProjects() {
     ids.forEach((id, i) => updateProject(id, { workspaceOrder: i }));
   }
 
-  return { projects, hydrated: isHydrated, addProject, removeProject, changeProjectColor, reorder };
+  return { projects, hydrated: isHydrated, addProject, removeProject, changeProjectColor, changeProjectPriority, reorder };
 }

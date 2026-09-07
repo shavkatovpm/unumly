@@ -89,9 +89,14 @@ export function WorkspaceView() {
   const effectiveTheme: UiTheme = isMobile && theme === "orbit" ? "smoke" : theme;
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const { projects, hydrated, addProject, removeProject, changeProjectColor } = useWorkspaceProjects();
+  const { projects, hydrated, addProject, removeProject, changeProjectColor, changeProjectPriority } = useWorkspaceProjects();
+  // Avvalo muhimlik darajasi bo'yicha (3 — eng muhim — tepada), teng bo'lsa
+  // % bo'yicha (kamrog'i muhimroq, ya'ni oldinda) tartiblanadi.
   const sortedProjects = useMemo(
     () => [...projects].sort((a, b) => {
+      const aPriority = a.priority ?? 1;
+      const bPriority = b.priority ?? 1;
+      if (aPriority !== bPriority) return bPriority - aPriority;
       const aProgress = a.total ? a.done / a.total : 0;
       const bProgress = b.total ? b.done / b.total : 0;
       return aProgress - bProgress;
@@ -143,6 +148,7 @@ export function WorkspaceView() {
           onAddProject={addProject}
           onRemoveProject={removeProject}
           onProjectColor={changeProjectColor}
+          onProjectPriority={changeProjectPriority}
           onProject={selectProject}
         />
       )}
@@ -201,6 +207,7 @@ function ProjectGrid({
   onAddProject,
   onRemoveProject,
   onProjectColor,
+  onProjectPriority,
   onProject,
 }: {
   theme: UiTheme;
@@ -211,6 +218,7 @@ function ProjectGrid({
   onAddProject: (project: Project) => void;
   onRemoveProject: (projectId: string) => void;
   onProjectColor: (projectId: string, color: NonNullable<Project["color"]>) => void;
+  onProjectPriority: (projectId: string, priority: number) => void;
   onProject: (projectId: string) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -225,8 +233,9 @@ function ProjectGrid({
   const orbitSnapTimer = useRef<number | null>(null);
   const orbitSnapEndTimer = useRef<number | null>(null);
 
-  // Cmd+N (Mac) yoki Alt+N (Option+N/boshqa platforma) — loyiha qo'shish
-  // oynasini ochadi; Escape — ochiq bo'lsa yopadi.
+  // Cmd+Shift+N yoki Alt+Shift+N — loyiha qo'shish oynasini ochadi; Escape —
+  // ochiq bo'lsa yopadi. Shift shart, chunki oddiy Cmd/Alt+N task qo'shish
+  // uchun band (task hardoim shu ikkalasi bilan ishlashi kerak).
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
@@ -236,9 +245,9 @@ function ProjectGrid({
         return;
       }
       const matchesModifier =
-        (event.metaKey && !event.altKey && !event.ctrlKey) ||
-        (event.altKey && !event.metaKey && !event.ctrlKey);
-      if (event.code !== "KeyN" || !matchesModifier || event.shiftKey || event.isComposing || event.defaultPrevented) return;
+        (event.metaKey && event.shiftKey && !event.altKey && !event.ctrlKey) ||
+        (event.altKey && event.shiftKey && !event.metaKey && !event.ctrlKey);
+      if (event.code !== "KeyN" || !matchesModifier || event.isComposing || event.defaultPrevented) return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox']"))) return;
       event.preventDefault();
@@ -348,6 +357,7 @@ function ProjectGrid({
           onAddProject={() => setPickerOpen(true)}
           onRemoveProject={onRemoveProject}
           onProjectColor={onProjectColor}
+          onProjectPriority={onProjectPriority}
         />
         <WorkspaceProjectPicker
           open={pickerOpen}
@@ -383,6 +393,7 @@ function ProjectGrid({
               role="button"
               tabIndex={0}
               aria-label={`${project.title} loyihasini ochish`}
+              data-priority={project.priority ?? 1}
               className="project-card group cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white/70"
               style={{
                 "--tint": tint,
@@ -429,6 +440,8 @@ function ProjectGrid({
                   title={project.title}
                   color={project.color}
                   onColor={(color) => onProjectColor(project.id, color)}
+                  priority={project.priority ?? 1}
+                  onPriority={(priority) => onProjectPriority(project.id, priority)}
                   onRemove={() => onRemoveProject(project.id)}
                 />
             </div>
@@ -480,12 +493,14 @@ function ExpandGrid({
   onAddProject,
   onRemoveProject,
   onProjectColor,
+  onProjectPriority,
 }: {
   projects: WorkspaceProjectRow[];
   hydrated: boolean;
   onAddProject: () => void;
   onRemoveProject: (projectId: string) => void;
   onProjectColor: (projectId: string, color: NonNullable<Project["color"]>) => void;
+  onProjectPriority: (projectId: string, priority: number) => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const columns = 3;
@@ -526,6 +541,7 @@ function ExpandGrid({
                 onClose={() => setExpandedId(null)}
                 onRemoveProject={() => { onRemoveProject(project.id); setExpandedId(null); }}
                 onProjectColor={(color) => onProjectColor(project.id, color)}
+                onProjectPriority={(priority) => onProjectPriority(project.id, priority)}
               />
             ) : (
               <CollapsedProjectCard
@@ -534,6 +550,7 @@ function ExpandGrid({
                 onOpen={() => setExpandedId(project.id)}
                 onRemoveProject={() => onRemoveProject(project.id)}
                 onProjectColor={(color) => onProjectColor(project.id, color)}
+                onProjectPriority={(priority) => onProjectPriority(project.id, priority)}
               />
             )}
           </div>
@@ -548,6 +565,7 @@ function ExpandGrid({
                   onOpen={() => setExpandedId(project.id)}
                   onRemoveProject={() => onRemoveProject(project.id)}
                   onProjectColor={(color) => onProjectColor(project.id, color)}
+                  onProjectPriority={(priority) => onProjectPriority(project.id, priority)}
                 />
               </div>
             ))}
@@ -566,17 +584,19 @@ function CollapsedProjectCard({
   onOpen,
   onRemoveProject,
   onProjectColor,
+  onProjectPriority,
 }: {
   project: WorkspaceProjectRow;
   compact: boolean;
   onOpen: () => void;
   onRemoveProject: () => void;
   onProjectColor: (color: NonNullable<Project["color"]>) => void;
+  onProjectPriority: (priority: number) => void;
 }) {
   const { tint, glow } = projectTint(project.color);
   const percent = project.total ? Math.round((project.done / project.total) * 100) : 0;
   return (
-    <div className={cn("expand-card", compact && "is-compact")} style={{ "--tint": tint, "--glow": glow } as React.CSSProperties}>
+    <div className={cn("expand-card", compact && "is-compact")} data-priority={project.priority ?? 1} style={{ "--tint": tint, "--glow": glow } as React.CSSProperties}>
       <button type="button" aria-label={`${project.title} loyihasini kengaytirish`} className="absolute inset-0 z-[2] rounded-[inherit] focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white/70" onClick={onOpen} />
       <div className="flex items-start justify-end">
         <span className="project-arrow"><ArrowUpRight className="size-4" /></span>
@@ -591,7 +611,7 @@ function CollapsedProjectCard({
         </div>
         <div className="project-progress"><div style={{ width: `${percent}%`, background: tint }} /></div>
       </div>
-      <WorkspaceProjectMenu title={project.title} color={project.color} onColor={onProjectColor} onRemove={onRemoveProject} />
+      <WorkspaceProjectMenu title={project.title} color={project.color} onColor={onProjectColor} priority={project.priority ?? 1} onPriority={onProjectPriority} onRemove={onRemoveProject} />
     </div>
   );
 }
@@ -601,21 +621,24 @@ function ExpandedProjectCard({
   onClose,
   onRemoveProject,
   onProjectColor,
+  onProjectPriority,
 }: {
   project: WorkspaceProjectRow;
   onClose: () => void;
   onRemoveProject: () => void;
   onProjectColor: (color: NonNullable<Project["color"]>) => void;
+  onProjectPriority: (priority: number) => void;
 }) {
   const { tint, glow } = projectTint(project.color);
   const board = useProjectBoard(project.id);
   const [openedTask, setOpenedTask] = useState<ProjectTask | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  // Alt+N (Option+N) — shu ochiq loyihaga tez task qo'shish oynasini ochadi;
-  // Escape — ochiq oyna/modalni ustuvorlik tartibida yopadi. ProjectBoard'dagi
-  // bilan bir xil qisqa yo'l, faqat "..." menyusiz (u o'z holatini o'zi
-  // boshqaradi).
+  // Cmd+N yoki Alt+N — shu ochiq loyihaga tez task qo'shish oynasini ochadi
+  // (loyiha qo'shish qisqa yo'lidan farqli — u Shift talab qiladi, shuning
+  // uchun ikkalasi bir vaqtda ishlab qolmaydi); Escape — ochiq oyna/modalni
+  // ustuvorlik tartibida yopadi. ProjectBoard'dagi bilan bir xil qisqa yo'l,
+  // faqat "..." menyusiz (u o'z holatini o'zi boshqaradi).
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) {
@@ -625,7 +648,9 @@ function ExpandedProjectCard({
         else setOpenedTask(null);
         return;
       }
-      const matchesModifier = event.altKey && !event.metaKey && !event.ctrlKey;
+      const matchesModifier =
+        (event.metaKey && !event.altKey && !event.ctrlKey) ||
+        (event.altKey && !event.metaKey && !event.ctrlKey);
       if (event.code !== "KeyN" || !matchesModifier || event.shiftKey || event.isComposing || event.defaultPrevented) return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox']"))) return;
@@ -638,14 +663,14 @@ function ExpandedProjectCard({
   }, [pickerOpen, openedTask]);
 
   return (
-    <div className="expand-card is-expanded" style={{ "--tint": tint, "--glow": glow } as React.CSSProperties}>
+    <div className="expand-card is-expanded" data-priority={project.priority ?? 1} style={{ "--tint": tint, "--glow": glow } as React.CSSProperties}>
       <div className="expand-open-head">
         <div className="flex items-start gap-4">
           <h2 className="expand-open-title">{project.title}</h2>
         </div>
         <div className="flex items-center gap-2">
           <span className="expand-open-percent" style={{ color: tint }}>{board.taskProgress}%</span>
-          <WorkspaceProjectMenu placement="inline" title={project.title} color={project.color} onColor={onProjectColor} onRemove={onRemoveProject} />
+          <WorkspaceProjectMenu placement="inline" title={project.title} color={project.color} onColor={onProjectColor} priority={project.priority ?? 1} onPriority={onProjectPriority} onRemove={onRemoveProject} />
           <button type="button" className="glass-button" onClick={onClose} aria-label="Yopish"><X className="size-4" /></button>
         </div>
       </div>
@@ -888,7 +913,9 @@ function ProjectBoard({
         else setMenuOpen(false);
         return;
       }
-      const matchesModifier = event.altKey && !event.metaKey && !event.ctrlKey;
+      const matchesModifier =
+        (event.metaKey && !event.altKey && !event.ctrlKey) ||
+        (event.altKey && !event.metaKey && !event.ctrlKey);
       if (event.code !== "KeyN" || !matchesModifier || event.shiftKey || event.isComposing || event.defaultPrevented) return;
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [role='textbox']"))) return;
@@ -1871,6 +1898,11 @@ const styles = `
   .expand-card.is-compact .project-card-icon { border-radius:9px; }
   .expand-card.is-compact .project-arrow { width:26px; height:26px; }
   .expand-card.is-expanded { padding:28px; }
+  /* Muhimlik darajasi — karta bordersi alohida rangda (2=amber, 3=qizil).
+     !important — barcha tema/holat qoidalaridan (border-color'ni ham
+     belgilaydigan) doim ustun turishi uchun, mustaqil "signal" sifatida. */
+  .project-card[data-priority="2"], .expand-card[data-priority="2"] { border-color: rgba(234,179,8,.65) !important; border-width: 1.5px !important; }
+  .project-card[data-priority="3"], .expand-card[data-priority="3"] { border-color: rgba(239,68,68,.75) !important; border-width: 1.5px !important; }
   .expand-open-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
   .expand-open-title { margin-top:2px; font-size:clamp(22px,2.4vw,32px); font-weight:650; letter-spacing:-.04em; color:rgba(255,255,255,.94); }
   .expand-open-percent { font-size:22px; font-weight:650; letter-spacing:-.03em; }

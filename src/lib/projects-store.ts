@@ -38,7 +38,7 @@ function rowsEqual(a: State, b: State) {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
     const x = a[i], y = b[i];
-    if (x.id !== y.id || x.title !== y.title || x.icon !== y.icon || x.color !== y.color || x.order !== y.order || x.archivedAt !== y.archivedAt || x.category !== y.category || x.targetHours !== y.targetHours || x.inWorkspaceAt !== y.inWorkspaceAt || x.workspaceOrder !== y.workspaceOrder) return false;
+    if (x.id !== y.id || x.title !== y.title || x.icon !== y.icon || x.color !== y.color || x.order !== y.order || x.archivedAt !== y.archivedAt || x.category !== y.category || x.targetHours !== y.targetHours || x.inWorkspaceAt !== y.inWorkspaceAt || x.workspaceOrder !== y.workspaceOrder || x.workspacePriority !== y.workspacePriority) return false;
   }
   return true;
 }
@@ -80,6 +80,7 @@ export function updateProject(id: string, patch: actions.UpdateProjectPatch): vo
     ...(patch.targetHours !== undefined && { targetHours: patch.targetHours ?? undefined }),
     ...(patch.inWorkspaceAt !== undefined && { inWorkspaceAt: patch.inWorkspaceAt ?? undefined }),
     ...(patch.workspaceOrder !== undefined && { workspaceOrder: patch.workspaceOrder ?? undefined }),
+    ...(patch.workspacePriority !== undefined && { workspacePriority: patch.workspacePriority }),
   };
   memoryState = memoryState.map((p) => (p.id === id ? { ...p, ...localPatch } : p));
   emit();
@@ -93,6 +94,7 @@ export function updateProject(id: string, patch: actions.UpdateProjectPatch): vo
     ...(patch.targetHours !== undefined && { targetHours: patch.targetHours ?? null }),
     ...(patch.inWorkspaceAt !== undefined && { inWorkspaceAt: patch.inWorkspaceAt ?? null }),
     ...(patch.workspaceOrder !== undefined && { workspaceOrder: patch.workspaceOrder ?? null }),
+    ...(patch.workspacePriority !== undefined && { workspacePriority: patch.workspacePriority }),
   }).then((server) => { memoryState = memoryState.map((p) => (p.id === id ? server : p)); emit(); })
     .catch(() => { memoryState = memoryState.map((p) => (p.id === id ? prev : p)); emit(); }));
 }
