@@ -230,6 +230,7 @@ export function Sidebar({
             hasMounted && "transition-transform duration-300 ease-out",
             open ? "translate-x-0" : "-translate-x-full"
           )}
+          style={{ paddingTop: "var(--tg-safe-top, 0px)" }}
         >
         {/* Brand — pl-12 leaves room for the fixed hamburger toggle (top-left) */}
         <div className="flex h-12 shrink-0 items-center pl-12 pr-4">

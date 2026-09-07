@@ -102,6 +102,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         viewportHeight?: number;
         onEvent?: (event: string, handler: () => void) => void;
         disableVerticalSwipes?: () => void;
+        requestFullscreen?: () => void;
+        isFullscreen?: boolean;
       } } }).Telegram?.WebApp;
       if (!tg) {
         if (attempts++ < 30) setTimeout(initTelegram, 100);
@@ -111,6 +113,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       tg.ready();
       tg.expand();
       try { tg.disableVerticalSwipes?.(); } catch { /* old clients */ }
+      // To'liq ekran — Telegram o'z sarlavhasini olib tashlaydi va shu
+      // o'rniga close/⋮ tugmalarini kontent ustiga suzuvchi holda chizadi;
+      // shu bo'shliqni --tg-safe-top/--tg-safe-bottom (globals.css) orqali
+      // hisobga olamiz. Eski klientlarda metod yo'q — jim ignore qilinadi.
+      try { tg.requestFullscreen?.(); } catch { /* old clients */ }
 
       function syncViewport() {
         if (!tg) return;
@@ -253,7 +260,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onClick={() => toggle(!open)}
         aria-label={open ? "Sidebarni yopish" : "Sidebarni ochish"}
         title={open ? "Sidebarni yopish" : "Sidebarni ochish"}
-        className="fixed left-3 top-2.5 z-50 hidden size-7 place-items-center rounded-md text-muted transition-colors hover:bg-hover hover:text-foreground md:grid"
+        className="fixed left-3 z-50 hidden size-7 place-items-center rounded-md text-muted transition-colors hover:bg-hover hover:text-foreground md:grid"
+        style={{ top: "calc(var(--tg-safe-top, 0px) + 0.625rem)" }}
       >
         <Menu
           className={cn(
@@ -282,6 +290,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           // Padding-left only on desktop when sidebar is collapsed (to leave space for hamburger).
           !open && "md:pl-10"
         )}
+        // Telegram fullscreen'da close/⋮ tugmalari kontent ustiga suzadi —
+        // har bir sahifaning o'z navbar/header'i shu bo'shliqqa tegmasin
+        // deb bitta joydan (barcha sahifalar uchun) padding qo'shiladi.
+        style={{ paddingTop: "var(--tg-safe-top, 0px)" }}
       >
         {children}
       </main>

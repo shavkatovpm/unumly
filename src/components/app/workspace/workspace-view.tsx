@@ -127,7 +127,14 @@ export function WorkspaceView() {
   const selectedProject = selectedProjectId ? projects.find((p) => p.id === selectedProjectId) ?? null : null;
 
   return (
-    <main data-background="graphite" className={cn("workspace-lab theme-obsidian h-[100dvh] overflow-x-hidden overflow-y-auto", `theme-${selectedProject ? "obsidian" : effectiveTheme}`, "index-graphite", "orbit-mono")}>
+    <main
+      data-background="graphite"
+      className={cn("workspace-lab theme-obsidian h-[100dvh] overflow-x-hidden overflow-y-auto", `theme-${selectedProject ? "obsidian" : effectiveTheme}`, "index-graphite", "orbit-mono")}
+      // /workspace AppShell'siz mustaqil route — Telegram fullscreen'da
+      // close/⋮ tugmalari shu sahifaning o'z Header'i (orqaga/profile
+      // tugmalari) ustiga suzib qolmasin uchun global --tg-safe-top.
+      style={{ paddingTop: "var(--tg-safe-top, 0px)" }}
+    >
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
       <div className="workspace-noise" />

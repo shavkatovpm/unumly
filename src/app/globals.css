@@ -60,6 +60,16 @@
 
   --radius:          0.75rem;
   --ease-out:        cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Telegram Mini App fullscreen: telegram-web-app.js o'zi
+     --tg-safe-area-inset-top (qurilma — notch/status bar) va
+     --tg-content-safe-area-inset-top (Telegram'ning o'z close/⋮ tugmalari
+     band qiladigan joy, faqat fullscreen'da > 0) ni document root'ga
+     avtomatik qo'yadi. Ikkalasi qo'shiladi (biri qurilma, biri Telegram UI
+     uchun); brauzerda/desktop'da ikkalasi ham mavjud emas — fallback 0px,
+     hech narsa o'zgarmaydi.
+     https://core.telegram.org/bots/webapps#events-available-for-mini-apps */
+  --tg-safe-top: calc(var(--tg-content-safe-area-inset-top, 0px) + var(--tg-safe-area-inset-top, 0px));
 }
 
 /* Dark base = Mono's natural dark sibling. Applies to ANY family in dark mode;
