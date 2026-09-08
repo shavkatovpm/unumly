@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, Check, ChevronRight, Plus, Trash2, X } from "lucide-react";
+import { Reorder, useDragControls } from "framer-motion";
+import { CalendarDays, Check, ChevronRight, GripVertical, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjectTasks } from "@/lib/project-tasks-store";
 import type { ProjectTask } from "@/lib/types";
@@ -75,6 +76,17 @@ export function JadvalPanel({ projectId }: { projectId: string }) {
     update(id, { done: !tasks.find((x) => x.id === id)?.done });
   }
 
+  // Faqat faol (bajarilmagan) tasklar ichida ketma-ketlik o'zgaradi —
+  // "order" har bir joriy pozitsiyasiga mos qayta raqamlanadi. Bajarilgan
+  // tasklarning o'z "order" qiymatlari tegilmaydi (ular alohida, yopiq
+  // bo'limda ko'rsatiladi — ikkalasi hech qachon bitta ro'yxatda aralashib
+  // ko'rinmaydi, shu sabab raqamlar mos kelmasligi muammo emas).
+  function handleReorder(next: ProjectTask[]) {
+    next.forEach((t, i) => {
+      if (t.order !== i) update(t.id, { order: i });
+    });
+  }
+
   if (!hydrated) return <ListLoader />;
 
   return (
@@ -113,7 +125,7 @@ export function JadvalPanel({ projectId }: { projectId: string }) {
         <p className="py-10 text-center text-[13px] text-faint">Hali task yo&apos;q</p>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-surface">
-          <ul className="divide-y divide-border/70">
+          <Reorder.Group as="ul" axis="y" values={active} onReorder={handleReorder} className="divide-y divide-border/70">
             {active.map((t) => (
               <ProjectTaskRow
                 key={t.id}
@@ -121,9 +133,10 @@ export function JadvalPanel({ projectId }: { projectId: string }) {
                 onToggle={toggle}
                 onOpen={setDetailId}
                 isNew={t.id === justCreatedId}
+                draggable
               />
             ))}
-          </ul>
+          </Reorder.Group>
 
           {doneList.length > 0 && (
             <div className="border-t border-border bg-subtle/40">
@@ -213,14 +226,20 @@ function ProjectTaskRow({
   onToggle,
   onOpen,
   isNew,
+  draggable = false,
 }: {
   task: ProjectTask;
   onToggle: (id: string) => void;
   onOpen: (id: string) => void;
   isNew?: boolean;
+  /** Reorder.Group ichida — chapdagi ⠿ tutqichdan ushlab tartibini
+   *  o'zgartirish mumkin. Bajarilgan (yopiq bo'limdagi) tasklar uchun
+   *  false — ular Reorder.Group tashqarisida, oddiy <li> sifatida chiziladi. */
+  draggable?: boolean;
 }) {
   const done = task.done;
   const priorityDot = task.priority ? priorityColorClass(task.priority) : "bg-faint/40";
+  const controls = useDragControls();
 
   // Bugun'ning TaskRow'idagi kabi "belgilanguncha kutish" emas — u yerda
   // bajarilgan task boshqa (yopiq) bo'limga ko'chib, qator DOM'dan butunlay
@@ -236,15 +255,27 @@ function ProjectTaskRow({
     onToggle(task.id);
   }
 
-  return (
-    <li
-      onClick={() => onOpen(task.id)}
-      className={cn(
-        "group flex cursor-pointer items-center gap-3 overflow-hidden px-3 py-3 transition-colors hover:bg-hover/60 sm:py-2",
-        done && "bg-subtle/30",
-        isNew && "task-pop"
+  const rowClassName = cn(
+    "group flex cursor-pointer items-center gap-3 overflow-hidden py-3 transition-colors hover:bg-hover/60 sm:py-2",
+    draggable ? "pl-1 pr-3" : "px-3",
+    done && "bg-subtle/30",
+    isNew && "task-pop"
+  );
+
+  const inner = (
+    <>
+      {draggable && (
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => controls.start(e)}
+          aria-label="Tartibini o'zgartirish"
+          className="cursor-grab touch-none px-1.5 py-1 text-faint active:cursor-grabbing"
+        >
+          <GripVertical className="size-4" />
+        </button>
       )}
-    >
+
       <span
         aria-hidden
         className={cn(
@@ -294,6 +325,28 @@ function ProjectTaskRow({
           )}
         </span>
       </button>
+    </>
+  );
+
+  if (draggable) {
+    return (
+      <Reorder.Item
+        value={task}
+        dragListener={false}
+        dragControls={controls}
+        whileDrag={{ scale: 1.01, boxShadow: "0 10px 28px -8px rgba(0,0,0,0.25)", position: "relative", zIndex: 1 }}
+        transition={{ type: "spring", stiffness: 520, damping: 42 }}
+        onClick={() => onOpen(task.id)}
+        className={cn(rowClassName, "bg-surface")}
+      >
+        {inner}
+      </Reorder.Item>
+    );
+  }
+
+  return (
+    <li onClick={() => onOpen(task.id)} className={rowClassName}>
+      {inner}
     </li>
   );
 }
