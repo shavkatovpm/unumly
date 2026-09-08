@@ -26,6 +26,7 @@ export function TaskRow({
   overdueDateLabel,
   staleUntimed = false,
   rejaCategory,
+  variant = "classic",
 }: {
   plan: Plan;
   onToggle: (id: string) => void;
@@ -43,9 +44,14 @@ export function TaskRow({
   /** Vaqti belgilanmagan, bajarilmagan va o'tib ketgan kundagi task — sariq
    *  sana belgisi bilan ko'rsatiladi (o'sha kunda qolaveradi). */
   staleUntimed?: boolean;
+  /** "wide" — sozlamalardagi "Kengaytirilgan tasklar" yoqilganda: har bir
+   *  task o'z alohida kartasida, kattaroq matn/tugmalar bilan. Faqat
+   *  ko'rinish — hamma xatti-harakat (toggle, drag, ochish) bir xil. */
+  variant?: "classic" | "wide";
 }) {
   const done = plan.status === "DONE";
   const priorityDot = plan.priority ? PRIORITY_DOT[plan.priority] : "bg-faint/40";
+  const wide = variant === "wide";
 
   // Delay the actual status change so the user sees the check animation before
   // the row slides into the completed section.
@@ -99,12 +105,13 @@ export function TaskRow({
       transition={{ layout: { type: "spring", stiffness: 380, damping: 32 } }}
       onClick={() => onOpen?.(plan.id)}
       className={cn(
-        "group flex items-center gap-3 overflow-hidden px-3 hover:bg-hover/60",
+        "group flex items-center overflow-hidden hover:bg-hover/60",
+        wide ? "gap-3.5 rounded-xl border border-border px-4" : "gap-3 px-3",
         plan.habitId && !visualDone && "bg-accent-soft/40",
         visualDone && "bg-subtle/30",
         isNew && "task-pop",
         onOpen && "cursor-pointer",
-        !pendingDone && "max-h-[78px] py-3 sm:max-h-[64px] sm:py-2"
+        !pendingDone && (wide ? "max-h-[110px] py-4" : "max-h-[78px] py-3 sm:max-h-[64px] sm:py-2")
       )}
       style={pendingDone ? {
         maxHeight: 0,
@@ -122,7 +129,8 @@ export function TaskRow({
       <span
         aria-hidden
         className={cn(
-          "size-1.5 shrink-0 rounded-full transition-opacity",
+          "shrink-0 rounded-full transition-opacity",
+          wide ? "size-2" : "size-1.5",
           priorityDot,
           done && "opacity-40"
         )}
@@ -131,7 +139,8 @@ export function TaskRow({
       {plan.time ? (
         <span
           className={cn(
-            "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] tabular-nums",
+            "flex items-center rounded-md font-mono tabular-nums",
+            wide ? "gap-1.5 px-2 py-1 text-[13px]" : "gap-1 px-1.5 py-0.5 text-[11px]",
             done && "text-faint",
             !done && overdue && "bg-danger-soft text-danger",
             !done && !overdue && !active && "bg-subtle text-foreground"
@@ -142,19 +151,20 @@ export function TaskRow({
               : undefined
           }
         >
-          <Clock className="size-2.5" />
+          <Clock className={wide ? "size-3" : "size-2.5"} />
           {overdueDateLabel ? `${overdueDateLabel} ${plan.time}` : plan.time}
         </span>
       ) : staleUntimed && !done && overdueDateLabel ? (
-        <span className="flex items-center gap-1 rounded-md bg-warning-soft px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-warning">
-          <AlertCircle className="size-2.5" />
+        <span className={cn("flex items-center rounded-md bg-warning-soft font-mono tabular-nums text-warning", wide ? "gap-1.5 px-2 py-1 text-[13px]" : "gap-1 px-1.5 py-0.5 text-[11px]")}>
+          <AlertCircle className={wide ? "size-3" : "size-2.5"} />
           {overdueDateLabel}
         </span>
       ) : null}
 
       <span
         className={cn(
-          "min-w-0 flex-1 truncate text-[17px] leading-snug sm:text-[13.5px]",
+          "min-w-0 flex-1 truncate leading-snug",
+          wide ? "text-[19px]" : "text-[17px] sm:text-[13.5px]",
           done && "text-faint line-through decoration-faint/60"
         )}
       >
@@ -168,33 +178,34 @@ export function TaskRow({
           aria-label={`Reja: ${rejaCategory.label}`}
         >
           <span
-            className="hidden max-w-[80px] truncate text-[11px] font-medium sm:inline"
+            className={cn("max-w-[80px] truncate font-medium", wide ? "inline text-[12.5px]" : "hidden text-[11px] sm:inline")}
             style={{ color: rejaCategory.color }}
           >
             {rejaCategory.label}
           </span>
-          <Tag className="size-3.5" style={{ color: rejaCategory.color }} />
+          <Tag className={wide ? "size-4" : "size-3.5"} style={{ color: rejaCategory.color }} />
         </span>
       )}
-      {plan.habitId && <Repeat className="size-3.5 shrink-0 text-faint" aria-label="Odat" />}
-      {plan.goalStepId && <Target className="size-3.5 shrink-0 text-faint" aria-label="Maqsad qadami" />}
+      {plan.habitId && <Repeat className={cn("shrink-0 text-faint", wide ? "size-4" : "size-3.5")} aria-label="Odat" />}
+      {plan.goalStepId && <Target className={cn("shrink-0 text-faint", wide ? "size-4" : "size-3.5")} aria-label="Maqsad qadami" />}
 
       <button
         type="button"
         onClick={handleToggle}
         aria-label={visualDone ? "Bekor qilish" : "Bajarildi"}
-        className="group/check -my-2 -mr-3 flex shrink-0 cursor-pointer items-center py-2 pl-3 pr-3 transition-colors hover:bg-hover/40"
+        className={cn("group/check flex shrink-0 cursor-pointer items-center transition-colors hover:bg-hover/40", wide ? "-my-4 -mr-4 py-4 pl-3 pr-4" : "-my-2 -mr-3 py-2 pl-3 pr-3")}
       >
         <span
           className={cn(
-            "grid size-[21px] place-items-center rounded-md border transition-all duration-200",
+            "grid place-items-center rounded-md border transition-all duration-200",
+            wide ? "size-[26px]" : "size-[21px]",
             visualDone
               ? "border-accent bg-accent check-fill"
               : "border-border-strong group-hover/check:border-accent"
           )}
         >
           {visualDone && (
-            <Check className="size-[14px] text-background check-pop" strokeWidth={5} />
+            <Check className={cn("text-background check-pop", wide ? "size-[17px]" : "size-[14px]")} strokeWidth={5} />
           )}
         </span>
       </button>

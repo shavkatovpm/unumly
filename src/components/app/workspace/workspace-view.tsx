@@ -160,7 +160,7 @@ export function WorkspaceView() {
         />
       )}
 
-      <style>{styles}</style>
+      <style>{workspaceLabStyles}</style>
     </main>
   );
 }
@@ -1082,7 +1082,7 @@ function TaskRow({ task, index, dragging, onOpen, onToggle, onDragStart, onDragO
   );
 }
 
-const styles = `
+export const workspaceLabStyles = `
   .workspace-lab { --panel: rgba(26, 28, 27, .62); position: relative; background: #101211; font-family: var(--font-manrope), var(--font-geist), sans-serif; }
   .workspace-lab::before { content: ""; position: fixed; inset: 0; background: radial-gradient(circle at 50% -20%, rgba(255,255,255,.075), transparent 42%), linear-gradient(145deg, #111412 0%, #0d0f0e 60%, #121411 100%); }
   .workspace-noise { position: fixed; inset: 0; pointer-events: none; opacity: .035; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.65'/%3E%3C/svg%3E"); }

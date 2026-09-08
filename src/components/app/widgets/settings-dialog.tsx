@@ -32,6 +32,7 @@ import {
   type LeadMin,
 } from "@/lib/notify-time";
 import { useTheme, THEME_FAMILIES } from "@/lib/color-store";
+import { useBugunTaskStyle, setBugunTaskStyle } from "@/lib/bugun-style-store";
 import { Dialog } from "./dialog";
 import { ConfirmDialog } from "./confirm-dialog";
 import { AutoHeight } from "./auto-height";
@@ -70,6 +71,7 @@ export function SettingsDialog({
   const [primaryIds, setPrimaryIds] = useState<NavItemId[]>(DEFAULT_PRIMARY);
   const [tab, setTab] = useState<TabId>("ovoz");
   const { family, isDark, setFamily, setMode } = useTheme();
+  const bugunTaskStyle = useBugunTaskStyle();
   const router = useRouter();
 
   function togglePrimary(id: NavItemId) {
@@ -322,6 +324,35 @@ export function SettingsDialog({
               );
             })}
           </div>
+
+          {/* Bugun'dagi tasklar ko'rinishi */}
+          <p className="mb-1.5 mt-5 text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Bugun</p>
+          <button
+            type="button"
+            onClick={() => setBugunTaskStyle(bugunTaskStyle === "wide" ? "classic" : "wide")}
+            className="flex w-full items-center justify-between rounded-md border border-border bg-surface px-3.5 py-3 transition-colors hover:bg-hover/40"
+          >
+            <div className="text-left">
+              <p className="text-[13.5px] font-medium">Kengaytirilgan tasklar</p>
+              <p className="text-[11.5px] text-faint">
+                Har bir task o&apos;z alohida kattaroq kartasida
+              </p>
+            </div>
+            <span
+              aria-hidden
+              className={cn(
+                "relative h-5 w-9 shrink-0 rounded-full transition-colors",
+                bugunTaskStyle === "wide" ? "bg-foreground" : "bg-subtle"
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute top-0.5 size-4 rounded-full bg-background shadow transition-[left] duration-200",
+                  bugunTaskStyle === "wide" ? "left-[18px]" : "left-0.5"
+                )}
+              />
+            </span>
+          </button>
         </section>
 
         {/* ── Ovoz ── */}

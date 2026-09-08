@@ -23,6 +23,7 @@ import { debtRemindersForToday } from "@/lib/debt-reminders";
 import { DebtReminderRow } from "./widgets/debt-reminder-row";
 import { useRejaCategoryMap } from "@/lib/use-reja-category";
 import { useDragReorder } from "@/lib/use-drag-reorder";
+import { useBugunTaskStyle } from "@/lib/bugun-style-store";
 import {
   formatUzDate,
   occupiedTimeSlots,
@@ -44,6 +45,7 @@ export function BugunView() {
   const { plans, create, update, toggleStatus, remove, deferToToday, setCancelled } = usePlans();
   const missed = useMissedPlans();
   const rejaCatMap = useRejaCategoryMap();
+  const taskStyle = useBugunTaskStyle();
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [analyticsLabel, setAnalyticsLabel] = useState("Haftalik analitika");
   const hydrated = useHydrated();
@@ -478,20 +480,21 @@ export function BugunView() {
                     if (b.items.length === 0) return null;
                     const isAnytime = b.key === "anytime";
                     const isOverdue = b.key === "overdue";
+                    const wide = taskStyle === "wide";
                     return (
                       <section
                         key={b.key}
                         className={cn(
-                          "overflow-hidden rounded-lg border bg-surface shadow-[0_1px_0_var(--border)]",
-                          isOverdue ? "border-danger/40" : "border-border"
+                          "overflow-hidden",
+                          wide
+                            ? "space-y-2.5"
+                            : cn("rounded-lg border bg-surface shadow-[0_1px_0_var(--border)]", isOverdue ? "border-danger/40" : "border-border")
                         )}
                       >
                         <header
                           className={cn(
-                            "flex items-center justify-between border-b px-3 py-1.5",
-                            isOverdue
-                              ? "border-danger/30 bg-danger-soft"
-                              : "border-border bg-subtle/30"
+                            "flex items-center justify-between",
+                            wide ? "px-1 pb-1" : cn("border-b px-3 py-1.5", isOverdue ? "border-danger/30 bg-danger-soft" : "border-border bg-subtle/30")
                           )}
                         >
                           <div className="flex items-center gap-2">
@@ -505,7 +508,8 @@ export function BugunView() {
                             </span>
                             <p
                               className={cn(
-                                "text-[10.5px] font-medium uppercase tracking-[0.12em]",
+                                "font-medium uppercase tracking-[0.12em]",
+                                wide ? "text-[12px]" : "text-[10.5px]",
                                 isOverdue ? "text-danger" : "text-faint"
                               )}
                             >
@@ -514,14 +518,15 @@ export function BugunView() {
                           </div>
                           <p
                             className={cn(
-                              "font-mono text-[10.5px] tabular-nums",
+                              "font-mono tabular-nums",
+                              wide ? "text-[12px]" : "text-[10.5px]",
                               isOverdue ? "text-danger" : "text-faint"
                             )}
                           >
                             {b.items.length}
                           </p>
                         </header>
-                        <ul className="divide-y divide-border/70">
+                        <ul className={cn(wide ? "space-y-2.5" : "divide-y divide-border/70")}>
                           {b.items.map((p) => {
                             // Faol oyna: vaqti kelgan, lekin davomiyligi hali
                             // tugamagan, bajarilmagan bugungi task → ko'k.
@@ -543,6 +548,7 @@ export function BugunView() {
                                   overdue={isOverdue}
                                   active={isActiveNow}
                                   rejaCategory={rejaCatMap.get(p.id)}
+                                  variant={taskStyle}
                                 />
                               );
                             }
@@ -570,6 +576,7 @@ export function BugunView() {
                                   onOpen={setDetailId}
                                   isNew={p.id === justCreatedId}
                                   rejaCategory={rejaCatMap.get(p.id)}
+                                  variant={taskStyle}
                                 />
                               </div>
                             );
