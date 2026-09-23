@@ -47,7 +47,9 @@ function nextId() {
 
 async function loadAll(): Promise<Snapshot> {
   const [txns, cats, budgets, goals] = await Promise.all([
-    txnActions.listTransactions({ limit: 500 }),
+    // Limitsiz: Joriy balans va oylik xulosalar butun tarixdan hisoblanadi.
+    // Limit bo'lsa eng eski yozuvlar oynadan tushib, balans "sakrab" ketadi.
+    txnActions.listTransactions(),
     catActions.listFinanceCategories(),
     budgetActions.listBudgets(),
     goalActions.listFinancialGoals(),

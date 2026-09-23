@@ -32,8 +32,9 @@ function isMonth(v: string): boolean {
 
 /* ─── Read ─────────────────────────────────────────────────── */
 
-/** Tranzaksiyalar ro'yxati. `month` ("YYYY-MM") berilsa shu oy, aks holda
- *  eng so'nggi `limit` ta yozuv. O'chirilganlar (deletedAt) chiqmaydi. */
+/** Tranzaksiyalar ro'yxati. `month` ("YYYY-MM") berilsa shu oy; `limit`
+ *  berilsa eng so'nggi `limit` ta yozuv; aks holda barchasi. O'chirilganlar
+ *  (deletedAt) chiqmaydi. */
 export async function listTransactions(opts?: {
   month?: string;
   limit?: number;
@@ -48,7 +49,7 @@ export async function listTransactions(opts?: {
       ...(month && { date: { startsWith: month } }),
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-    take: month ? undefined : opts?.limit ?? 100,
+    take: month ? undefined : opts?.limit,
   });
   return rows.map(toTransaction);
 }
