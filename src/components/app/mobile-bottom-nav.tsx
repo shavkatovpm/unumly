@@ -68,7 +68,6 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const pathname = usePathname();
   const navStyle = useMobileNavStyle();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   // Configurable primary slots (Boshqaruv is always pinned on the right).
   const [primaryIds, setPrimaryIds] = useState(DEFAULT_PRIMARY);
@@ -99,25 +98,7 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
       (href) => !primaryHrefs.has(href) && isActive(href)
     );
 
-  // Klaviatura ochilishini focus orqali aniqlash — bu iOS visual viewport
-  // o'zgarishidan oldin sodir bo'ladi, shuning uchun nav klaviatura
-  // animatsiyasi boshlanmasdan oldin yashirinadi.
-  useEffect(() => {
-    function onFocusIn(e: FocusEvent) {
-      if (isEditableElement(e.target as Element)) setKeyboardOpen(true);
-    }
-    function onFocusOut() {
-      setTimeout(() => {
-        if (!isEditableElement(document.activeElement)) setKeyboardOpen(false);
-      }, 0);
-    }
-    document.addEventListener("focusin", onFocusIn);
-    document.addEventListener("focusout", onFocusOut);
-    return () => {
-      document.removeEventListener("focusin", onFocusIn);
-      document.removeEventListener("focusout", onFocusOut);
-    };
-  }, []);
+  const keyboardOpen = useKeyboardOpen();
 
   // "+" tanlovlari (masalan Moliya: Kirim/Chiqim) — yelpig'ich qaysi sahifada
   // ochilgan bo'lsa, faqat o'sha yerda ko'rinadi (route o'zgarsa o'zi yopiladi).
@@ -829,4 +810,80 @@ function SheetCollapsible({
       </AnimatePresence>
     </div>
   );
+}
+
+/* Telefon klaviaturasi ochiqmi — nav shu paytda yashirinadi.
+   - Fokus input'ga tushganda nav darhol yashirinadi (klaviatura animatsiyasidan
+     oldin), lekin ~0.8s ichida klaviatura chiqmasa — qaytadi.
+   - Keyin faqat viewport haqiqatan qisqargan paytda yashirin turadi: Android
+     "orqaga" bilan klaviatura yopilib input fokusda qolsa ham nav qaytadi.
+   - Fokusdagi input DOM'dan olib tashlansa (WebKit/Telegram'da focusout
+     chiqmasligi mumkin) — davriy tekshiruv uni ushlaydi.
+   Ilgari faqat focusin/focusout'ga tayanilgani uchun ba'zan nav reload'gacha
+   yo'qolib qolardi. */
+const KEYBOARD_MIN_PX = 120;
+
+function useKeyboardOpen(): boolean {
+  const [editable, setEditable] = useState(false);
+  const [justFocused, setJustFocused] = useState(false);
+  const [viewportShrunk, setViewportShrunk] = useState(false);
+
+  useEffect(() => {
+    let focusTimer: number | undefined;
+    const sync = () => setEditable(isEditableElement(document.activeElement));
+    function onFocusIn(e: FocusEvent) {
+      if (!isEditableElement(e.target as Element)) return;
+      setEditable(true);
+      setJustFocused(true);
+      window.clearTimeout(focusTimer);
+      focusTimer = window.setTimeout(() => setJustFocused(false), 800);
+    }
+    function onFocusOut() {
+      window.setTimeout(sync, 0);
+    }
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+    };
+  }, []);
+
+  // Viewport qisqarishi — iOS'da visualViewport, Android/Telegram'da innerHeight.
+  useEffect(() => {
+    let baseline = 0;
+    let baseWidth = window.innerWidth;
+    const vv = window.visualViewport;
+    function measure() {
+      const h = Math.min(window.innerHeight, vv ? vv.height : window.innerHeight);
+      // Burilish (orientation) — bazani qayta o'lchaymiz.
+      if (window.innerWidth !== baseWidth) { baseWidth = window.innerWidth; baseline = 0; }
+      if (!isEditableElement(document.activeElement) || !baseline) baseline = Math.max(baseline, h);
+      setViewportShrunk(baseline - h > KEYBOARD_MIN_PX);
+    }
+    const raf = window.requestAnimationFrame(measure);
+    vv?.addEventListener("resize", measure);
+    window.addEventListener("resize", measure);
+    document.addEventListener("focusin", measure);
+    document.addEventListener("focusout", measure);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      vv?.removeEventListener("resize", measure);
+      window.removeEventListener("resize", measure);
+      document.removeEventListener("focusin", measure);
+      document.removeEventListener("focusout", measure);
+    };
+  }, []);
+
+  // Fokusdagi element olib tashlansa/blur bo'lmasa ham holat yangilansin.
+  useEffect(() => {
+    if (!editable) return;
+    const id = window.setInterval(() => {
+      if (!isEditableElement(document.activeElement)) setEditable(false);
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [editable]);
+
+  return editable && (justFocused || viewportShrunk);
 }
