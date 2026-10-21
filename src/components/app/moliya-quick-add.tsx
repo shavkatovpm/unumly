@@ -60,6 +60,8 @@ const SPRING = { type: "spring", damping: 30, stiffness: 380 } as const;
 const SHEET = { type: "spring", damping: 32, stiffness: 320 } as const;
 // Oyna tepasi: Telegram close/⋮ zonasi ostida (brauzerda — status bar ostida).
 const TOP_GAP = "max(calc(var(--tg-safe-top, 0px) + 6px), calc(env(safe-area-inset-top, 0px) + 12px))";
+// Kategoriya ↔ summa bosqichlari — siljimasdan, fade bilan almashadi.
+const STEP_FADE = { duration: 0.22, ease: "easeOut" } as const;
 const PAGE = { type: "spring", damping: 34, stiffness: 300 } as const;
 const UZ_MONTHS = ["yan", "fev", "mar", "apr", "may", "iyn", "iyl", "avg", "sen", "okt", "noy", "dek"];
 
@@ -276,10 +278,10 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
             /* ── 1-bosqich: kategoriya (chap/o'ngga surish — Chiqim/Kirim) ── */
             <motion.div
               key="cat"
-              initial={{ x: "-100%" }}
-              animate={{ x: "0%" }}
-              exit={{ x: "-100%" }}
-              transition={PAGE}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={STEP_FADE}
               className="absolute inset-0 flex flex-col"
             >
               <div className="shrink-0 px-4 pt-3 text-center">
@@ -332,10 +334,10 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
             /* ── 2-bosqich: summa (tur bu yerda o'zgarmaydi) ── */
             <motion.div
               key="amount"
-              initial={{ x: "100%" }}
-              animate={{ x: "0%" }}
-              exit={{ x: "100%" }}
-              transition={PAGE}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={STEP_FADE}
               className="absolute inset-0 flex flex-col"
             >
               {/* Tanlangan kategoriya — bosilsa 1-bosqichga qaytadi */}
