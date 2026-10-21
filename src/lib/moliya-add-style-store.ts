@@ -5,12 +5,13 @@ import { useEffect, useSyncExternalStore } from "react";
 /* Moliya'da yangi yozuv (kirim/chiqim) qo'shish oynasi ko'rinishi — faqat
    mobil uchun. "classic" (hozirgi forma) yoki "catFirst" (avval kategoriya,
    keyin summa). Faqat vizual tanlov — localStorage'da saqlanadi
-   (bugun-style-store.ts bilan bir xil naqsh). Default har doim "classic". */
+   (bugun-style-store.ts bilan bir xil naqsh). Default — "catFirst"; ataylab
+   "classic" tanlaganlarning tanlovi saqlanadi. */
 
 export type MoliyaAddStyle = "classic" | "catFirst";
 
 const STORAGE_KEY = "unumly:moliya:addStyle";
-const DEFAULT_STYLE: MoliyaAddStyle = "classic";
+const DEFAULT_STYLE: MoliyaAddStyle = "catFirst";
 const VALID: MoliyaAddStyle[] = ["classic", "catFirst"];
 
 let style: MoliyaAddStyle = DEFAULT_STYLE;
