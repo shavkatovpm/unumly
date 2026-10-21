@@ -173,12 +173,6 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
   }
   const back = () => (step === 0 ? onClose() : setStep(0));
 
-  const amountText = (
-    <span className={cn(!amount && "text-faint/50")}>
-      {type === "INCOME" ? "+" : "−"}{formatSom(amount)}
-    </span>
-  );
-
   return (
     <motion.div
       initial={{ y: "100%" }}
@@ -252,7 +246,7 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
                 drag={creatingCat ? false : "x"}
                 dragDirectionLock
                 dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.25}
+                dragElastic={0.5}
                 onDragEnd={(_, info) => onSwipeEnd(info.offset.x, info.velocity.x)}
                 className="relative mt-2 min-h-0 flex-1 overflow-hidden"
               >
@@ -260,10 +254,10 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
                   <motion.div
                     key={type}
                     custom={typeDir}
-                    initial={{ x: typeDir * 120, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: typeDir * -120, opacity: 0 }}
-                    transition={SPRING}
+                    initial={{ x: `${typeDir * 100}%` }}
+                    animate={{ x: "0%" }}
+                    exit={{ x: `${typeDir * -100}%` }}
+                    transition={{ type: "spring", damping: 34, stiffness: 300 }}
                     // Plitkalar o'lchami o'zgarmaydi — sig'masa ro'yxat scroll bo'ladi.
                     className="absolute inset-0 overflow-y-auto overscroll-contain pb-3"
                   >
@@ -318,33 +312,41 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
                 <DateNote date={date} setDate={setDate} note={note} setNote={setNote} panel={panel} setPanel={setPanel} />
               </div>
 
-              {/* Summa — bo'sh joy markazida */}
-              <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5">
-                <p className="font-mono text-[44px] font-semibold leading-none tabular-nums tracking-tight" style={{ color: amount ? k.color : undefined }}>
-                  {amountText}
-                </p>
-                <p className="mt-1.5 text-[12px] text-faint">so&apos;m</p>
-                {panel !== "note" && (
-                  <div className="mt-4 flex justify-center gap-1.5">
-                    {[10_000, 50_000, 100_000, 500_000].map((v) => (
-                      <button key={v} onClick={() => setAmount((a) => Math.min(a + v, 999_999_999_999))} className="rounded-full border border-border px-2.5 py-1 text-[12px] text-muted active:bg-hover">
-                        +{v / 1000}k
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* Summa — bo'sh joy markazida; joy o'zgarsa silliq siljiydi */}
+              <motion.div layout transition={SPRING} className="flex min-h-0 flex-1 flex-col items-center justify-center px-5">
+                <AnimatedAmount value={amount} color={k.color} />
+                <motion.p layout="position" className="mt-1.5 text-[12px] text-faint">so&apos;m</motion.p>
+                <AnimatePresence initial={false} mode="popLayout">
+                  {panel !== "note" && (
+                    <motion.div
+                      key="quick"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.18 }}
+                      className="mt-4 flex justify-center gap-1.5"
+                    >
+                      {[10_000, 50_000, 100_000, 500_000].map((v) => (
+                        <button key={v} onClick={() => setAmount((a) => Math.min(a + v, 999_999_999_999))} className="rounded-full border border-border px-3 py-1.5 text-[13px] text-muted active:bg-hover">
+                          +{v / 1000}k
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
 
-              {/* Izoh yozilayotganda raqamlar yashirinadi — o'rnini telefon klaviaturasi oladi */}
-              <AnimatePresence initial={false}>
+              {/* Izoh yozilayotganda raqamlar oddiy fade bilan yashirinadi —
+                  o'rnini telefon klaviaturasi oladi (balandlik animatsiyasiz). */}
+              <AnimatePresence initial={false} mode="popLayout">
                 {panel !== "note" && (
                   <motion.div
                     key="keypad"
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="shrink-0 overflow-hidden"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="shrink-0"
                   >
                     <Keypad amount={amount} onChange={setAmount} color={k.color} onSubmit={() => save(categoryId)} />
                   </motion.div>
@@ -478,7 +480,7 @@ function Keypad({
     onChange(Number((s + key).slice(0, 12)));
   }
   return (
-    <div className="mt-3 grid grid-cols-4 gap-1.5 px-3 pb-1">
+    <div className="mt-3 grid grid-cols-4 gap-2 px-3 pb-1">
       {["1", "2", "3", "del", "4", "5", "6", "000", "7", "8", "9", "ok", "00", "0"].map((key) =>
         key === "ok" ? (
           <button
@@ -489,7 +491,7 @@ function Keypad({
             className="row-span-2 grid place-items-center rounded-2xl text-white transition-opacity disabled:opacity-40"
             style={{ background: color }}
           >
-            <Check className="size-7" strokeWidth={2.6} />
+            <Check className="size-8" strokeWidth={2.6} />
           </button>
         ) : (
           <button
@@ -497,14 +499,46 @@ function Keypad({
             onClick={() => press(key)}
             aria-label={key === "del" ? "O'chirish" : undefined}
             className={cn(
-              "grid h-12 place-items-center rounded-2xl text-[20px] font-medium tabular-nums active:bg-hover",
+              "grid h-[clamp(52px,7.6dvh,72px)] place-items-center rounded-2xl text-[clamp(22px,3.1dvh,28px)] font-medium tabular-nums transition-colors active:bg-hover",
               key === "del" || key === "000" ? "bg-subtle text-muted" : "bg-subtle/50"
             )}
           >
-            {key === "del" ? <Delete className="size-5" /> : key}
+            {key === "del" ? <Delete className="size-6" /> : key}
           </button>
         )
       )}
     </div>
+  );
+}
+
+/* Summa — belgisiz; har bir yangi raqam pastdan silliq chiqadi, son markazga
+   silliq moslashadi. Belgilar chapdan sanab key oladi — raqam oxiriga
+   qo'shilgani (yoki o'chirilgani) animatsiya bo'ladi, qolganlari joyida. */
+function AnimatedAmount({ value, color }: { value: number; color: string }) {
+  const chars = formatSom(value).split("");
+  return (
+    <motion.p
+      layout
+      transition={SPRING}
+      className="flex font-mono text-[clamp(40px,6dvh,52px)] font-semibold leading-none tabular-nums tracking-tight"
+      style={{ color: value ? color : undefined }}
+      aria-live="polite"
+    >
+      <AnimatePresence initial={false} mode="popLayout">
+        {chars.map((ch, i) => (
+          <motion.span
+            key={`${i}-${ch === " " ? "s" : "d"}`}
+            layout="position"
+            initial={{ opacity: 0, y: 14, filter: "blur(4px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+            transition={{ type: "spring", damping: 26, stiffness: 420 }}
+            className={cn(ch === " " && "w-[0.3em]", !value && "text-faint/50")}
+          >
+            {ch === " " ? "\u00a0" : ch}
+          </motion.span>
+        ))}
+      </AnimatePresence>
+    </motion.p>
   );
 }
