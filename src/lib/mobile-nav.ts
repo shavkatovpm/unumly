@@ -41,9 +41,9 @@ export const NAV_ITEMS: NavItem[] = [
 export const STORAGE_PRIMARY = "unumly:mobilenav:primary";
 export const DEFAULT_PRIMARY: NavItemId[] = ["bugun", "tezkor", "moliya"];
 
-/** Min/max configurable slots (Boshqaruv is pinned on top of these). */
-export const MIN_PRIMARY = 2;
-export const MAX_PRIMARY = 4;
+/** Doim aniq 3 ta bo'lim + Boshqaruv = 4 — glass nav'da "+" markazda,
+ *  ikki tomonida ikkitadan. */
+export const PRIMARY_COUNT = 3;
 
 /** Fired on the window whenever the primary selection changes, so any
  *  mounted nav can re-read without a page reload. */
@@ -60,8 +60,11 @@ export function loadPrimaryIds(): NavItemId[] {
     if (!raw) return DEFAULT_PRIMARY;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return DEFAULT_PRIMARY;
-    const cleaned = parsed.filter(isValidId).slice(0, MAX_PRIMARY);
-    return cleaned.length >= MIN_PRIMARY ? cleaned : DEFAULT_PRIMARY;
+    // Ilgari 2–4 ta tanlash mumkin edi: ko'pi kesiladi, kami standartlardan to'ldiriladi.
+    const cleaned = [...new Set(parsed.filter(isValidId))].slice(0, PRIMARY_COUNT);
+    for (const id of DEFAULT_PRIMARY) if (cleaned.length < PRIMARY_COUNT && !cleaned.includes(id)) cleaned.push(id);
+    for (const { id } of NAV_ITEMS) if (cleaned.length < PRIMARY_COUNT && !cleaned.includes(id)) cleaned.push(id);
+    return cleaned;
   } catch {
     return DEFAULT_PRIMARY;
   }

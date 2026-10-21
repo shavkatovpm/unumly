@@ -6,8 +6,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_PRIMARY,
-  MAX_PRIMARY,
-  MIN_PRIMARY,
+  PRIMARY_COUNT,
   NAV_ITEMS,
   loadPrimaryIds,
   savePrimaryIds,
@@ -97,16 +96,12 @@ export function SettingsDialog({
   const moliyaAddStyle = useMoliyaAddStyle();
   const router = useRouter();
 
-  function togglePrimary(id: NavItemId) {
+  // Doim PRIMARY_COUNT ta: yangi bo'lim yoqilsa — ro'yxatdagi oxirgisi
+  // uning o'rniga chiqadi (o'chirish yo'q, faqat almashtirish).
+  function enablePrimary(id: NavItemId) {
     setPrimaryIds((prev) => {
-      let next: NavItemId[];
-      if (prev.includes(id)) {
-        if (prev.length <= MIN_PRIMARY) return prev; // keep the minimum
-        next = prev.filter((x) => x !== id);
-      } else {
-        if (prev.length >= MAX_PRIMARY) return prev; // at the maximum
-        next = [...prev, id];
-      }
+      if (prev.includes(id)) return prev;
+      const next = [...prev.slice(0, PRIMARY_COUNT - 1), id];
       savePrimaryIds(next);
       return next;
     });
@@ -247,9 +242,9 @@ export function SettingsDialog({
           <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Bo&apos;limlar</p>
           <p className="mb-3 text-[11.5px] leading-relaxed text-faint">
             Mobil pastki menyuda qaysi bo&apos;limlar ko&apos;rinishini tanlang.
-            «Boshqaruv» doim o&apos;ng tarafda qoladi. {MIN_PRIMARY}–{MAX_PRIMARY}{" "}
-            ta bo&apos;lim tanlash mumkin. Yoqilganlar tepada — ⠿ belgisidan
-            ushlab tartibini o&apos;zgartiring.
+            Menyuda doim {PRIMARY_COUNT} ta bo&apos;lim va «Boshqaruv» turadi.
+            Pastdagi bo&apos;limni yoqsangiz, ro&apos;yxatdagi oxirgisi uning
+            o&apos;rniga chiqadi. ⠿ belgisidan ushlab tartibini o&apos;zgartiring.
           </p>
           <LayoutGroup>
             {/* Yoqilganlar — drag bilan tartiblanadi */}
@@ -266,8 +261,6 @@ export function SettingsDialog({
                   <NavReorderRow
                     key={id}
                     item={item}
-                    canRemove={primaryIds.length > MIN_PRIMARY}
-                    onToggle={() => togglePrimary(id)}
                   />
                 );
               })}
@@ -277,7 +270,6 @@ export function SettingsDialog({
             {NAV_ITEMS.some((i) => !primaryIds.includes(i.id)) && (
               <div className="mt-2 space-y-2">
                 {NAV_ITEMS.filter((i) => !primaryIds.includes(i.id)).map((item) => {
-                  const atMax = primaryIds.length >= MAX_PRIMARY;
                   return (
                     <motion.button
                       key={item.id}
@@ -285,12 +277,8 @@ export function SettingsDialog({
                       layoutId={`nav-${item.id}`}
                       transition={{ type: "spring", stiffness: 520, damping: 42 }}
                       type="button"
-                      onClick={() => togglePrimary(item.id)}
-                      disabled={atMax}
-                      className={cn(
-                        "flex w-full items-center rounded-md border border-border bg-surface pr-3.5 transition-colors hover:bg-hover/40",
-                        atMax && "opacity-50"
-                      )}
+                      onClick={() => enablePrimary(item.id)}
+                      className="flex w-full items-center rounded-md border border-border bg-surface pr-3.5 transition-colors hover:bg-hover/40"
                     >
                       {/* grip joyi uchun bo'sh spacer (tekislash) */}
                       <span aria-hidden className="py-2.5 pl-3 pr-1 opacity-0">
@@ -658,16 +646,9 @@ function NotifToggle({
   );
 }
 
-/* Mobil menyu — yoqilgan bo'lim qatori (drag bilan tartiblanadi). */
-function NavReorderRow({
-  item,
-  canRemove,
-  onToggle,
-}: {
-  item: (typeof NAV_ITEMS)[number];
-  canRemove: boolean;
-  onToggle: () => void;
-}) {
+/* Mobil menyu — yoqilgan bo'lim qatori (drag bilan tartiblanadi; o'chirib
+   bo'lmaydi — pastdagi bo'lim yoqilsa, oxirgisi o'rniga chiqadi). */
+function NavReorderRow({ item }: { item: (typeof NAV_ITEMS)[number] }) {
   const controls = useDragControls();
   return (
     <Reorder.Item
@@ -687,15 +668,7 @@ function NavReorderRow({
       >
         <GripVertical className="size-4" />
       </button>
-      <button
-        type="button"
-        onClick={onToggle}
-        disabled={!canRemove}
-        className={cn(
-          "flex flex-1 items-center justify-between py-2.5 pl-1.5",
-          !canRemove && "opacity-50"
-        )}
-      >
+      <div className="flex flex-1 items-center justify-between py-2.5 pl-1.5">
         <div className="flex items-center gap-2.5">
           <item.icon className="size-4 text-faint" strokeWidth={2} />
           <p className="text-[13.5px] font-medium">{item.label}</p>
@@ -703,7 +676,7 @@ function NavReorderRow({
         <span aria-hidden className="relative h-5 w-9 rounded-full bg-foreground">
           <span className="absolute left-[18px] top-0.5 size-4 rounded-full bg-background shadow" />
         </span>
-      </button>
+      </div>
     </Reorder.Item>
   );
 }
