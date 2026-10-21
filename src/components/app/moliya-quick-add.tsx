@@ -58,6 +58,8 @@ const kindOf = (t: TransactionType) => KINDS.find((k) => k.id === t)!;
 
 const SPRING = { type: "spring", damping: 30, stiffness: 380 } as const;
 const SHEET = { type: "spring", damping: 32, stiffness: 320 } as const;
+// Oyna tepasi: Telegram close/⋮ zonasi ostida (brauzerda — status bar ostida).
+const TOP_GAP = "max(calc(var(--tg-safe-top, 0px) + 6px), calc(env(safe-area-inset-top, 0px) + 12px))";
 const PAGE = { type: "spring", damping: 34, stiffness: 300 } as const;
 // Kirim↔Chiqim sahifalari: dir=1 — yangi o'ngdan kiradi, eski chapga chiqadi.
 // `custom` orqali — chiqayotgan sahifa ham joriy yo'nalishni oladi.
@@ -111,15 +113,16 @@ export function MoliyaQuickAdd(props: Props) {
   );
 }
 
-/* Klaviatura ochilganda (izoh) oyna pastki cheti uning ustiga ko'tariladi,
-   tepasi esa joyida qoladi (iOS sahifani surib yuborsa — `top` ham shunga moslanadi). */
-function useKeyboardInset() {
-  const [inset, setInset] = useState({ bottom: 0, top: 0 });
+/* Telefon klaviaturasi (izoh) ochilganda oyna qimirlamaydi: balandligi
+   ochilgan paytdagi ekran bo'yicha qotiriladi (Android'da viewport qisqarsa
+   ham), klaviatura shunchaki pastki qismini yopadi. iOS sahifani yuqoriga
+   sursa — `top` shunga moslanadi. */
+function useViewportShift() {
+  const [shift, setShift] = useState(0);
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const update = () =>
-      setInset({ bottom: Math.max(0, window.innerHeight - vv.height - vv.offsetTop), top: Math.max(0, vv.offsetTop) });
+    const update = () => setShift(Math.max(0, vv.offsetTop));
     vv.addEventListener("resize", update);
     vv.addEventListener("scroll", update);
     return () => {
@@ -127,7 +130,7 @@ function useKeyboardInset() {
       vv.removeEventListener("scroll", update);
     };
   }, []);
-  return inset;
+  return shift;
 }
 
 /* Har ochilishda yangidan mount bo'ladi — holat o'z-o'zidan tiklanadi. */
@@ -142,7 +145,8 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
   const [creatingCat, setCreatingCat] = useState(false);
   // Tur almashganda plitkalar qaysi tomonga siljishi (−1 chapdan, 1 o'ngdan).
   const [typeDir, setTypeDir] = useState(0);
-  const inset = useKeyboardInset();
+  const shift = useViewportShift();
+  const [baseHeight] = useState(() => window.innerHeight);
   const k = kindOf(type);
 
   // Eng ko'p ishlatilgan kategoriya tepada; teng bo'lsa — foydalanuvchi tartibi.
@@ -204,17 +208,32 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
       // Doim bir xil balandlik: tepada Telegram close/⋮ zonasigacha (brauzerda — status bar ostigacha).
       className="fixed inset-x-0 z-50 flex flex-col overflow-hidden rounded-t-[32px] border-t border-border bg-surface md:hidden"
       style={{
-        top: `calc(${inset.top}px + max(calc(var(--tg-safe-top, 0px) + 6px), calc(env(safe-area-inset-top, 0px) + 12px)))`,
-        bottom: inset.bottom,
-        paddingBottom: inset.bottom ? 12 : "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+        top: `calc(${shift}px + ${TOP_GAP})`,
+        height: `calc(${baseHeight}px - ${TOP_GAP})`,
+        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
       }}
     >
       <span className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-faint/50" />
 
       {/* Sarlavha: orqaga/yopish · tur (faqat 1-bosqichda almashadi) · progress */}
       <div className="flex shrink-0 items-center gap-2 px-4 pt-2">
-        <button onClick={back} aria-label={step === 0 ? "Yopish" : "Orqaga"} className="grid size-8 shrink-0 place-items-center rounded-full bg-subtle text-muted">
-          {step === 0 ? <X className="size-4" /> : <ArrowLeft className="size-4" />}
+        <button
+          onClick={back}
+          aria-label={step === 0 ? "Yopish" : "Orqaga"}
+          className="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-surface text-foreground shadow-[0_2px_8px_-3px_rgba(0,0,0,0.18)] transition-transform active:scale-90"
+        >
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.span
+              key={step}
+              initial={{ opacity: 0, rotate: step ? 90 : -90, scale: 0.6 }}
+              animate={{ opacity: 1, rotate: 0, scale: 1 }}
+              exit={{ opacity: 0, rotate: step ? -90 : 90, scale: 0.6 }}
+              transition={{ duration: 0.18 }}
+              className="grid"
+            >
+              {step === 0 ? <X className="size-5" strokeWidth={2.4} /> : <ArrowLeft className="size-5" strokeWidth={2.4} />}
+            </motion.span>
+          </AnimatePresence>
         </button>
         <div className="flex flex-1 justify-center">
           {step === 0 ? (
@@ -236,7 +255,7 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
             </span>
           )}
         </div>
-        <span className="size-8 shrink-0" />
+        <span className="size-10 shrink-0" />
       </div>
       <div className="mx-auto mt-2.5 grid w-24 shrink-0 grid-cols-2 gap-1">
         {[0, 1].map((i) => (
@@ -338,42 +357,30 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
               <motion.div layout transition={SPRING} className="flex min-h-0 flex-1 flex-col items-center justify-center px-5">
                 <AnimatedAmount value={amount} color={k.color} />
                 <motion.p layout="position" className="mt-1.5 text-[12px] text-faint">so&apos;m</motion.p>
-                <AnimatePresence initial={false} mode="popLayout">
-                  {panel !== "note" && (
-                    <motion.div
-                      key="quick"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.18 }}
-                      className="mt-4 flex justify-center gap-1.5"
-                    >
-                      {[10_000, 50_000, 100_000, 500_000].map((v) => (
-                        <button key={v} onClick={() => setAmount((a) => Math.min(a + v, 999_999_999_999))} className="rounded-full border border-border px-3 py-1.5 text-[13px] text-muted active:bg-hover">
-                          +{v / 1000}k
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <motion.div
+                  animate={{ opacity: panel === "note" ? 0 : 1 }}
+                  transition={{ duration: 0.18 }}
+                  aria-hidden={panel === "note"}
+                  className={cn("mt-4 flex justify-center gap-1.5", panel === "note" && "pointer-events-none")}
+                >
+                  {[10_000, 50_000, 100_000, 500_000].map((v) => (
+                    <button key={v} onClick={() => setAmount((a) => Math.min(a + v, 999_999_999_999))} className="rounded-full border border-border px-3 py-1.5 text-[13px] text-muted active:bg-hover">
+                      +{v / 1000}k
+                    </button>
+                  ))}
+                </motion.div>
               </motion.div>
 
-              {/* Izoh yozilayotganda raqamlar oddiy fade bilan yashirinadi —
-                  o'rnini telefon klaviaturasi oladi (balandlik animatsiyasiz). */}
-              <AnimatePresence initial={false} mode="popLayout">
-                {panel !== "note" && (
-                  <motion.div
-                    key="keypad"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.18 }}
-                    className="shrink-0"
-                  >
-                    <Keypad amount={amount} onChange={setAmount} color={k.color} onSubmit={() => save(categoryId)} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {/* Izoh yozilayotganda raqamlar joyida qolib, faqat fade bo'ladi —
+                  ustini telefon klaviaturasi yopadi (hech narsa siljimaydi). */}
+              <motion.div
+                animate={{ opacity: panel === "note" ? 0 : 1 }}
+                transition={{ duration: 0.18 }}
+                aria-hidden={panel === "note"}
+                className={cn("shrink-0", panel === "note" && "pointer-events-none")}
+              >
+                <Keypad amount={amount} onChange={setAmount} color={k.color} onSubmit={() => save(categoryId)} />
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
