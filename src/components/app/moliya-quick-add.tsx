@@ -103,13 +103,15 @@ export function MoliyaQuickAdd(props: Props) {
   );
 }
 
-/* Klaviatura ochilganda (izoh) oyna uning ustiga ko'tariladi. */
+/* Klaviatura ochilganda (izoh) oyna pastki cheti uning ustiga ko'tariladi,
+   tepasi esa joyida qoladi (iOS sahifani surib yuborsa — `top` ham shunga moslanadi). */
 function useKeyboardInset() {
-  const [inset, setInset] = useState(0);
+  const [inset, setInset] = useState({ bottom: 0, top: 0 });
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const update = () => setInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+    const update = () =>
+      setInset({ bottom: Math.max(0, window.innerHeight - vv.height - vv.offsetTop), top: Math.max(0, vv.offsetTop) });
     vv.addEventListener("resize", update);
     vv.addEventListener("scroll", update);
     return () => {
@@ -130,25 +132,34 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
   const [step, setStep] = useState<0 | 1>(0);
   const [panel, setPanel] = useState<null | "date" | "note">(null);
   const [creatingCat, setCreatingCat] = useState(false);
+  // Tur almashganda plitkalar qaysi tomonga siljishi (−1 chapdan, 1 o'ngdan).
+  const [typeDir, setTypeDir] = useState(0);
   const inset = useKeyboardInset();
   const k = kindOf(type);
 
-  // Ko'p ishlatilgan kategoriya birinchi (TxnDialog bilan bir xil tartib).
+  // Eng ko'p ishlatilgan kategoriya tepada; teng bo'lsa — foydalanuvchi tartibi.
   const typeCats = useMemo(() => {
     const usage = new Map<string, number>();
     for (const t of transactions) if (t.categoryId) usage.set(t.categoryId, (usage.get(t.categoryId) ?? 0) + 1);
     return categories
       .filter((c) => c.type === type)
       .slice()
-      .sort((a, b) => (usage.get(b.id) ?? 0) - (usage.get(a.id) ?? 0));
+      .sort((a, b) => (usage.get(b.id) ?? 0) - (usage.get(a.id) ?? 0) || a.order - b.order);
   }, [categories, transactions, type]);
   const cat = categories.find((c) => c.id === categoryId);
 
+  // Tur faqat kategoriya bosqichida almashadi (tugma yoki chap/o'ngga surish).
   function setType(t: TransactionType) {
+    if (t === type) return;
+    setTypeDir(KINDS.findIndex((x) => x.id === t) > KINDS.findIndex((x) => x.id === type) ? 1 : -1);
     setTypeRaw(t);
     setCategoryId(null);
     setCreatingCat(false);
-    setStep(0);
+  }
+  function onSwipeEnd(dx: number, vx: number) {
+    if (creatingCat) return;
+    if (dx < -60 || vx < -500) setType(KINDS[1].id); // chapga surish → o'ngdagi (Kirim)
+    else if (dx > 60 || vx > 500) setType(KINDS[0].id); // o'ngga surish → chapdagi (Chiqim)
   }
   function save(catId: string | null) {
     if (amount <= 0) return;
@@ -176,28 +187,40 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
       transition={SHEET}
       role="dialog"
       aria-label={`Yangi ${k.label.toLowerCase()}`}
-      className="fixed inset-x-0 z-50 flex max-h-[92dvh] flex-col overflow-hidden rounded-t-[32px] border-t border-border bg-surface md:hidden"
-      style={{ bottom: inset, paddingBottom: inset ? 12 : "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
+      // Doim bir xil balandlik: tepada Telegram close/⋮ zonasigacha (brauzerda — status bar ostigacha).
+      className="fixed inset-x-0 z-50 flex flex-col overflow-hidden rounded-t-[32px] border-t border-border bg-surface md:hidden"
+      style={{
+        top: `calc(${inset.top}px + max(calc(var(--tg-safe-top, 0px) + 6px), calc(env(safe-area-inset-top, 0px) + 12px)))`,
+        bottom: inset.bottom,
+        paddingBottom: inset.bottom ? 12 : "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+      }}
     >
       <span className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-faint/50" />
 
-      {/* Sarlavha: orqaga/yopish · tur · progress */}
+      {/* Sarlavha: orqaga/yopish · tur (faqat 1-bosqichda almashadi) · progress */}
       <div className="flex shrink-0 items-center gap-2 px-4 pt-2">
         <button onClick={back} aria-label={step === 0 ? "Yopish" : "Orqaga"} className="grid size-8 shrink-0 place-items-center rounded-full bg-subtle text-muted">
           {step === 0 ? <X className="size-4" /> : <ArrowLeft className="size-4" />}
         </button>
         <div className="flex flex-1 justify-center">
-          <div className="flex rounded-full bg-subtle p-0.5">
-            {KINDS.map((x) => {
-              const on = type === x.id;
-              return (
-                <button key={x.id} onClick={() => setType(x.id)} className={cn("relative flex items-center gap-1 rounded-full px-3 py-1 text-[12.5px] font-semibold transition-colors", on ? "text-white" : "text-muted")}>
-                  {on && <motion.span layoutId="qa-type" transition={SPRING} className="absolute inset-0 rounded-full" style={{ background: x.color }} />}
-                  <span className="relative flex items-center gap-1"><x.icon className="size-3.5" strokeWidth={2.4} /> {x.label}</span>
-                </button>
-              );
-            })}
-          </div>
+          {step === 0 ? (
+            <div className="flex rounded-full bg-subtle p-0.5">
+              {KINDS.map((x) => {
+                const on = type === x.id;
+                return (
+                  <button key={x.id} onClick={() => setType(x.id)} className={cn("relative flex items-center gap-1 rounded-full px-3 py-1 text-[12.5px] font-semibold transition-colors", on ? "text-white" : "text-muted")}>
+                    {on && <motion.span layoutId="qa-type" transition={SPRING} className="absolute inset-0 rounded-full" style={{ background: x.color }} />}
+                    <span className="relative flex items-center gap-1"><x.icon className="size-3.5" strokeWidth={2.4} /> {x.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <span className="relative flex items-center gap-1 rounded-full px-3 py-1 text-[12.5px] font-semibold text-white">
+              <motion.span layoutId="qa-type" transition={SPRING} className="absolute inset-0 rounded-full" style={{ background: k.color }} />
+              <span className="relative flex items-center gap-1"><k.icon className="size-3.5" strokeWidth={2.4} /> {k.label}</span>
+            </span>
+          )}
         </div>
         <span className="size-8 shrink-0" />
       </div>
@@ -209,19 +232,78 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
         ))}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div className="relative min-h-0 flex-1">
         <AnimatePresence mode="popLayout" initial={false}>
-          <motion.div
-            key={step}
-            initial={{ x: step ? 60 : -60, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: step ? 60 : -60, opacity: 0 }}
-            transition={SPRING}
-            className="flex flex-col"
-          >
-            {/* 2-bosqich: tanlangan kategoriya sarlavhada (bosilsa qaytadi) */}
-            {step === 1 && (
-              <button onClick={() => setStep(0)} className="mx-4 mt-3 flex items-center gap-3 rounded-2xl px-2.5 py-2 text-left" style={{ background: cat ? colorWithAlpha(cat.color, 0.12) : "var(--subtle)" }}>
+          {step === 0 ? (
+            /* ── 1-bosqich: kategoriya (chap/o'ngga surish — Chiqim/Kirim) ── */
+            <motion.div
+              key="cat"
+              initial={{ x: -60, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -60, opacity: 0 }}
+              transition={SPRING}
+              className="absolute inset-0 flex flex-col"
+            >
+              <div className="shrink-0 px-4 pt-3 text-center">
+                <p className="text-[17px] font-semibold">{type === "INCOME" ? "Pul qayerdan keldi?" : "Nimaga sarfladingiz?"}</p>
+                <p className="mt-0.5 text-[11.5px] text-faint">Chapga / o&apos;ngga surib Kirim ↔ Chiqim</p>
+              </div>
+              <motion.div
+                drag={creatingCat ? false : "x"}
+                dragDirectionLock
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.25}
+                onDragEnd={(_, info) => onSwipeEnd(info.offset.x, info.velocity.x)}
+                className="relative mt-2 min-h-0 flex-1 overflow-hidden"
+              >
+                <AnimatePresence mode="popLayout" initial={false} custom={typeDir}>
+                  <motion.div
+                    key={type}
+                    custom={typeDir}
+                    initial={{ x: typeDir * 120, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: typeDir * -120, opacity: 0 }}
+                    transition={SPRING}
+                    // Plitkalar o'lchami o'zgarmaydi — sig'masa ro'yxat scroll bo'ladi.
+                    className="absolute inset-0 overflow-y-auto overscroll-contain pb-3"
+                  >
+                    {creatingCat ? (
+                      <div className="px-4">
+                        {renderCategoryForm(
+                          type,
+                          (id) => { setCreatingCat(false); chooseCategory(id); },
+                          () => setCreatingCat(false)
+                        )}
+                      </div>
+                    ) : (
+                      <CategoryGrid cats={typeCats} onPick={(c) => chooseCategory(c.id)} />
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              </motion.div>
+              {!creatingCat && (
+                <div className="flex shrink-0 items-center justify-between border-t border-border px-4 pt-2.5">
+                  <button onClick={() => setCreatingCat(true)} className="flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-1.5 text-[12.5px] text-faint">
+                    <Plus className="size-3.5" /> Yangi kategoriya
+                  </button>
+                  <button onClick={() => chooseCategory(null)} className="flex items-center gap-1 text-[12.5px] font-medium text-faint">
+                    Kategoriyasiz <ChevronRight className="size-3.5" />
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          ) : (
+            /* ── 2-bosqich: summa (tur bu yerda o'zgarmaydi) ── */
+            <motion.div
+              key="amount"
+              initial={{ x: 60, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 60, opacity: 0 }}
+              transition={SPRING}
+              className="absolute inset-0 flex flex-col"
+            >
+              {/* Tanlangan kategoriya — bosilsa 1-bosqichga qaytadi */}
+              <button onClick={() => setStep(0)} className="mx-4 mt-3 flex shrink-0 items-center gap-3 rounded-2xl px-2.5 py-2 text-left" style={{ background: cat ? colorWithAlpha(cat.color, 0.12) : "var(--subtle)" }}>
                 {cat ? <CatBadge c={cat} layoutId={`qa-cat-${cat.id}`} size="sm" /> : (
                   <span className="grid size-10 place-items-center rounded-xl bg-surface text-faint"><Tag className="size-5" /></span>
                 )}
@@ -231,59 +313,45 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
                 </span>
                 <span className="pr-1 text-[12px] text-faint">o&apos;zgartirish</span>
               </button>
-            )}
 
-            {/* Sana / izoh — kerak bo'lsa ochiladi */}
-            {step === 1 && (
-              <DateNote date={date} setDate={setDate} note={note} setNote={setNote} panel={panel} setPanel={setPanel} />
-            )}
+              <div className="shrink-0">
+                <DateNote date={date} setDate={setDate} note={note} setNote={setNote} panel={panel} setPanel={setPanel} />
+              </div>
 
-            {step === 0 ? (
-              <>
-                <p className="mt-3 px-4 text-center text-[17px] font-semibold">
-                  {type === "INCOME" ? "Pul qayerdan keldi?" : "Nimaga sarfladingiz?"}
+              {/* Summa — bo'sh joy markazida */}
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5">
+                <p className="font-mono text-[44px] font-semibold leading-none tabular-nums tracking-tight" style={{ color: amount ? k.color : undefined }}>
+                  {amountText}
                 </p>
-                {creatingCat ? (
-                  <div className="px-4 pb-2">
-                    {renderCategoryForm(
-                      type,
-                      (id) => { setCreatingCat(false); chooseCategory(id); },
-                      () => setCreatingCat(false)
-                    )}
-                  </div>
-                ) : (
-                  <CategoryGrid cats={typeCats} onPick={(c) => chooseCategory(c.id)} />
-                )}
-                {!creatingCat && (
-                  <div className="mt-2 flex items-center justify-between px-4 pb-1">
-                    <button onClick={() => setCreatingCat(true)} className="flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-1.5 text-[12.5px] text-faint">
-                      <Plus className="size-3.5" /> Yangi kategoriya
-                    </button>
-                    <button onClick={() => chooseCategory(null)} className="flex items-center gap-1 text-[12.5px] font-medium text-faint">
-                      Kategoriyasiz <ChevronRight className="size-3.5" />
-                    </button>
+                <p className="mt-1.5 text-[12px] text-faint">so&apos;m</p>
+                {panel !== "note" && (
+                  <div className="mt-4 flex justify-center gap-1.5">
+                    {[10_000, 50_000, 100_000, 500_000].map((v) => (
+                      <button key={v} onClick={() => setAmount((a) => Math.min(a + v, 999_999_999_999))} className="rounded-full border border-border px-2.5 py-1 text-[12px] text-muted active:bg-hover">
+                        +{v / 1000}k
+                      </button>
+                    ))}
                   </div>
                 )}
-              </>
-            ) : (
-              <>
-                <div className="px-5 pt-3 text-center">
-                  <motion.p className="font-mono text-[42px] font-semibold leading-none tabular-nums tracking-tight" style={{ color: amount ? k.color : undefined }}>
-                    {amountText}
-                  </motion.p>
-                  <p className="mt-1.5 text-[12px] text-faint">so&apos;m</p>
-                </div>
-                <div className="mt-3 flex justify-center gap-1.5 px-4">
-                  {[10_000, 50_000, 100_000, 500_000].map((v) => (
-                    <button key={v} onClick={() => setAmount((a) => Math.min(a + v, 999_999_999_999))} className="rounded-full border border-border px-2.5 py-1 text-[12px] text-muted active:bg-hover">
-                      +{v / 1000}k
-                    </button>
-                  ))}
-                </div>
-                <Keypad amount={amount} onChange={setAmount} color={k.color} onSubmit={() => save(categoryId)} />
-              </>
-            )}
-          </motion.div>
+              </div>
+
+              {/* Izoh yozilayotganda raqamlar yashirinadi — o'rnini telefon klaviaturasi oladi */}
+              <AnimatePresence initial={false}>
+                {panel !== "note" && (
+                  <motion.div
+                    key="keypad"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="shrink-0 overflow-hidden"
+                  >
+                    <Keypad amount={amount} onChange={setAmount} color={k.color} onSubmit={() => save(categoryId)} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
     </motion.div>
@@ -309,7 +377,7 @@ function CatBadge({ c, layoutId, size = "lg" }: { c: FinanceCategory; layoutId?:
 function CategoryGrid({ cats, onPick }: { cats: FinanceCategory[]; onPick: (c: FinanceCategory) => void }) {
   if (!cats.length) return <EmptyCats />;
   return (
-    <div className="grid grid-cols-2 gap-2 px-4 pt-3">
+    <div className="grid grid-cols-2 gap-2 px-4 pt-1">
       {cats.map((c) => (
         <button key={c.id} onClick={() => onPick(c)} className="flex min-w-0 items-center gap-3 rounded-2xl px-3 py-3 text-left active:scale-[0.98]" style={{ background: colorWithAlpha(c.color, 0.1) }}>
           <CatBadge c={c} layoutId={`qa-cat-${c.id}`} size="md" />
@@ -349,7 +417,7 @@ function DateNote({
         <button onClick={() => setPanel(panel === "date" ? null : "date")} className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px]", panel === "date" ? "border-foreground/30 bg-hover" : "border-border text-muted")}>
           <CalendarDays className="size-3.5" /> {dateLabel(date)}
         </button>
-        <button onClick={() => setPanel(panel === "note" ? null : "note")} className={cn("flex min-w-0 flex-1 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px]", panel === "note" ? "border-foreground/30 bg-hover" : "border-border text-muted")}>
+        <button onMouseDown={(e) => e.preventDefault()} onClick={() => setPanel(panel === "note" ? null : "note")} className={cn("flex min-w-0 flex-1 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px]", panel === "note" ? "border-foreground/30 bg-hover" : "border-border text-muted")}>
           <PenLine className="size-3.5 shrink-0" />
           <span className="truncate">{note || "Izoh qo'shish"}</span>
         </button>
@@ -377,6 +445,9 @@ function DateNote({
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") setPanel(null); }}
+                  // Klaviatura yopilsa — izoh paneli ham yopiladi, raqamlar qaytadi.
+                  onBlur={() => setPanel(null)}
+                  enterKeyHint="done"
                   placeholder="Izoh (ixtiyoriy)"
                   className="w-full rounded-xl border border-border bg-subtle/40 px-3 py-2 text-[14px] outline-none focus:border-foreground/30"
                 />
