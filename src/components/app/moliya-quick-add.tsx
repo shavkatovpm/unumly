@@ -2,7 +2,7 @@
 
 import { createElement, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
 import {
   ArrowDownLeft,
   ArrowLeft,
@@ -58,6 +58,14 @@ const kindOf = (t: TransactionType) => KINDS.find((k) => k.id === t)!;
 
 const SPRING = { type: "spring", damping: 30, stiffness: 380 } as const;
 const SHEET = { type: "spring", damping: 32, stiffness: 320 } as const;
+const PAGE = { type: "spring", damping: 34, stiffness: 300 } as const;
+// Kirim↔Chiqim sahifalari: dir=1 — yangi o'ngdan kiradi, eski chapga chiqadi.
+// `custom` orqali — chiqayotgan sahifa ham joriy yo'nalishni oladi.
+const PAGE_VARIANTS = {
+  enter: (dir: number) => ({ x: `${dir * 100}%` }),
+  center: { x: "0%" },
+  exit: (dir: number) => ({ x: `${dir * -100}%` }),
+};
 const UZ_MONTHS = ["yan", "fev", "mar", "apr", "may", "iyn", "iyl", "avg", "sen", "okt", "noy", "dek"];
 
 function yesterdayKey() {
@@ -156,10 +164,22 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
     setCategoryId(null);
     setCreatingCat(false);
   }
+  // Surish: plitkalar barmoqqa ergashadi; qo'yib yuborilganda yetarli bo'lsa —
+  // shu tomonga davom etib chiqib ketadi, yangi tur narigi tomondan kiradi.
+  const dragX = useMotionValue(0);
+  const typeIdx = KINDS.findIndex((x) => x.id === type);
+  function onSwipe(dx: number, dy: number) {
+    if (creatingCat || Math.abs(dx) < Math.abs(dy)) return;
+    // Chetda (boshqa tur yo'q tomonga) — qarshilik bilan.
+    const blocked = (dx < 0 && typeIdx === KINDS.length - 1) || (dx > 0 && typeIdx === 0);
+    dragX.set(blocked ? dx * 0.25 : dx);
+  }
   function onSwipeEnd(dx: number, vx: number) {
-    if (creatingCat) return;
-    if (dx < -60 || vx < -500) setType(KINDS[1].id); // chapga surish → o'ngdagi (Kirim)
-    else if (dx > 60 || vx > 500) setType(KINDS[0].id); // o'ngga surish → chapdagi (Chiqim)
+    if (!creatingCat) {
+      if ((dx < -60 || vx < -500) && typeIdx < KINDS.length - 1) setType(KINDS[typeIdx + 1].id); // chapga → o'ngdagi (Kirim)
+      else if ((dx > 60 || vx > 500) && typeIdx > 0) setType(KINDS[typeIdx - 1].id); // o'ngga → chapdagi (Chiqim)
+    }
+    animate(dragX, 0, PAGE);
   }
   function save(catId: string | null) {
     if (amount <= 0) return;
@@ -243,21 +263,22 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
                 <p className="mt-0.5 text-[11.5px] text-faint">Chapga / o&apos;ngga surib Kirim ↔ Chiqim</p>
               </div>
               <motion.div
-                drag={creatingCat ? false : "x"}
-                dragDirectionLock
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.5}
-                onDragEnd={(_, info) => onSwipeEnd(info.offset.x, info.velocity.x)}
+                onPan={(_, info) => onSwipe(info.offset.x, info.offset.y)}
+                onPanEnd={(_, info) => onSwipeEnd(info.offset.x, info.velocity.x)}
+                // Vertikal scroll brauzerda qoladi, gorizontal — bizda.
+                style={{ touchAction: "pan-y" }}
                 className="relative mt-2 min-h-0 flex-1 overflow-hidden"
               >
+                <motion.div style={{ x: dragX }} className="absolute inset-0">
                 <AnimatePresence mode="popLayout" initial={false} custom={typeDir}>
                   <motion.div
                     key={type}
                     custom={typeDir}
-                    initial={{ x: `${typeDir * 100}%` }}
-                    animate={{ x: "0%" }}
-                    exit={{ x: `${typeDir * -100}%` }}
-                    transition={{ type: "spring", damping: 34, stiffness: 300 }}
+                    variants={PAGE_VARIANTS}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={PAGE}
                     // Plitkalar o'lchami o'zgarmaydi — sig'masa ro'yxat scroll bo'ladi.
                     className="absolute inset-0 overflow-y-auto overscroll-contain pb-3"
                   >
@@ -274,6 +295,7 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
                     )}
                   </motion.div>
                 </AnimatePresence>
+                </motion.div>
               </motion.div>
               {!creatingCat && (
                 <div className="flex shrink-0 items-center justify-between border-t border-border px-4 pt-2.5">
