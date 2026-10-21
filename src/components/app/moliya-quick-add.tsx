@@ -9,7 +9,6 @@ import {
   ArrowUpRight,
   CalendarDays,
   Check,
-  ChevronLeft,
   ChevronRight,
   Delete,
   PenLine,
@@ -25,13 +24,10 @@ import { dateKey, formatSom } from "@/lib/money";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import { DatePickerButton } from "./widgets/date-picker-button";
 
-/* Mobil: yangi kirim/chiqim qo'shishning tez oynalari (Sozlamalar > Mavzu >
-   Moliya'dan tanlanadi). Ikkalasi ham o'z raqam klaviaturasi bilan —
-   telefon klaviaturasi ochilmaydi (faqat izoh yozilganda).
-   - "catFirst":    avval kategoriya → summa, ✓ saqlaydi.
-   - "amountFirst": avval summa → kategoriya, kategoriyani tanlash saqlaydi. */
-
-export type QuickAddVariant = "catFirst" | "amountFirst";
+/* Mobil: yangi kirim/chiqim qo'shishning tez oynasi (Sozlamalar > Mavzu >
+   Moliya'dan yoqiladi). Avval kategoriya → summa, ✓ saqlaydi. Summa o'z
+   raqam klaviaturasi bilan — telefon klaviaturasi faqat izoh yozilganda
+   ochiladi. */
 
 type CreateInput = {
   type: TransactionType;
@@ -42,7 +38,6 @@ type CreateInput = {
 };
 
 type Props = {
-  variant: QuickAddVariant;
   open: boolean;
   initialType: TransactionType;
   categories: FinanceCategory[];
@@ -126,14 +121,13 @@ function useKeyboardInset() {
 }
 
 /* Har ochilishda yangidan mount bo'ladi — holat o'z-o'zidan tiklanadi. */
-function Sheet({ variant, initialType, categories, transactions, onClose, onCreate, renderCategoryForm }: Props) {
+function Sheet({ initialType, categories, transactions, onClose, onCreate, renderCategoryForm }: Props) {
   const [type, setTypeRaw] = useState<TransactionType>(initialType);
   const [amount, setAmount] = useState(0);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [date, setDate] = useState(() => dateKey());
   const [note, setNote] = useState("");
   const [step, setStep] = useState<0 | 1>(0);
-  const [idx, setIdx] = useState(0);
   const [panel, setPanel] = useState<null | "date" | "note">(null);
   const [creatingCat, setCreatingCat] = useState(false);
   const inset = useKeyboardInset();
@@ -153,22 +147,19 @@ function Sheet({ variant, initialType, categories, transactions, onClose, onCrea
   function setType(t: TransactionType) {
     setTypeRaw(t);
     setCategoryId(null);
-    setIdx(0);
     setCreatingCat(false);
-    if (variant === "catFirst") setStep(0);
+    setStep(0);
   }
   function save(catId: string | null) {
     if (amount <= 0) return;
     onCreate({ type, amount, categoryId: catId, note: note.trim() || undefined, date });
   }
 
-  // catFirst: kategoriya → summa. amountFirst: summa → kategoriya (tanlash = saqlash).
+  // Kategoriya (yoki kategoriyasiz) tanlandi → summa bosqichi.
   function chooseCategory(id: string | null) {
-    if (variant === "amountFirst") return save(id);
     setCategoryId(id);
     setStep(1);
   }
-  const catStep = variant === "catFirst" ? step === 0 : step === 1;
   const back = () => (step === 0 ? onClose() : setStep(0));
 
   const amountText = (
@@ -221,28 +212,15 @@ function Sheet({ variant, initialType, categories, transactions, onClose, onCrea
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div
-            key={`${variant}-${step}`}
+            key={step}
             initial={{ x: step ? 60 : -60, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: step ? 60 : -60, opacity: 0 }}
             transition={SPRING}
             className="flex flex-col"
           >
-            {/* amountFirst 2-bosqich: summa sarlavhada (bosilsa qaytadi) */}
-            {variant === "amountFirst" && step === 1 && (
-              <button onClick={() => setStep(0)} className="mx-4 mt-3 flex items-center justify-between rounded-2xl px-3.5 py-2.5 text-left" style={{ background: `color-mix(in oklch, ${k.color} 9%, transparent)` }}>
-                <span>
-                  <span className="block text-[11px] uppercase tracking-[0.12em]" style={{ color: k.color }}>{k.label}</span>
-                  <motion.span layoutId="qa-amount" className="block font-mono text-[22px] font-semibold tabular-nums" style={{ color: k.color }}>
-                    {amountText} <span className="text-[12px] font-normal text-faint">so&apos;m</span>
-                  </motion.span>
-                </span>
-                <span className="text-[12px] text-faint">o&apos;zgartirish</span>
-              </button>
-            )}
-
-            {/* catFirst 2-bosqich: tanlangan kategoriya sarlavhada (bosilsa qaytadi) */}
-            {variant === "catFirst" && step === 1 && (
+            {/* 2-bosqich: tanlangan kategoriya sarlavhada (bosilsa qaytadi) */}
+            {step === 1 && (
               <button onClick={() => setStep(0)} className="mx-4 mt-3 flex items-center gap-3 rounded-2xl px-2.5 py-2 text-left" style={{ background: cat ? colorWithAlpha(cat.color, 0.12) : "var(--subtle)" }}>
                 {cat ? <CatBadge c={cat} layoutId={`qa-cat-${cat.id}`} size="sm" /> : (
                   <span className="grid size-10 place-items-center rounded-xl bg-surface text-faint"><Tag className="size-5" /></span>
@@ -255,12 +233,12 @@ function Sheet({ variant, initialType, categories, transactions, onClose, onCrea
               </button>
             )}
 
-            {/* Sana / izoh — summadan keyin (catFirst) yoki kategoriyadan oldin (amountFirst) */}
-            {((variant === "catFirst" && step === 1) || (variant === "amountFirst" && step === 1)) && (
+            {/* Sana / izoh — kerak bo'lsa ochiladi */}
+            {step === 1 && (
               <DateNote date={date} setDate={setDate} note={note} setNote={setNote} panel={panel} setPanel={setPanel} />
             )}
 
-            {catStep ? (
+            {step === 0 ? (
               <>
                 <p className="mt-3 px-4 text-center text-[17px] font-semibold">
                   {type === "INCOME" ? "Pul qayerdan keldi?" : "Nimaga sarfladingiz?"}
@@ -273,10 +251,8 @@ function Sheet({ variant, initialType, categories, transactions, onClose, onCrea
                       () => setCreatingCat(false)
                     )}
                   </div>
-                ) : variant === "catFirst" ? (
-                  <CategoryGrid cats={typeCats} onPick={(c) => chooseCategory(c.id)} />
                 ) : (
-                  <CategoryCarousel cats={typeCats} idx={idx} setIdx={setIdx} onPick={(c) => chooseCategory(c.id)} />
+                  <CategoryGrid cats={typeCats} onPick={(c) => chooseCategory(c.id)} />
                 )}
                 {!creatingCat && (
                   <div className="mt-2 flex items-center justify-between px-4 pb-1">
@@ -284,16 +260,15 @@ function Sheet({ variant, initialType, categories, transactions, onClose, onCrea
                       <Plus className="size-3.5" /> Yangi kategoriya
                     </button>
                     <button onClick={() => chooseCategory(null)} className="flex items-center gap-1 text-[12.5px] font-medium text-faint">
-                      {variant === "amountFirst" ? <>Kategoriyasiz saqlash <Check className="size-3.5" /></> : <>Kategoriyasiz <ChevronRight className="size-3.5" /></>}
+                      Kategoriyasiz <ChevronRight className="size-3.5" />
                     </button>
                   </div>
                 )}
               </>
             ) : (
               <>
-                {variant === "amountFirst" && <p className="mt-3 text-center text-[17px] font-semibold">Qancha?</p>}
                 <div className="px-5 pt-3 text-center">
-                  <motion.p layoutId={variant === "amountFirst" ? "qa-amount" : undefined} className="font-mono text-[42px] font-semibold leading-none tabular-nums tracking-tight" style={{ color: amount ? k.color : undefined }}>
+                  <motion.p className="font-mono text-[42px] font-semibold leading-none tabular-nums tracking-tight" style={{ color: amount ? k.color : undefined }}>
                     {amountText}
                   </motion.p>
                   <p className="mt-1.5 text-[12px] text-faint">so&apos;m</p>
@@ -305,13 +280,7 @@ function Sheet({ variant, initialType, categories, transactions, onClose, onCrea
                     </button>
                   ))}
                 </div>
-                <Keypad
-                  amount={amount}
-                  onChange={setAmount}
-                  color={k.color}
-                  submitIcon={variant === "amountFirst" ? "next" : "check"}
-                  onSubmit={() => (variant === "amountFirst" ? setStep(1) : save(categoryId))}
-                />
+                <Keypad amount={amount} onChange={setAmount} color={k.color} onSubmit={() => save(categoryId)} />
               </>
             )}
           </motion.div>
@@ -348,62 +317,6 @@ function CategoryGrid({ cats, onPick }: { cats: FinanceCategory[]; onPick: (c: F
         </button>
       ))}
     </div>
-  );
-}
-
-/* Avval summa: kategoriya karuseli (markazdagini bosish = saqlash) */
-function CategoryCarousel({
-  cats,
-  idx,
-  setIdx,
-  onPick,
-}: {
-  cats: FinanceCategory[];
-  idx: number;
-  setIdx: (n: number) => void;
-  onPick: (c: FinanceCategory) => void;
-}) {
-  if (!cats.length) return <EmptyCats />;
-  const i0 = Math.min(idx, cats.length - 1);
-  const cur = cats[i0];
-  const go = (n: number) => setIdx((n + cats.length) % cats.length);
-  return (
-    <>
-      <div className="relative flex h-[172px] items-center justify-center overflow-hidden">
-        <button onClick={() => go(i0 - 1)} aria-label="Oldingi" className="absolute left-3 z-10 grid size-9 place-items-center rounded-full bg-subtle text-muted"><ChevronLeft className="size-4" /></button>
-        <button onClick={() => go(i0 + 1)} aria-label="Keyingi" className="absolute right-3 z-10 grid size-9 place-items-center rounded-full bg-subtle text-muted"><ChevronRight className="size-4" /></button>
-        {cats.map((c, i) => {
-          const off = i - i0;
-          if (Math.abs(off) > 2) return null;
-          return (
-            <motion.button
-              key={c.id}
-              onClick={() => (off === 0 ? onPick(c) : setIdx(i))}
-              drag={off === 0 ? "x" : false}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.6}
-              onDragEnd={(_, info) => { if (info.offset.x < -40) go(i0 + 1); else if (info.offset.x > 40) go(i0 - 1); }}
-              animate={{ x: off * 104, scale: off === 0 ? 1 : 0.72, opacity: off === 0 ? 1 : 0.45 }}
-              transition={SPRING}
-              className="absolute flex w-[110px] flex-col items-center gap-2"
-            >
-              <CatBadge c={c} />
-              <span className="max-w-full truncate text-[14px] font-semibold">{c.label}</span>
-            </motion.button>
-          );
-        })}
-      </div>
-      <div className="mb-3 flex flex-wrap justify-center gap-1 px-6">
-        {cats.map((c, i) => (
-          <button key={c.id} onClick={() => setIdx(i)} aria-label={c.label} className="h-1.5 rounded-full transition-all" style={{ width: i === i0 ? 16 : 6, background: i === i0 ? catOklch(c) : "var(--border)" }} />
-        ))}
-      </div>
-      <div className="px-4">
-        <button onClick={() => onPick(cur)} className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-[15px] font-semibold text-white" style={{ background: catOklch(cur) }}>
-          <Check className="size-4" strokeWidth={2.6} /> {cur.label} · saqlash
-        </button>
-      </div>
-    </>
   );
 }
 
@@ -476,19 +389,17 @@ function DateNote({
   );
 }
 
-/* Raqam klaviaturasi — o'ngdagi katta tugma saqlaydi (✓) yoki davom etadi (→) */
+/* Raqam klaviaturasi — o'ngdagi katta ✓ saqlaydi */
 function Keypad({
   amount,
   onChange,
   color,
   onSubmit,
-  submitIcon,
 }: {
   amount: number;
   onChange: (n: number) => void;
   color: string;
   onSubmit: () => void;
-  submitIcon: "check" | "next";
 }) {
   function press(key: string) {
     const s = String(amount || "");
@@ -503,11 +414,11 @@ function Keypad({
             key={key}
             onClick={() => amount > 0 && onSubmit()}
             disabled={amount <= 0}
-            aria-label={submitIcon === "next" ? "Davom etish" : "Saqlash"}
+            aria-label="Saqlash"
             className="row-span-2 grid place-items-center rounded-2xl text-white transition-opacity disabled:opacity-40"
             style={{ background: color }}
           >
-            {submitIcon === "next" ? <ChevronRight className="size-8" strokeWidth={2.6} /> : <Check className="size-7" strokeWidth={2.6} />}
+            <Check className="size-7" strokeWidth={2.6} />
           </button>
         ) : (
           <button

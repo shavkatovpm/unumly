@@ -28,7 +28,6 @@ import { LayoutGroup, motion, Reorder, useDragControls } from "framer-motion";
 const MOLIYA_ADD_OPTIONS: { id: MoliyaAddStyle; label: string; hint: string }[] = [
   { id: "classic", label: "Klassik", hint: "Barcha maydonlar bitta formada" },
   { id: "catFirst", label: "Avval kategoriya", hint: "Kategoriya → summa, ✓ saqlaydi" },
-  { id: "amountFirst", label: "Avval summa", hint: "Summa → kategoriya, tanlash saqlaydi" },
 ];
 
 const NAV_STYLE_OPTIONS: { id: MobileNavStyle; label: string; hint: string }[] = [

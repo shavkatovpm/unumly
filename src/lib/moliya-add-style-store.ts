@@ -3,16 +3,15 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 /* Moliya'da yangi yozuv (kirim/chiqim) qo'shish oynasi ko'rinishi — faqat
-   mobil uchun. "classic" (hozirgi forma), "catFirst" (avval kategoriya,
-   keyin summa) yoki "amountFirst" (avval summa, keyin kategoriya — tanlash
-   saqlaydi). Faqat vizual tanlov — localStorage'da saqlanadi
+   mobil uchun. "classic" (hozirgi forma) yoki "catFirst" (avval kategoriya,
+   keyin summa). Faqat vizual tanlov — localStorage'da saqlanadi
    (bugun-style-store.ts bilan bir xil naqsh). Default har doim "classic". */
 
-export type MoliyaAddStyle = "classic" | "catFirst" | "amountFirst";
+export type MoliyaAddStyle = "classic" | "catFirst";
 
 const STORAGE_KEY = "unumly:moliya:addStyle";
 const DEFAULT_STYLE: MoliyaAddStyle = "classic";
-const VALID: MoliyaAddStyle[] = ["classic", "catFirst", "amountFirst"];
+const VALID: MoliyaAddStyle[] = ["classic", "catFirst"];
 
 let style: MoliyaAddStyle = DEFAULT_STYLE;
 let hydrated = false;
@@ -26,8 +25,10 @@ function hydrateOnce() {
   if (hydrated || typeof window === "undefined") return;
   hydrated = true;
   try {
-    const saved = window.localStorage.getItem(STORAGE_KEY) as MoliyaAddStyle | null;
-    if (saved && saved !== style && VALID.includes(saved)) { style = saved; emit(); }
+    let saved = window.localStorage.getItem(STORAGE_KEY);
+    // Olib tashlangan "Avval summa" → "Avval kategoriya" (yangi oynani tanlagan edi).
+    if (saved === "amountFirst") saved = "catFirst";
+    if (saved && saved !== style && (VALID as string[]).includes(saved)) { style = saved as MoliyaAddStyle; emit(); }
   } catch { /* ignore */ }
 }
 

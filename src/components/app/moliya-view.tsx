@@ -88,7 +88,7 @@ export function MoliyaView() {
   const [editing, setEditing] = useState<Transaction | null>(null);
   // Yangi yozuv qaysi tur bilan ochilsin (glass nav yelpig'ichidan tanlanadi).
   const [newType, setNewType] = useState<TransactionType>("EXPENSE");
-  // Mobilda sozlamaga qarab tez oyna (avval kategoriya / avval summa); desktop
+  // Mobilda sozlamaga qarab tez oyna (avval kategoriya); desktop
   // va "Klassik" — odatdagi forma.
   const addStyle = useMoliyaAddStyle();
   const [quickOpen, setQuickOpen] = useState(false);
@@ -394,7 +394,6 @@ export function MoliyaView() {
       )}
 
       <MoliyaQuickAdd
-        variant={addStyle === "catFirst" ? "catFirst" : "amountFirst"}
         open={quickOpen}
         initialType={newType}
         categories={categories}
