@@ -492,7 +492,10 @@ function TypePager({
             key={i}
             aria-hidden={i !== index}
             className="h-full overflow-y-auto overscroll-contain pb-3"
-            style={{ width: `${100 / pages.length}%` }}
+            // Har bir sahifa o'zi scroll konteyner — brauzer faqat vertikal
+            // gestni olsin, aks holda gorizontal surishni `pointercancel` bilan
+            // bekor qilib yuboradi (touch'da surish "qotib" qaytardi).
+            style={{ width: `${100 / pages.length}%`, touchAction: "pan-y" }}
           >
             {page}
           </div>
