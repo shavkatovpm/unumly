@@ -371,8 +371,8 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
 
               {/* Summa — bo'sh joy markazida. Izoh ochilganda silliq kichrayadi. */}
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5">
+                {/* layout yo'q — blok kengayganda "so'm" siljimasin; raqamlar o'zi silliq suriladi */}
                 <motion.div
-                  layout="position"
                   animate={{ scale: noteOpen ? 0.78 : 1 }}
                   transition={SPRING}
                   className="flex flex-col items-center"
