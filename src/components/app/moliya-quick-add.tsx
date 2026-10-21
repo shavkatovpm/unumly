@@ -60,6 +60,8 @@ const SPRING = { type: "spring", damping: 30, stiffness: 380 } as const;
 const SHEET = { type: "spring", damping: 32, stiffness: 320 } as const;
 // Oyna tepasi: Telegram close/⋮ zonasi ostida (brauzerda — status bar ostida).
 const TOP_GAP = "max(calc(var(--tg-safe-top, 0px) + 6px), calc(env(safe-area-inset-top, 0px) + 12px))";
+// Telefon klaviaturasi yopilish animatsiyasi (~iOS/Android) — shundan keyin raqamlar chiqadi.
+const KEYBOARD_SETTLE_MS = 280;
 // Kategoriya ↔ summa bosqichlari — siljimasdan, fade bilan almashadi.
 const STEP_FADE = { duration: 0.22, ease: "easeOut" } as const;
 const PAGE = { type: "spring", damping: 34, stiffness: 300 } as const;
@@ -153,6 +155,17 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
   const k = kindOf(type);
   const typeIdx = KINDS.findIndex((x) => x.id === type);
   const noteOpen = panel === "note";
+  // Izoh yopilganda raqamlar telefon klaviaturasi tushib bo'lgach fade bilan
+  // chiqadi (aks holda klaviatura ostidan "ochilib" qoladi, fade ko'rinmaydi).
+  const [keypadWait, setKeypadWait] = useState(false);
+  const keypadHidden = noteOpen || keypadWait;
+  function changePanel(next: null | "date" | "note") {
+    if (panel === "note" && next !== "note") {
+      setKeypadWait(true);
+      window.setTimeout(() => setKeypadWait(false), KEYBOARD_SETTLE_MS);
+    }
+    setPanel(next);
+  }
 
   // Eng ko'p ishlatilgan kategoriya tepada; teng bo'lsa — foydalanuvchi tartibi.
   const catsByType = useMemo(() => {
@@ -353,7 +366,7 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
               </button>
 
               <div className="shrink-0">
-                <DateNote date={date} setDate={setDate} note={note} setNote={setNote} panel={panel} setPanel={setPanel} />
+                <DateNote date={date} setDate={setDate} note={note} setNote={setNote} panel={panel} setPanel={changePanel} />
               </div>
 
               {/* Summa — bo'sh joy markazida. Izoh ochilganda silliq kichrayadi. */}
@@ -369,13 +382,14 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
                 </motion.div>
               </div>
 
-              {/* Izoh yozilayotganda raqamlar joyida qolib, faqat fade bo'ladi —
-                  ustini telefon klaviaturasi yopadi (hech narsa siljimaydi). */}
+              {/* Izoh yozilayotganda raqamlar joyida qolib, faqat fade bilan
+                  yo'qoladi/paydo bo'ladi (hech narsa siljimaydi). */}
               <motion.div
-                animate={{ opacity: noteOpen ? 0 : 1 }}
-                transition={{ duration: 0.18 }}
-                aria-hidden={noteOpen}
-                className={cn("shrink-0", noteOpen && "pointer-events-none")}
+                initial={false}
+                animate={{ opacity: keypadHidden ? 0 : 1 }}
+                transition={{ duration: keypadHidden ? 0.2 : 0.3, ease: "easeOut" }}
+                aria-hidden={keypadHidden}
+                className={cn("shrink-0", keypadHidden && "pointer-events-none")}
               >
                 <Keypad amount={amount} onChange={setAmount} color={k.color} onSubmit={() => save(categoryId)} keyHeight={sizes.key} keyFont={sizes.keyFont} />
               </motion.div>
