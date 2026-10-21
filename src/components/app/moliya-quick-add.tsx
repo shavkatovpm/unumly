@@ -1,6 +1,6 @@
 "use client";
 
-import { createElement, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { createElement, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
 import {
@@ -61,13 +61,6 @@ const SHEET = { type: "spring", damping: 32, stiffness: 320 } as const;
 // Oyna tepasi: Telegram close/⋮ zonasi ostida (brauzerda — status bar ostida).
 const TOP_GAP = "max(calc(var(--tg-safe-top, 0px) + 6px), calc(env(safe-area-inset-top, 0px) + 12px))";
 const PAGE = { type: "spring", damping: 34, stiffness: 300 } as const;
-// Kirim↔Chiqim sahifalari: dir=1 — yangi o'ngdan kiradi, eski chapga chiqadi.
-// `custom` orqali — chiqayotgan sahifa ham joriy yo'nalishni oladi.
-const PAGE_VARIANTS = {
-  enter: (dir: number) => ({ x: `${dir * 100}%` }),
-  center: { x: "0%" },
-  exit: (dir: number) => ({ x: `${dir * -100}%` }),
-};
 const UZ_MONTHS = ["yan", "fev", "mar", "apr", "may", "iyn", "iyl", "avg", "sen", "okt", "noy", "dek"];
 
 function yesterdayKey() {
@@ -143,47 +136,42 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
   const [step, setStep] = useState<0 | 1>(0);
   const [panel, setPanel] = useState<null | "date" | "note">(null);
   const [creatingCat, setCreatingCat] = useState(false);
-  // Tur almashganda plitkalar qaysi tomonga siljishi (−1 chapdan, 1 o'ngdan).
-  const [typeDir, setTypeDir] = useState(0);
   const shift = useViewportShift();
+  // O'lchamlar ochilgan paytdagi ekran bo'yicha bir marta — klaviatura
+  // (dvh o'zgarishi) ularni birdaniga o'zgartirib yubormasin.
   const [baseHeight] = useState(() => window.innerHeight);
+  const sizes = useMemo(() => {
+    const clamp = (v: number, lo: number, hi: number) => Math.round(Math.min(hi, Math.max(lo, v)));
+    return {
+      key: clamp(baseHeight * 0.076, 52, 72),
+      keyFont: clamp(baseHeight * 0.031, 22, 28),
+      amountFont: clamp(baseHeight * 0.06, 40, 52),
+    };
+  }, [baseHeight]);
   const k = kindOf(type);
+  const typeIdx = KINDS.findIndex((x) => x.id === type);
+  const noteOpen = panel === "note";
 
   // Eng ko'p ishlatilgan kategoriya tepada; teng bo'lsa — foydalanuvchi tartibi.
-  const typeCats = useMemo(() => {
+  const catsByType = useMemo(() => {
     const usage = new Map<string, number>();
     for (const t of transactions) if (t.categoryId) usage.set(t.categoryId, (usage.get(t.categoryId) ?? 0) + 1);
-    return categories
-      .filter((c) => c.type === type)
+    const sorted = categories
       .slice()
       .sort((a, b) => (usage.get(b.id) ?? 0) - (usage.get(a.id) ?? 0) || a.order - b.order);
-  }, [categories, transactions, type]);
+    return {
+      EXPENSE: sorted.filter((c) => c.type === "EXPENSE"),
+      INCOME: sorted.filter((c) => c.type === "INCOME"),
+    } as Record<TransactionType, FinanceCategory[]>;
+  }, [categories, transactions]);
   const cat = categories.find((c) => c.id === categoryId);
 
   // Tur faqat kategoriya bosqichida almashadi (tugma yoki chap/o'ngga surish).
   function setType(t: TransactionType) {
     if (t === type) return;
-    setTypeDir(KINDS.findIndex((x) => x.id === t) > KINDS.findIndex((x) => x.id === type) ? 1 : -1);
     setTypeRaw(t);
     setCategoryId(null);
     setCreatingCat(false);
-  }
-  // Surish: plitkalar barmoqqa ergashadi; qo'yib yuborilganda yetarli bo'lsa —
-  // shu tomonga davom etib chiqib ketadi, yangi tur narigi tomondan kiradi.
-  const dragX = useMotionValue(0);
-  const typeIdx = KINDS.findIndex((x) => x.id === type);
-  function onSwipe(dx: number, dy: number) {
-    if (creatingCat || Math.abs(dx) < Math.abs(dy)) return;
-    // Chetda (boshqa tur yo'q tomonga) — qarshilik bilan.
-    const blocked = (dx < 0 && typeIdx === KINDS.length - 1) || (dx > 0 && typeIdx === 0);
-    dragX.set(blocked ? dx * 0.25 : dx);
-  }
-  function onSwipeEnd(dx: number, vx: number) {
-    if (!creatingCat) {
-      if ((dx < -60 || vx < -500) && typeIdx < KINDS.length - 1) setType(KINDS[typeIdx + 1].id); // chapga → o'ngdagi (Kirim)
-      else if ((dx > 60 || vx > 500) && typeIdx > 0) setType(KINDS[typeIdx - 1].id); // o'ngga → chapdagi (Chiqim)
-    }
-    animate(dragX, 0, PAGE);
   }
   function save(catId: string | null) {
     if (amount <= 0) return;
@@ -193,6 +181,7 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
   // Kategoriya (yoki kategoriyasiz) tanlandi → summa bosqichi.
   function chooseCategory(id: string | null) {
     setCategoryId(id);
+    setPanel(null);
     setStep(1);
   }
   const back = () => (step === 0 ? onClose() : setStep(0));
@@ -216,7 +205,7 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
       <span className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-faint/50" />
 
       {/* Sarlavha: orqaga/yopish · tur (faqat 1-bosqichda almashadi) · progress */}
-      <div className="flex shrink-0 items-center gap-2 px-4 pt-2">
+      <div className="flex shrink-0 select-none items-center gap-2 px-4 pt-2">
         <button
           onClick={back}
           aria-label={step === 0 ? "Yopish" : "Orqaga"}
@@ -235,25 +224,41 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
             </motion.span>
           </AnimatePresence>
         </button>
-        <div className="flex flex-1 justify-center">
-          {step === 0 ? (
-            <div className="flex rounded-full bg-subtle p-0.5">
-              {KINDS.map((x) => {
-                const on = type === x.id;
-                return (
-                  <button key={x.id} onClick={() => setType(x.id)} className={cn("relative flex items-center gap-1 rounded-full px-3 py-1 text-[12.5px] font-semibold transition-colors", on ? "text-white" : "text-muted")}>
-                    {on && <motion.span layoutId="qa-type" transition={SPRING} className="absolute inset-0 rounded-full" style={{ background: x.color }} />}
-                    <span className="relative flex items-center gap-1"><x.icon className="size-3.5" strokeWidth={2.4} /> {x.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <span className="relative flex items-center gap-1 rounded-full px-3 py-1 text-[12.5px] font-semibold text-white">
-              <motion.span layoutId="qa-type" transition={SPRING} className="absolute inset-0 rounded-full" style={{ background: k.color }} />
-              <span className="relative flex items-center gap-1"><k.icon className="size-3.5" strokeWidth={2.4} /> {k.label}</span>
-            </span>
-          )}
+        <div className="relative flex h-8 flex-1 items-center justify-center">
+          <AnimatePresence mode="popLayout" initial={false}>
+            {step === 0 ? (
+              <motion.div
+                key="seg"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex rounded-full bg-subtle p-0.5"
+              >
+                {KINDS.map((x) => {
+                  const on = type === x.id;
+                  return (
+                    <button key={x.id} onClick={() => setType(x.id)} className={cn("relative flex items-center gap-1 rounded-full px-3 py-1 text-[12.5px] font-semibold transition-colors", on ? "text-white" : "text-muted")}>
+                      {on && <motion.span layoutId="qa-type-pill" transition={SPRING} className="absolute inset-0 rounded-full" style={{ background: x.color }} />}
+                      <span className="relative flex items-center gap-1"><x.icon className="size-3.5" strokeWidth={2.4} /> {x.label}</span>
+                    </button>
+                  );
+                })}
+              </motion.div>
+            ) : (
+              <motion.span
+                key="badge"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center gap-1 rounded-full px-3 py-1 text-[12.5px] font-semibold text-white"
+                style={{ background: k.color }}
+              >
+                <k.icon className="size-3.5" strokeWidth={2.4} /> {k.label}
+              </motion.span>
+            )}
+          </AnimatePresence>
         </div>
         <span className="size-10 shrink-0" />
       </div>
@@ -265,57 +270,53 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
         ))}
       </div>
 
-      <div className="relative min-h-0 flex-1">
-        <AnimatePresence mode="popLayout" initial={false}>
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <AnimatePresence initial={false}>
           {step === 0 ? (
             /* ── 1-bosqich: kategoriya (chap/o'ngga surish — Chiqim/Kirim) ── */
             <motion.div
               key="cat"
-              initial={{ x: -60, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -60, opacity: 0 }}
-              transition={SPRING}
+              initial={{ x: "-100%" }}
+              animate={{ x: "0%" }}
+              exit={{ x: "-100%" }}
+              transition={PAGE}
               className="absolute inset-0 flex flex-col"
             >
               <div className="shrink-0 px-4 pt-3 text-center">
-                <p className="text-[17px] font-semibold">{type === "INCOME" ? "Pul qayerdan keldi?" : "Nimaga sarfladingiz?"}</p>
-                <p className="mt-0.5 text-[11.5px] text-faint">Chapga / o&apos;ngga surib Kirim ↔ Chiqim</p>
+                <div className="relative h-6">
+                  <AnimatePresence initial={false}>
+                    <motion.p
+                      key={type}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.18 }}
+                      className="absolute inset-0 text-[17px] font-semibold"
+                    >
+                      {type === "INCOME" ? "Pul qayerdan keldi?" : "Nimaga sarfladingiz?"}
+                    </motion.p>
+                  </AnimatePresence>
+                </div>
+                <p className="mt-0.5 text-[11.5px] text-faint">Chapga / o&apos;ngga surib Chiqim ↔ Kirim</p>
               </div>
-              <motion.div
-                onPan={(_, info) => onSwipe(info.offset.x, info.offset.y)}
-                onPanEnd={(_, info) => onSwipeEnd(info.offset.x, info.velocity.x)}
-                // Vertikal scroll brauzerda qoladi, gorizontal — bizda.
-                style={{ touchAction: "pan-y" }}
-                className="relative mt-2 min-h-0 flex-1 overflow-hidden"
-              >
-                <motion.div style={{ x: dragX }} className="absolute inset-0">
-                <AnimatePresence mode="popLayout" initial={false} custom={typeDir}>
-                  <motion.div
-                    key={type}
-                    custom={typeDir}
-                    variants={PAGE_VARIANTS}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    transition={PAGE}
-                    // Plitkalar o'lchami o'zgarmaydi — sig'masa ro'yxat scroll bo'ladi.
-                    className="absolute inset-0 overflow-y-auto overscroll-contain pb-3"
-                  >
-                    {creatingCat ? (
-                      <div className="px-4">
-                        {renderCategoryForm(
-                          type,
-                          (id) => { setCreatingCat(false); chooseCategory(id); },
-                          () => setCreatingCat(false)
-                        )}
-                      </div>
-                    ) : (
-                      <CategoryGrid cats={typeCats} onPick={(c) => chooseCategory(c.id)} />
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-                </motion.div>
-              </motion.div>
+              <TypePager
+                index={typeIdx}
+                onIndexChange={(i) => setType(KINDS[i].id)}
+                disabled={creatingCat}
+                pages={KINDS.map((kind) =>
+                  creatingCat && kind.id === type ? (
+                    <div key={kind.id} className="px-4">
+                      {renderCategoryForm(
+                        type,
+                        (id) => { setCreatingCat(false); chooseCategory(id); },
+                        () => setCreatingCat(false)
+                      )}
+                    </div>
+                  ) : (
+                    <CategoryGrid key={kind.id} cats={catsByType[kind.id]} onPick={(c) => chooseCategory(c.id)} />
+                  )
+                )}
+              />
               {!creatingCat && (
                 <div className="flex shrink-0 items-center justify-between border-t border-border px-4 pt-2.5">
                   <button onClick={() => setCreatingCat(true)} className="flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-1.5 text-[12.5px] text-faint">
@@ -331,15 +332,15 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
             /* ── 2-bosqich: summa (tur bu yerda o'zgarmaydi) ── */
             <motion.div
               key="amount"
-              initial={{ x: 60, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 60, opacity: 0 }}
-              transition={SPRING}
+              initial={{ x: "100%" }}
+              animate={{ x: "0%" }}
+              exit={{ x: "100%" }}
+              transition={PAGE}
               className="absolute inset-0 flex flex-col"
             >
               {/* Tanlangan kategoriya — bosilsa 1-bosqichga qaytadi */}
-              <button onClick={() => setStep(0)} className="mx-4 mt-3 flex shrink-0 items-center gap-3 rounded-2xl px-2.5 py-2 text-left" style={{ background: cat ? colorWithAlpha(cat.color, 0.12) : "var(--subtle)" }}>
-                {cat ? <CatBadge c={cat} layoutId={`qa-cat-${cat.id}`} size="sm" /> : (
+              <button onClick={() => setStep(0)} className="mx-4 mt-3 flex shrink-0 items-center gap-3 rounded-2xl px-2.5 py-2 text-left transition-transform active:scale-[0.99]" style={{ background: cat ? colorWithAlpha(cat.color, 0.12) : "var(--subtle)" }}>
+                {cat ? <CatBadge c={cat} /> : (
                   <span className="grid size-10 place-items-center rounded-xl bg-surface text-faint"><Tag className="size-5" /></span>
                 )}
                 <span className="min-w-0 flex-1">
@@ -353,15 +354,23 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
                 <DateNote date={date} setDate={setDate} note={note} setNote={setNote} panel={panel} setPanel={setPanel} />
               </div>
 
-              {/* Summa — bo'sh joy markazida; joy o'zgarsa silliq siljiydi */}
-              <motion.div layout transition={SPRING} className="flex min-h-0 flex-1 flex-col items-center justify-center px-5">
-                <AnimatedAmount value={amount} color={k.color} />
-                <motion.p layout="position" className="mt-1.5 text-[12px] text-faint">so&apos;m</motion.p>
+              {/* Summa — bo'sh joy markazida. Izoh ochilganda silliq kichrayadi. */}
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5">
                 <motion.div
-                  animate={{ opacity: panel === "note" ? 0 : 1 }}
+                  layout="position"
+                  animate={{ scale: noteOpen ? 0.78 : 1 }}
+                  transition={SPRING}
+                  className="flex flex-col items-center"
+                >
+                  <AnimatedAmount value={amount} color={k.color} fontSize={sizes.amountFont} />
+                  <p className="mt-1.5 text-[12px] text-faint">so&apos;m</p>
+                </motion.div>
+                <motion.div
+                  layout="position"
+                  animate={{ opacity: noteOpen ? 0 : 1 }}
                   transition={{ duration: 0.18 }}
-                  aria-hidden={panel === "note"}
-                  className={cn("mt-4 flex justify-center gap-1.5", panel === "note" && "pointer-events-none")}
+                  aria-hidden={noteOpen}
+                  className={cn("mt-4 flex justify-center gap-1.5", noteOpen && "pointer-events-none")}
                 >
                   {[10_000, 50_000, 100_000, 500_000].map((v) => (
                     <button key={v} onClick={() => setAmount((a) => Math.min(a + v, 999_999_999_999))} className="rounded-full border border-border px-3 py-1.5 text-[13px] text-muted active:bg-hover">
@@ -369,17 +378,17 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
                     </button>
                   ))}
                 </motion.div>
-              </motion.div>
+              </div>
 
               {/* Izoh yozilayotganda raqamlar joyida qolib, faqat fade bo'ladi —
                   ustini telefon klaviaturasi yopadi (hech narsa siljimaydi). */}
               <motion.div
-                animate={{ opacity: panel === "note" ? 0 : 1 }}
+                animate={{ opacity: noteOpen ? 0 : 1 }}
                 transition={{ duration: 0.18 }}
-                aria-hidden={panel === "note"}
-                className={cn("shrink-0", panel === "note" && "pointer-events-none")}
+                aria-hidden={noteOpen}
+                className={cn("shrink-0", noteOpen && "pointer-events-none")}
               >
-                <Keypad amount={amount} onChange={setAmount} color={k.color} onSubmit={() => save(categoryId)} />
+                <Keypad amount={amount} onChange={setAmount} color={k.color} onSubmit={() => save(categoryId)} keyHeight={sizes.key} keyFont={sizes.keyFont} />
               </motion.div>
             </motion.div>
           )}
@@ -389,29 +398,126 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
   );
 }
 
-function CatBadge({ c, layoutId, size = "lg" }: { c: FinanceCategory; layoutId?: string; size?: "sm" | "md" | "lg" }) {
+/* Kirim/Chiqim pager — sahifalar bitta lentada yonma-yon. Lenta barmoqqa 1:1
+   ergashadi; birinchi harakatda yo'nalish qulflanadi (gorizontal — surish,
+   vertikal — ro'yxat scroll'i, brauzerda). Qo'yib yuborilganda masofa yoki
+   tezlikka qarab sahifaga yopishadi; chetlarda rezina. Surishdan keyingi
+   tasodifiy bosish bekor qilinadi. Tugma orqali almashsa ham shu lenta suriladi. */
+function TypePager({
+  index,
+  onIndexChange,
+  pages,
+  disabled,
+}: {
+  index: number;
+  onIndexChange: (i: number) => void;
+  pages: React.ReactNode[];
+  disabled?: boolean;
+}) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  const x = useMotionValue(0);
+  const gesture = useRef<{ lock: "x" | "y" | null; startX: number }>({ lock: null, startX: 0 });
+  const suppressClick = useRef(false);
+  const positioned = useRef(false);
+  const last = pages.length - 1;
+
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Index (tugma yoki surish) yoki kenglik o'zgarsa — lentani shu sahifaga suramiz.
+  useEffect(() => {
+    if (!width) return;
+    const target = -index * width;
+    if (!positioned.current) {
+      positioned.current = true;
+      x.set(target);
+      return;
+    }
+    const controls = animate(x, target, PAGE);
+    return () => controls.stop();
+  }, [index, width, x]);
+
   return (
-    <motion.span
-      layoutId={layoutId}
-      className={cn(
-        "grid shrink-0 place-items-center text-white",
-        size === "lg" ? "size-[84px] rounded-[28px] shadow-[0_14px_30px_-12px_rgba(0,0,0,0.45)]" : size === "md" ? "size-10 rounded-xl" : "size-10 rounded-xl"
-      )}
-      style={{ background: catGradient(c) }}
+    <motion.div
+      ref={viewportRef}
+      className="relative mt-2 min-h-0 flex-1 select-none overflow-hidden"
+      style={{ touchAction: "pan-y" }}
+      onPanStart={() => {
+        x.stop();
+        gesture.current = { lock: null, startX: x.get() };
+      }}
+      onPan={(_, info) => {
+        if (disabled || !width) return;
+        const g = gesture.current;
+        if (!g.lock) {
+          if (Math.abs(info.offset.x) < 8 && Math.abs(info.offset.y) < 8) return;
+          g.lock = Math.abs(info.offset.x) > Math.abs(info.offset.y) ? "x" : "y";
+        }
+        if (g.lock !== "x") return;
+        let next = g.startX + info.offset.x;
+        const min = -last * width;
+        if (next > 0) next *= 0.3; // rezina — chap chet
+        else if (next < min) next = min + (next - min) * 0.3; // rezina — o'ng chet
+        x.set(next);
+      }}
+      onPanEnd={(_, info) => {
+        const g = gesture.current;
+        if (g.lock !== "x" || !width) return;
+        suppressClick.current = true;
+        window.setTimeout(() => { suppressClick.current = false; }, 80);
+        const dx = info.offset.x;
+        const vx = info.velocity.x;
+        let target = index;
+        if ((dx < -width * 0.2 || vx < -450) && index < last) target = index + 1;
+        else if ((dx > width * 0.2 || vx > 450) && index > 0) target = index - 1;
+        if (target !== index) onIndexChange(target);
+        else animate(x, -index * width, PAGE);
+      }}
+      onClickCapture={(e) => {
+        if (suppressClick.current) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      }}
     >
-      {createElement(financeIcon(c.icon), { className: size === "lg" ? "size-9" : "size-5", strokeWidth: size === "lg" ? 1.9 : 2 })}
-    </motion.span>
+      <motion.div className="absolute inset-y-0 left-0 flex" style={{ x, width: `${pages.length * 100}%` }}>
+        {pages.map((page, i) => (
+          <div
+            key={i}
+            aria-hidden={i !== index}
+            className="h-full overflow-y-auto overscroll-contain pb-3"
+            style={{ width: `${100 / pages.length}%` }}
+          >
+            {page}
+          </div>
+        ))}
+      </motion.div>
+    </motion.div>
   );
 }
 
-/* Avval kategoriya: 2 ustunli plitkalar (bosilganda sarlavhaga morf) */
+function CatBadge({ c }: { c: FinanceCategory }) {
+  return (
+    <span className="grid size-10 shrink-0 place-items-center rounded-xl text-white" style={{ background: catGradient(c) }}>
+      {createElement(financeIcon(c.icon), { className: "size-5", strokeWidth: 2 })}
+    </span>
+  );
+}
+
+/* 2 ustunli plitkalar — sig'masa sahifa scroll bo'ladi (o'lcham kichraymaydi). */
 function CategoryGrid({ cats, onPick }: { cats: FinanceCategory[]; onPick: (c: FinanceCategory) => void }) {
   if (!cats.length) return <EmptyCats />;
   return (
     <div className="grid grid-cols-2 gap-2 px-4 pt-1">
       {cats.map((c) => (
-        <button key={c.id} onClick={() => onPick(c)} className="flex min-w-0 items-center gap-3 rounded-2xl px-3 py-3 text-left active:scale-[0.98]" style={{ background: colorWithAlpha(c.color, 0.1) }}>
-          <CatBadge c={c} layoutId={`qa-cat-${c.id}`} size="md" />
+        <button key={c.id} onClick={() => onPick(c)} className="flex min-w-0 items-center gap-3 rounded-2xl px-3 py-3 text-left transition-transform active:scale-[0.98]" style={{ background: colorWithAlpha(c.color, 0.1) }}>
+          <CatBadge c={c} />
           <span className="truncate text-[14px] font-medium">{c.label}</span>
         </button>
       ))}
@@ -497,11 +603,15 @@ function Keypad({
   onChange,
   color,
   onSubmit,
+  keyHeight,
+  keyFont,
 }: {
   amount: number;
   onChange: (n: number) => void;
   color: string;
   onSubmit: () => void;
+  keyHeight: number;
+  keyFont: number;
 }) {
   function press(key: string) {
     const s = String(amount || "");
@@ -528,9 +638,10 @@ function Keypad({
             onClick={() => press(key)}
             aria-label={key === "del" ? "O'chirish" : undefined}
             className={cn(
-              "grid h-[clamp(52px,7.6dvh,72px)] place-items-center rounded-2xl text-[clamp(22px,3.1dvh,28px)] font-medium tabular-nums transition-colors active:bg-hover",
+              "grid place-items-center rounded-2xl font-medium tabular-nums transition-colors active:bg-hover",
               key === "del" || key === "000" ? "bg-subtle text-muted" : "bg-subtle/50"
             )}
+            style={{ height: keyHeight, fontSize: keyFont }}
           >
             {key === "del" ? <Delete className="size-6" /> : key}
           </button>
@@ -540,39 +651,37 @@ function Keypad({
   );
 }
 
-/* Summa — belgisiz. Yangi raqam faqat o'ng chetda paydo bo'ladi, qolganlari
-   chapga silliq suriladi. Har bir raqam key'ni "nechanchi raqam" (chapdan,
-   bo'shliqlarsiz) bo'yicha oladi — shunda "1 234" kabi guruhlash bo'shlig'i
-   qo'shilganda mavjud raqamlar qayta chizilmaydi; bo'shliq esa o'zidan oldingi
-   raqamlar soni bilan belgilanadi. */
-function AnimatedAmount({ value, color }: { value: number; color: string }) {
-  let digits = 0;
-  const chars = formatSom(value)
-    .split("")
-    .map((ch) => (ch === " " ? { ch, key: `s${digits}` } : { ch, key: value ? `d${digits++}` : "zero" }));
+/* Summa — belgisiz. Faqat qo'shilgan/o'chirilgan oxirgi raqam animatsiya
+   bo'ladi (o'ng chetda), qolganlari silliq suriladi. Har bir raqam key'ni
+   tartib raqami (chapdan) bo'yicha oladi; minglik bo'shliq alohida element
+   emas — guruh boshidagi raqamning chap chetidagi bo'sh joy, shuning uchun
+   guruhlash o'zgarganda hech narsa kirib-chiqmaydi. */
+function AnimatedAmount({ value, color, fontSize }: { value: number; color: string; fontSize: number }) {
+  const digits = String(value).split("");
+  const n = digits.length;
   return (
-    <motion.p
-      layout
-      transition={SPRING}
-      className="flex font-mono text-[clamp(40px,6dvh,52px)] font-semibold leading-none tabular-nums tracking-tight"
-      style={{ color: value ? color : undefined }}
+    <p
+      className="relative flex font-semibold leading-none tabular-nums tracking-tight"
+      style={{ color: value ? color : undefined, fontSize }}
       aria-live="polite"
+      aria-label={`${formatSom(value)} so'm`}
     >
       <AnimatePresence initial={false} mode="popLayout">
-        {chars.map(({ ch, key }) => (
+        {digits.map((ch, i) => (
           <motion.span
-            key={key}
+            key={value ? `d${i}` : "zero"}
             layout="position"
             initial={{ opacity: 0, y: 14, filter: "blur(4px)" }}
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-            transition={{ type: "spring", damping: 26, stiffness: 420 }}
-            className={cn(ch === " " && "w-[0.3em]", !value && "text-faint/50")}
+            exit={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+            transition={{ type: "spring", damping: 28, stiffness: 420 }}
+            className={cn("inline-block", !value && "text-faint/50")}
+            style={{ marginLeft: i > 0 && (n - i) % 3 === 0 ? "0.28em" : 0 }}
           >
-            {ch === " " ? "\u00a0" : ch}
+            {ch}
           </motion.span>
         ))}
       </AnimatePresence>
-    </motion.p>
+    </p>
   );
 }
