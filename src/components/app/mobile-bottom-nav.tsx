@@ -28,6 +28,7 @@ import {
   resolvePrimaryItems,
   type NavItemId,
 } from "@/lib/mobile-nav";
+import { triggerMobileAdd, useMobileNavStyle } from "@/lib/mobile-nav-style-store";
 import { useProfile } from "@/lib/profile-store";
 import { useProjects, useHydratedProjects } from "@/lib/projects-store";
 import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
@@ -60,6 +61,7 @@ const SHEET_ORDER: NavItemId[] = [
 
 export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const pathname = usePathname();
+  const navStyle = useMobileNavStyle();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
 
@@ -111,6 +113,46 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
       document.removeEventListener("focusout", onFocusOut);
     };
   }, []);
+
+  const sheet = (
+    <AnimatePresence>
+      {sheetOpen && (
+        <BoshqaruvSheet
+          onClose={() => setSheetOpen(false)}
+          pathname={pathname}
+          primaryHrefs={primaryHrefs}
+        />
+      )}
+    </AnimatePresence>
+  );
+
+  if (navStyle !== "classic") {
+    const entries: GlassEntry[] = [
+      ...primary.map((t) => ({
+        key: t.href,
+        label: t.label,
+        icon: t.icon,
+        href: t.href,
+        active: isActive(t.href),
+        badge: t.showTodayCount ? todayCount : 0,
+      })),
+      {
+        key: "boshqaruv",
+        label: "Boshqaruv",
+        icon: Menu,
+        onClick: () => setSheetOpen(true),
+        active: isBoshqaruvActive || sheetOpen,
+        badge: 0,
+      },
+    ];
+    const NavComp = navStyle === "glassDock" ? GlassDockNav : GlassSplitNav;
+    return (
+      <>
+        <NavComp entries={entries} hidden={keyboardOpen} />
+        {sheet}
+      </>
+    );
+  }
 
   return (
     <>
@@ -187,16 +229,149 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
         </button>
       </nav>
 
-      <AnimatePresence>
-        {sheetOpen && (
-          <BoshqaruvSheet
-            onClose={() => setSheetOpen(false)}
-            pathname={pathname}
-            primaryHrefs={primaryHrefs}
-          />
-        )}
-      </AnimatePresence>
+      {sheet}
     </>
+  );
+}
+
+/* ─── Glass uslublar (Sozlamalar > Mobil menyu'dan tanlanadi) ─── */
+
+type GlassEntry = {
+  key: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  href?: string;
+  onClick?: () => void;
+  active: boolean;
+  badge: number;
+};
+
+const GLASS =
+  "border border-white/40 bg-surface/45 backdrop-blur-2xl backdrop-saturate-[1.8] dark:border-white/10";
+const GLASS_SHADOW =
+  "0 10px 40px -10px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(255,255,255,0.08)";
+const FLOAT_BOTTOM = "calc(env(safe-area-inset-bottom, 0px) + 12px)";
+const hideClass = "pointer-events-none translate-y-[calc(100%+24px)] opacity-0";
+
+function GlassTab({
+  e,
+  layoutId,
+  showLabel,
+}: {
+  e: GlassEntry;
+  layoutId: string;
+  showLabel: boolean;
+}) {
+  const inner = (
+    <>
+      {e.active && (
+        <motion.span
+          layoutId={layoutId}
+          transition={{ type: "spring", damping: 30, stiffness: 380 }}
+          className="absolute inset-0 rounded-[22px] bg-surface/70 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.25)]"
+        />
+      )}
+      <span className="relative">
+        <e.icon className={cn("size-[22px]", e.active ? "stroke-[2.4]" : "stroke-[1.8]")} />
+        {e.badge > 0 && (
+          <span className="absolute -right-2 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-foreground px-1 font-mono text-[9px] tabular-nums text-background">
+            {e.badge}
+          </span>
+        )}
+      </span>
+      {showLabel && (
+        <span
+          className={cn(
+            "relative max-w-full truncate px-0.5 text-[10.5px]",
+            e.active ? "font-semibold" : "font-medium"
+          )}
+        >
+          {e.label}
+        </span>
+      )}
+    </>
+  );
+  const cls = cn(
+    "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[22px] transition-colors",
+    showLabel ? "py-2" : "py-3",
+    e.active ? "text-foreground" : "text-muted"
+  );
+  return e.href ? (
+    <Link href={e.href} aria-label={e.label} className={cls}>
+      {inner}
+    </Link>
+  ) : (
+    <button type="button" onClick={e.onClick} aria-label={e.label} className={cls}>
+      {inner}
+    </button>
+  );
+}
+
+/* D: Glass bar + markazda ko'tarilgan "+" */
+function GlassDockNav({ entries, hidden }: { entries: GlassEntry[]; hidden: boolean }) {
+  const mid = Math.ceil(entries.length / 2);
+  return (
+    <nav
+      className={cn(
+        "fixed inset-x-3 z-30 flex items-center rounded-[28px] p-1.5 md:hidden",
+        "transition-[transform,opacity] duration-200 ease-out",
+        GLASS,
+        hidden && hideClass
+      )}
+      style={{ bottom: FLOAT_BOTTOM, boxShadow: GLASS_SHADOW }}
+    >
+      {entries.slice(0, mid).map((e) => (
+        <GlassTab key={e.key} e={e} layoutId="glass-dock-active" showLabel />
+      ))}
+      <div className="flex w-16 shrink-0 justify-center">
+        <button
+          type="button"
+          onClick={triggerMobileAdd}
+          aria-label="Qo'shish"
+          className="-mt-9 grid size-14 place-items-center rounded-full bg-foreground text-background shadow-[0_10px_24px_-6px_rgba(0,0,0,0.5)] ring-[5px] ring-white/40 backdrop-blur transition-transform active:scale-95 dark:ring-white/10"
+        >
+          <Plus className="size-6" strokeWidth={2.4} />
+        </button>
+      </div>
+      {entries.slice(mid).map((e) => (
+        <GlassTab key={e.key} e={e} layoutId="glass-dock-active" showLabel />
+      ))}
+    </nav>
+  );
+}
+
+/* E: Glass kapsula (faqat ikonalar) + yonida alohida glass "+" doira */
+function GlassSplitNav({ entries, hidden }: { entries: GlassEntry[]; hidden: boolean }) {
+  return (
+    <div
+      className={cn(
+        "fixed inset-x-3 z-30 flex items-center gap-2.5 md:hidden",
+        "transition-[transform,opacity] duration-200 ease-out",
+        hidden && hideClass
+      )}
+      style={{ bottom: FLOAT_BOTTOM }}
+    >
+      <nav
+        className={cn("flex min-w-0 flex-1 items-center rounded-full p-1.5", GLASS)}
+        style={{ boxShadow: GLASS_SHADOW }}
+      >
+        {entries.map((e) => (
+          <GlassTab key={e.key} e={e} layoutId="glass-split-active" showLabel={false} />
+        ))}
+      </nav>
+      <button
+        type="button"
+        onClick={triggerMobileAdd}
+        aria-label="Qo'shish"
+        className={cn(
+          "grid size-[60px] shrink-0 place-items-center rounded-full text-foreground transition-transform active:scale-95",
+          GLASS
+        )}
+        style={{ boxShadow: GLASS_SHADOW }}
+      >
+        <Plus className="size-7" strokeWidth={2.2} />
+      </button>
+    </div>
   );
 }
 

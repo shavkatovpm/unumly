@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useMobileAdd } from "@/lib/mobile-nav-style-store";
 import { AnimatePresence, motion } from "framer-motion";
 import { useBlurInputOnScrollOut } from "@/lib/use-blur-on-scroll-out";
 import {
@@ -36,6 +37,8 @@ export function TezkorView() {
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  // Glass nav'dagi "+" shu sahifaning qo'shish oynasini ochadi (FAB yashiriladi).
+  const hideFab = useMobileAdd(() => setShowCreate(true));
   const openList = openId ? lists.find((l) => l.id === openId) ?? null : null;
 
   // Sort: most recently updated first
@@ -126,6 +129,7 @@ export function TezkorView() {
         aria-label="Yangi ro'yhat"
         className={cn(
           "fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 md:hidden",
+          hideFab && "hidden",
           (showCreate || !!openList) && "pointer-events-none scale-75 opacity-0"
         )}
         style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}

@@ -14,6 +14,7 @@ import { migrateLocalStorageOnce } from "@/lib/migrate-localstorage";
 import { startOfDay, toDateInputValue, parseTimeToMinutes } from "@/lib/dates";
 import { Sidebar } from "./sidebar";
 import { MobileBottomNav } from "./mobile-bottom-nav";
+import { OPEN_NEW_TASK_EVENT } from "@/lib/mobile-nav-style-store";
 
 const STORAGE_OPEN = "unumly:sidebar:open";
 
@@ -182,6 +183,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const onOpen = () => setPalette(true, "command");
     window.addEventListener("unumly:open-command", onOpen);
     return () => window.removeEventListener("unumly:open-command", onOpen);
+  }, [setPalette]);
+
+  // Mobil glass nav'dagi "+" — sahifa o'zi ushlamasa, "Yangi task" oynasi.
+  useEffect(() => {
+    const onOpen = () => setPalette(true, "newTask");
+    window.addEventListener(OPEN_NEW_TASK_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_NEW_TASK_EVENT, onOpen);
   }, [setPalette]);
 
   useEffect(() => {
