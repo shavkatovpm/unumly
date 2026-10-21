@@ -320,8 +320,9 @@ function GlassDockNav({ entries, hidden }: { entries: GlassEntry[]; hidden: bool
       )}
       style={{ bottom: FLOAT_BOTTOM, boxShadow: GLASS_SHADOW }}
     >
+      {/* Chap/o'ng tomonga alohida layoutId — faol fon "+" ustidan sirpanib o'tmaydi */}
       {entries.slice(0, mid).map((e) => (
-        <GlassTab key={e.key} e={e} layoutId="glass-dock-active" showLabel />
+        <GlassTab key={e.key} e={e} layoutId="glass-dock-active-left" showLabel />
       ))}
       <div className="flex w-16 shrink-0 justify-center">
         <button
@@ -334,7 +335,7 @@ function GlassDockNav({ entries, hidden }: { entries: GlassEntry[]; hidden: bool
         </button>
       </div>
       {entries.slice(mid).map((e) => (
-        <GlassTab key={e.key} e={e} layoutId="glass-dock-active" showLabel />
+        <GlassTab key={e.key} e={e} layoutId="glass-dock-active-right" showLabel />
       ))}
     </nav>
   );
