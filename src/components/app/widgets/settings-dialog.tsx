@@ -18,7 +18,18 @@ import {
   useMobileNavStyle,
   type MobileNavStyle,
 } from "@/lib/mobile-nav-style-store";
+import {
+  setMoliyaAddStyle,
+  useMoliyaAddStyle,
+  type MoliyaAddStyle,
+} from "@/lib/moliya-add-style-store";
 import { LayoutGroup, motion, Reorder, useDragControls } from "framer-motion";
+
+const MOLIYA_ADD_OPTIONS: { id: MoliyaAddStyle; label: string; hint: string }[] = [
+  { id: "classic", label: "Klassik", hint: "Barcha maydonlar bitta formada" },
+  { id: "catFirst", label: "Avval kategoriya", hint: "Kategoriya → summa, ✓ saqlaydi" },
+  { id: "amountFirst", label: "Avval summa", hint: "Summa → kategoriya, tanlash saqlaydi" },
+];
 
 const NAV_STYLE_OPTIONS: { id: MobileNavStyle; label: string; hint: string }[] = [
   { id: "classic", label: "Klassik", hint: "To'liq kenglikdagi oddiy menyu" },
@@ -84,6 +95,7 @@ export function SettingsDialog({
   const { family, isDark, setFamily, setMode } = useTheme();
   const bugunTaskStyle = useBugunTaskStyle();
   const mobileNavStyle = useMobileNavStyle();
+  const moliyaAddStyle = useMoliyaAddStyle();
   const router = useRouter();
 
   function togglePrimary(id: NavItemId) {
@@ -391,6 +403,32 @@ export function SettingsDialog({
               />
             </span>
           </button>
+
+          {/* Moliya'da yangi yozuv qo'shish oynasi (faqat mobil) */}
+          <p className="mb-1.5 mt-5 text-[11px] font-medium uppercase tracking-[0.16em] text-faint">Moliya · yangi yozuv</p>
+          <p className="mb-2 text-[11.5px] leading-relaxed text-faint">Telefonda kirim/chiqim qo&apos;shish oynasi ko&apos;rinishi.</p>
+          <div className="space-y-2">
+            {MOLIYA_ADD_OPTIONS.map((o) => {
+              const selected = moliyaAddStyle === o.id;
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => setMoliyaAddStyle(o.id)}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-md border bg-surface px-3.5 py-2.5 text-left transition-colors",
+                    selected ? "border-foreground/40" : "border-border hover:bg-hover/40"
+                  )}
+                >
+                  <div>
+                    <p className="text-[13.5px] font-medium">{o.label}</p>
+                    <p className="text-[11.5px] text-faint">{o.hint}</p>
+                  </div>
+                  {selected && <Check className="size-4 shrink-0 text-foreground" />}
+                </button>
+              );
+            })}
+          </div>
         </section>
 
         {/* ── Ovoz ── */}

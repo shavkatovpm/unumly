@@ -43,6 +43,8 @@ import { DatePickerButton } from "./widgets/date-picker-button";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
 import { QarzPanel } from "./qarz-view";
+import { MoliyaQuickAdd } from "./moliya-quick-add";
+import { useMoliyaAddStyle } from "@/lib/moliya-add-style-store";
 
 const INCOME_COLOR = "oklch(0.62 0.13 158)"; // yashil
 const EXPENSE_COLOR = "oklch(0.62 0.17 22)"; // qizil
@@ -86,7 +88,16 @@ export function MoliyaView() {
   const [editing, setEditing] = useState<Transaction | null>(null);
   // Yangi yozuv qaysi tur bilan ochilsin (glass nav yelpig'ichidan tanlanadi).
   const [newType, setNewType] = useState<TransactionType>("EXPENSE");
-  function openNew(type: TransactionType) { setEditing(null); setNewType(type); setAddOpen(true); }
+  // Mobilda sozlamaga qarab tez oyna (avval kategoriya / avval summa); desktop
+  // va "Klassik" — odatdagi forma.
+  const addStyle = useMoliyaAddStyle();
+  const [quickOpen, setQuickOpen] = useState(false);
+  function openNew(type: TransactionType) {
+    setEditing(null);
+    setNewType(type);
+    if (addStyle !== "classic" && window.matchMedia("(max-width: 767px)").matches) setQuickOpen(true);
+    else setAddOpen(true);
+  }
   // Glass nav'dagi "+" — Umumiy/Tranzaksiyalar'da Kirim/Chiqim yelpig'ichi
   // (boshqa tablar o'zi ushlaydi).
   const hideFab = useMobileAddChoices(
@@ -382,6 +393,22 @@ export function MoliyaView() {
         </>
       )}
 
+      <MoliyaQuickAdd
+        variant={addStyle === "catFirst" ? "catFirst" : "amountFirst"}
+        open={quickOpen}
+        initialType={newType}
+        categories={categories}
+        transactions={transactions}
+        onClose={() => setQuickOpen(false)}
+        onCreate={(input) => { addTransaction(input); setQuickOpen(false); }}
+        renderCategoryForm={(type, onCreated, onCancel) => (
+          <CategoryForm
+            type={type}
+            onCancel={onCancel}
+            onSubmit={(input) => onCreated(addCategory({ type, label: input.label, icon: input.icon, color: input.color }))}
+          />
+        )}
+      />
       <TxnDialog
         open={addOpen}
         editing={editing}
