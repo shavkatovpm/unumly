@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMobileAdd } from "@/lib/mobile-nav-style-store";
+import { useMobileAdd } from "@/lib/mobile-add";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -181,7 +181,7 @@ export function BugunView() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [mobileSheet, setMobileSheet] = useState(false);
   // Glass nav'dagi "+" shu sahifaning qo'shish oynasini ochadi (FAB yashiriladi).
-  const hideFab = useMobileAdd(() => setMobileSheet(true));
+  useMobileAdd(() => setMobileSheet(true));
   const [draftPlan, setDraftPlan] = useState<Plan | null>(null);
   const detailPlan = detailId ? plans.find((p) => p.id === detailId) ?? null : null;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -623,22 +623,6 @@ export function BugunView() {
           return id;
         }}
       />
-
-      {/* Mobile FAB — bottom-right circular "+" button */}
-      <button
-        type="button"
-        data-coach="add"
-        onClick={() => setMobileSheet(true)}
-        aria-label="Yangi reja qo'shish"
-        className={cn(
-          "fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 md:hidden",
-          hideFab && "hidden",
-          mobileSheet && "pointer-events-none scale-75 opacity-0"
-        )}
-        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
-      >
-        <Plus className="size-6" strokeWidth={2.5} />
-      </button>
 
       {/* Mobile add-task centered modal */}
       <AnimatePresence>

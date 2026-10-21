@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMobileAdd, useMobileAddChoices } from "@/lib/mobile-nav-style-store";
+import { useMobileAdd, useMobileAddChoices } from "@/lib/mobile-add";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDownLeft,
@@ -44,7 +44,6 @@ import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
 import { QarzPanel } from "./qarz-view";
 import { MoliyaQuickAdd } from "./moliya-quick-add";
-import { useMoliyaAddStyle } from "@/lib/moliya-add-style-store";
 
 const INCOME_COLOR = "oklch(0.62 0.13 158)"; // yashil
 const EXPENSE_COLOR = "oklch(0.62 0.17 22)"; // qizil
@@ -88,19 +87,17 @@ export function MoliyaView() {
   const [editing, setEditing] = useState<Transaction | null>(null);
   // Yangi yozuv qaysi tur bilan ochilsin (glass nav yelpig'ichidan tanlanadi).
   const [newType, setNewType] = useState<TransactionType>("EXPENSE");
-  // Mobilda sozlamaga qarab tez oyna (avval kategoriya); desktop
-  // va "Klassik" — odatdagi forma.
-  const addStyle = useMoliyaAddStyle();
+  // Mobilda — "avval kategoriya" tez oynasi; desktop'da (va tahrirlashda) — odatdagi forma.
   const [quickOpen, setQuickOpen] = useState(false);
   function openNew(type: TransactionType) {
     setEditing(null);
     setNewType(type);
-    if (addStyle !== "classic" && window.matchMedia("(max-width: 767px)").matches) setQuickOpen(true);
+    if (window.matchMedia("(max-width: 767px)").matches) setQuickOpen(true);
     else setAddOpen(true);
   }
   // Glass nav'dagi "+" — Umumiy/Tranzaksiyalar'da Kirim/Chiqim yelpig'ichi
   // (boshqa tablar o'zi ushlaydi).
-  const hideFab = useMobileAddChoices(
+  useMobileAddChoices(
     [
       { id: "INCOME", label: "Kirim", icon: ArrowDownLeft, color: INCOME_COLOR, onPick: () => openNew("INCOME") },
       { id: "EXPENSE", label: "Chiqim", icon: ArrowUpRight, color: EXPENSE_COLOR, onPick: () => openNew("EXPENSE") },
@@ -381,14 +378,6 @@ export function MoliyaView() {
           >
             <Plus className="size-4" />
             Yangi yozuv
-          </button>
-          <button
-            onClick={() => openNew("EXPENSE")}
-            aria-label="Qo'shish"
-            className={cn("fixed bottom-20 right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 md:hidden", hideFab && "hidden")}
-            style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
-          >
-            <Plus className="size-6" strokeWidth={2.5} />
           </button>
         </>
       )}

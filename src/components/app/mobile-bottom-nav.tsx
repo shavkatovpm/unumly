@@ -31,9 +31,8 @@ import {
 import {
   triggerMobileAdd,
   useMobileAddChoicesValue,
-  useMobileNavStyle,
   type MobileAddChoice,
-} from "@/lib/mobile-nav-style-store";
+} from "@/lib/mobile-add";
 import { useProfile } from "@/lib/profile-store";
 import { useProjects, useHydratedProjects } from "@/lib/projects-store";
 import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
@@ -66,7 +65,6 @@ const SHEET_ORDER: NavItemId[] = [
 
 export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   const pathname = usePathname();
-  const navStyle = useMobileNavStyle();
   const [sheetOpen, setSheetOpen] = useState(false);
 
   // Configurable primary slots (Boshqaruv is always pinned on the right).
@@ -118,138 +116,55 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
     </AnimatePresence>
   );
 
-  if (navStyle !== "classic") {
-    const entries: GlassEntry[] = [
-      ...primary.map((t) => ({
-        key: t.href,
-        label: t.label,
-        icon: t.icon,
-        href: t.href,
-        active: isActive(t.href),
-        badge: t.showTodayCount ? todayCount : 0,
-      })),
-      {
-        key: "boshqaruv",
-        label: "Boshqaruv",
-        icon: Menu,
-        onClick: () => setSheetOpen(true),
-        active: isBoshqaruvActive || sheetOpen,
-        badge: 0,
-      },
-    ];
-    const NavComp = navStyle === "glassDock" ? GlassDockNav : GlassSplitNav;
-    const onPlus = () => {
-      if (!addChoices) return triggerMobileAdd();
-      setFanAt(fanOpen ? null : pathname);
-    };
-    return (
-      <>
-        <AnimatePresence>
-          {fanOpen && (
-            <motion.div
-              key="fan-scrim"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={() => setFanAt(null)}
-              className="fixed inset-0 z-20 bg-black/25 backdrop-blur-[3px] md:hidden"
-            />
-          )}
-        </AnimatePresence>
-        <AddFan
-          open={fanOpen}
-          choices={addChoices}
-          stacked={navStyle === "glassSplit"}
-          onPick={(c) => { setFanAt(null); c.onPick(); }}
-        />
-        <NavComp entries={entries} hidden={keyboardOpen} plusOpen={fanOpen} onPlus={onPlus} />
-        {sheet}
-      </>
-    );
-  }
-
+  const entries: GlassEntry[] = [
+    ...primary.map((t) => ({
+      key: t.href,
+      label: t.label,
+      icon: t.icon,
+      href: t.href,
+      active: isActive(t.href),
+      badge: t.showTodayCount ? todayCount : 0,
+    })),
+    {
+      key: "boshqaruv",
+      label: "Boshqaruv",
+      icon: Menu,
+      onClick: () => setSheetOpen(true),
+      active: isBoshqaruvActive || sheetOpen,
+      badge: 0,
+    },
+  ];
+  const onPlus = () => {
+    if (!addChoices) return triggerMobileAdd();
+    setFanAt(fanOpen ? null : pathname);
+  };
   return (
     <>
-      <nav
-        className={cn(
-          "fixed inset-x-0 bottom-0 z-30 grid border-t border-border bg-surface md:hidden",
-          "transition-[transform,opacity] duration-200 ease-out",
-          keyboardOpen && "pointer-events-none translate-y-full opacity-0"
-        )}
-        style={{
-          gridTemplateColumns: `repeat(${primary.length + 1}, minmax(0, 1fr))`,
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
-          boxShadow: "0 -4px 20px -10px rgba(0,0,0,0.15)",
-        }}
-      >
-        {primary.map((t) => {
-          const active = isActive(t.href);
-          return (
-            <Link
-              key={t.href}
-              href={t.href}
-              className={cn(
-                "flex flex-col items-center gap-0.5 py-2.5 transition-colors",
-                active ? "text-foreground" : "text-faint hover:text-muted"
-              )}
-            >
-              <div className="relative">
-                <t.icon
-                  className={cn(
-                    "size-[22px]",
-                    active ? "stroke-[2.4]" : "stroke-[1.8]"
-                  )}
-                />
-                {t.showTodayCount && todayCount > 0 && (
-                  <span className="absolute -right-2 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-foreground px-1 font-mono text-[9px] tabular-nums text-background">
-                    {todayCount}
-                  </span>
-                )}
-              </div>
-              <span
-                className={cn(
-                  "text-[10.5px] font-medium",
-                  active && "font-semibold"
-                )}
-              >
-                {t.label}
-              </span>
-            </Link>
-          );
-        })}
-        <button
-          onClick={() => setSheetOpen(true)}
-          className={cn(
-            "flex flex-col items-center gap-0.5 py-2.5 transition-colors",
-            isBoshqaruvActive || sheetOpen
-              ? "text-foreground"
-              : "text-faint hover:text-muted"
-          )}
-        >
-          <Menu
-            className={cn(
-              "size-[22px]",
-              isBoshqaruvActive || sheetOpen ? "stroke-[2.4]" : "stroke-[1.8]"
-            )}
+      <AnimatePresence>
+        {fanOpen && (
+          <motion.div
+            key="fan-scrim"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setFanAt(null)}
+            className="fixed inset-0 z-20 bg-black/25 backdrop-blur-[3px] md:hidden"
           />
-          <span
-            className={cn(
-              "text-[10.5px] font-medium",
-              (isBoshqaruvActive || sheetOpen) && "font-semibold"
-            )}
-          >
-            Boshqaruv
-          </span>
-        </button>
-      </nav>
-
+        )}
+      </AnimatePresence>
+      <AddFan
+        open={fanOpen}
+        choices={addChoices}
+        onPick={(c) => { setFanAt(null); c.onPick(); }}
+      />
+      <GlassDockNav entries={entries} hidden={keyboardOpen} plusOpen={fanOpen} onPlus={onPlus} />
       {sheet}
     </>
   );
 }
 
-/* ─── Glass uslublar (Sozlamalar > Mobil menyu'dan tanlanadi) ─── */
+/* ─── Glass dock — yagona mobil nav ─── */
 
 type GlassEntry = {
   key: string;
@@ -269,48 +184,37 @@ const FLOAT_BOTTOM = "calc(env(safe-area-inset-bottom, 0px) + 12px)";
 const hideClass = "pointer-events-none translate-y-[calc(100%+24px)] opacity-0";
 const POP = { type: "spring", damping: 22, stiffness: 420 } as const;
 
-/* "+" tanlovlari — "+" ustidan yelpig'ich bo'lib otilib chiqadi.
-   Dock: "+" markazda → chapga/o'ngga yoyiladi. Split: "+" o'ng chetda →
-   tepaga qarab ustma-ust. */
+/* "+" tanlovlari — markazdagi "+" ustidan chapga/o'ngga yelpig'ich bo'lib
+   otilib chiqadi. */
 function AddFan({
   open,
   choices,
-  stacked,
   onPick,
 }: {
   open: boolean;
   choices: MobileAddChoice[] | null;
-  stacked: boolean;
   onPick: (c: MobileAddChoice) => void;
 }) {
   const n = choices?.length ?? 0;
   return (
     <div
       className="pointer-events-none fixed z-30 md:hidden"
-      style={
-        stacked
-          ? { right: 42, bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px + 72px)" }
-          : { left: "50%", bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px + 76px)" }
-      }
+      style={{ left: "50%", bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px + 76px)" }}
     >
       <AnimatePresence>
         {open &&
           choices?.map((c, i) => {
-            const x = stacked ? 0 : (i - (n - 1) / 2) * 128;
-            const y = stacked ? -i * 92 : 0;
+            const x = (i - (n - 1) / 2) * 128;
             return (
               <motion.button
                 key={c.id}
                 type="button"
                 onClick={() => onPick(c)}
                 initial={{ opacity: 0, x: 0, y: 40, scale: 0.4 }}
-                animate={{ opacity: 1, x, y, scale: 1 }}
+                animate={{ opacity: 1, x, y: 0, scale: 1 }}
                 exit={{ opacity: 0, x: 0, y: 40, scale: 0.4 }}
                 transition={{ ...POP, delay: i * 0.05 }}
-                className={cn(
-                  "pointer-events-auto absolute bottom-0 flex w-[76px] flex-col items-center gap-1.5",
-                  stacked ? "-right-[38px]" : "-left-[38px]"
-                )}
+                className="pointer-events-auto absolute -left-[38px] bottom-0 flex w-[76px] flex-col items-center gap-1.5"
               >
                 <span
                   className="grid size-[60px] place-items-center rounded-full text-white shadow-[0_12px_28px_-8px_rgba(0,0,0,0.45)] ring-[5px] ring-white/40 transition-transform active:scale-95 dark:ring-white/10"
@@ -383,7 +287,7 @@ function GlassTab({
   );
 }
 
-/* D: Glass bar + markazda ko'tarilgan "+" */
+/* Glass bar + markazda ko'tarilgan "+" */
 type GlassNavProps = {
   entries: GlassEntry[];
   hidden: boolean;
@@ -424,43 +328,6 @@ function GlassDockNav({ entries, hidden, plusOpen, onPlus }: GlassNavProps) {
         <GlassTab key={e.key} e={e} layoutId="glass-dock-active-right" showLabel />
       ))}
     </nav>
-  );
-}
-
-/* E: Glass kapsula (faqat ikonalar) + yonida alohida glass "+" doira */
-function GlassSplitNav({ entries, hidden, plusOpen, onPlus }: GlassNavProps) {
-  return (
-    <div
-      className={cn(
-        "fixed inset-x-3 z-30 flex items-center gap-2.5 md:hidden",
-        "transition-[transform,opacity] duration-200 ease-out",
-        hidden && hideClass
-      )}
-      style={{ bottom: FLOAT_BOTTOM }}
-    >
-      <nav
-        className={cn("flex min-w-0 flex-1 items-center rounded-full p-1.5", GLASS)}
-        style={{ boxShadow: GLASS_SHADOW }}
-      >
-        {entries.map((e) => (
-          <GlassTab key={e.key} e={e} layoutId="glass-split-active" showLabel={false} />
-        ))}
-      </nav>
-      <button
-        type="button"
-        onClick={onPlus}
-        aria-label={plusOpen ? "Yopish" : "Qo'shish"}
-        className={cn(
-          "grid size-[60px] shrink-0 place-items-center rounded-full text-foreground transition-transform active:scale-95",
-          GLASS
-        )}
-        style={{ boxShadow: GLASS_SHADOW }}
-      >
-        <motion.span animate={{ rotate: plusOpen ? 45 : 0 }} transition={POP} className="grid">
-          <Plus className="size-7" strokeWidth={2.2} />
-        </motion.span>
-      </button>
-    </div>
   );
 }
 

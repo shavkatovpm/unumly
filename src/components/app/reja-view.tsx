@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { useMobileAdd } from "@/lib/mobile-nav-style-store";
+import { useMobileAdd } from "@/lib/mobile-add";
 import { createPortal } from "react-dom";
 import { AnimatePresence, Reorder, motion } from "framer-motion";
 import {
@@ -670,7 +670,7 @@ function TabView(props: ViewProps) {
   // Mobil: tepadagi inline qator o'rniga pastki-o'ng burchakdagi FAB + markazdagi dialog.
   const [mobileAdd, setMobileAdd] = useState(false);
   // Glass nav'dagi "+" shu sahifaning qo'shish oynasini ochadi (FAB yashiriladi).
-  const hideFab = useMobileAdd(() => setMobileAdd(true));
+  useMobileAdd(() => setMobileAdd(true));
   const [mobileV, setMobileV] = useState("");
   const mobileAddRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { if (mobileAdd) mobileAddRef.current?.focus(); }, [mobileAdd]);
@@ -911,21 +911,6 @@ function TabView(props: ViewProps) {
       </motion.div>
       </AnimatePresence>
       </div>
-
-      {/* Mobile FAB — bottom-right circular "+" button */}
-      <button
-        type="button"
-        onClick={() => setMobileAdd(true)}
-        aria-label="Yangi reja qo'shish"
-        className={cn(
-          "fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 md:hidden",
-          hideFab && "hidden",
-          mobileAdd && "pointer-events-none scale-75 opacity-0"
-        )}
-        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
-      >
-        <Plus className="size-6" strokeWidth={2.5} />
-      </button>
 
       <Dialog open={mobileAdd} onClose={() => setMobileAdd(false)} className="max-w-sm" mobilePlacement="center">
         <div className="flex flex-col">

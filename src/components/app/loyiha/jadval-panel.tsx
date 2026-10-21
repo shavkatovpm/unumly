@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useMobileAdd } from "@/lib/mobile-nav-style-store";
+import { useMobileAdd } from "@/lib/mobile-add";
 import { Reorder, useDragControls } from "framer-motion";
 import { CalendarDays, Check, ChevronRight, GripVertical, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -42,7 +42,7 @@ export function JadvalPanel({ projectId }: { projectId: string }) {
   // dialog — Bugun/Reja bo'limlaridagi bilan bir xil naqsh.
   const [mobileAdd, setMobileAdd] = useState(false);
   // Glass nav'dagi "+" shu jadvalga task qo'shadi (FAB yashiriladi).
-  const hideFab = useMobileAdd(() => setMobileAdd(true));
+  useMobileAdd(() => setMobileAdd(true));
   const [mobileDraft, setMobileDraft] = useState("");
   const mobileAddRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (mobileAdd) mobileAddRef.current?.focus(); }, [mobileAdd]);
@@ -169,21 +169,6 @@ export function JadvalPanel({ projectId }: { projectId: string }) {
           )}
         </div>
       )}
-
-      {/* Mobile FAB — bottom-right circular "+" button */}
-      <button
-        type="button"
-        onClick={() => setMobileAdd(true)}
-        aria-label="Yangi task qo'shish"
-        className={cn(
-          "fixed right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 md:hidden",
-          hideFab && "hidden",
-          mobileAdd && "pointer-events-none scale-75 opacity-0"
-        )}
-        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 5rem)" }}
-      >
-        <Plus className="size-6" strokeWidth={2.5} />
-      </button>
 
       <Dialog open={mobileAdd} onClose={() => setMobileAdd(false)} className="max-w-sm" mobilePlacement="center">
         <div className="flex flex-col">

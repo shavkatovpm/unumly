@@ -14,7 +14,7 @@ import { migrateLocalStorageOnce } from "@/lib/migrate-localstorage";
 import { startOfDay, toDateInputValue, parseTimeToMinutes } from "@/lib/dates";
 import { Sidebar } from "./sidebar";
 import { MobileBottomNav } from "./mobile-bottom-nav";
-import { OPEN_NEW_TASK_EVENT } from "@/lib/mobile-nav-style-store";
+import { OPEN_NEW_TASK_EVENT } from "@/lib/mobile-add";
 
 const STORAGE_OPEN = "unumly:sidebar:open";
 

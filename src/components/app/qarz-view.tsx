@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMobileAdd } from "@/lib/mobile-nav-style-store";
+import { useMobileAdd } from "@/lib/mobile-add";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDownLeft,
@@ -49,7 +49,7 @@ export function QarzPanel() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Debt | null>(null);
   // Glass nav'dagi "+" — yangi qarz (FAB yashiriladi).
-  const hideFab = useMobileAdd(() => { setEditing(null); setDialogOpen(true); });
+  useMobileAdd(() => { setEditing(null); setDialogOpen(true); });
 
   // Jami — har valyuta alohida (kurs o'zgaruvchan, aralashtirilmaydi).
   const totalsByCurrency = useMemo(() => {
@@ -158,16 +158,6 @@ export function QarzPanel() {
         <Plus className="size-4" />
         Yangi qarz
       </button>
-      {/* Mobilda FAB */}
-      <button
-        onClick={() => { setEditing(null); setDialogOpen(true); }}
-        aria-label="Yangi qarz"
-        className={cn("fixed bottom-20 right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 md:hidden", hideFab && "hidden")}
-        style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
-      >
-        <Plus className="size-6" strokeWidth={2.5} />
-      </button>
-
       <DebtDialog
         open={dialogOpen}
         editing={editing}
