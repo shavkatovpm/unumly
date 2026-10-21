@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useMobileAdd } from "@/lib/mobile-nav-style-store";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Archive, ArchiveRestore, ArrowLeft, Award, Backpack, Banknote, BookOpen, Brain, Briefcase, Building2,
@@ -114,6 +115,8 @@ export function MaqsadView() {
   const [dir, setDir] = useState(0); // swipe animatsiya yo'nalishi
   const [detailId, setDetailId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  // Glass nav'dagi "+" — yangi maqsad.
+  useMobileAdd(() => setShowAdd(true));
   const [editId, setEditId] = useState<string | null>(null);
 
   function selectTab(t: Tab) {

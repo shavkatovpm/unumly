@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useMobileAdd } from "@/lib/mobile-nav-style-store";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -110,6 +111,8 @@ export function OdatView() {
   const [showAdd, setShowAdd] = useState(false);
   const [addCat, setAddCat] = useState<string | null | undefined>(undefined); // odat qo'shishda oldindan tanlangan toifa (undefined = majburiy tanlov)
   const [addDaysPreset, setAddDaysPreset] = useState<number[] | undefined>(undefined); // kun ustiga bosib qo'shishda oldindan tanlangan hafta kuni
+  // Glass nav'dagi "+" — yangi odat.
+  useMobileAdd(() => { setAddCat(undefined); setAddDaysPreset(undefined); setShowAdd(true); });
   const [showAddCat, setShowAddCat] = useState(false);
   const [editCatId, setEditCatId] = useState<string | null>(null);
   const [pending, setPending] = useState<{ kind: "habit" | "category"; id: string; name: string } | null>(null);

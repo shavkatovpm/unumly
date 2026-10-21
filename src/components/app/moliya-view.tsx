@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useMobileAdd } from "@/lib/mobile-nav-style-store";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDownLeft,
@@ -83,6 +84,8 @@ export function MoliyaView() {
   const [dir, setDir] = useState(0); // swipe animatsiya yo'nalishi
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  // Glass nav'dagi "+" — Umumiy/Tranzaksiyalar'da yangi yozuv (boshqa tablar o'zi ushlaydi).
+  const hideFab = useMobileAdd(() => { setEditing(null); setAddOpen(true); }, tab === "umumiy" || tab === "tranzaksiyalar");
   // "Kirim-chiqim" tabidagi faol tur (Umumiy'dagi taqsimotdan o'tishda boshqariladi)
   const [catType, setCatType] = useState<TransactionType>("EXPENSE");
 
@@ -361,7 +364,7 @@ export function MoliyaView() {
           <button
             onClick={() => { setEditing(null); setAddOpen(true); }}
             aria-label="Qo'shish"
-            className="fixed bottom-20 right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 md:hidden"
+            className={cn("fixed bottom-20 right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 md:hidden", hideFab && "hidden")}
             style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
           >
             <Plus className="size-6" strokeWidth={2.5} />
@@ -818,6 +821,7 @@ function CategoriesTab({
   onRemoveBudget: (categoryId: string) => void;
 }) {
   const [creating, setCreating] = useState(false);
+  useMobileAdd(() => setCreating(true));
   const [editingCat, setEditingCat] = useState<FinanceCategory | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailCat, setDetailCat] = useState<FinanceCategory | null>(null);
@@ -1218,6 +1222,7 @@ function YigimTab({
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
+  useMobileAdd(() => { setEditingGoal(null); setDialogOpen(true); });
   const [historyGoal, setHistoryGoal] = useState<FinancialGoal | null>(null);
 
   const confirmItems = useMemo(() => goals.map((g) => ({ id: g.id, title: g.title })), [goals]);

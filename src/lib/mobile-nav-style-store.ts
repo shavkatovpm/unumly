@@ -49,19 +49,21 @@ export function useMobileNavStyle(): MobileNavStyle {
 }
 
 /** Glass nav'ning "+" tugmasi — sahifa o'z FAB'i o'rniga shu orqali ochadi.
+ *  `enabled` — bir sahifada bir nechta tab bo'lsa, faqat ochiq tab ushlaydi.
  *  Qaytaradi: FAB yashirilishi kerakmi (glass uslub tanlangan). */
-export function useMobileAdd(onAdd: () => void): boolean {
+export function useMobileAdd(onAdd: () => void, enabled = true): boolean {
   const navStyle = useMobileNavStyle();
   const onAddRef = useRef(onAdd);
   useEffect(() => { onAddRef.current = onAdd; });
   useEffect(() => {
+    if (!enabled) return;
     function handler(e: Event) {
       e.preventDefault();
       onAddRef.current();
     }
     window.addEventListener(MOBILE_ADD_EVENT, handler);
     return () => window.removeEventListener(MOBILE_ADD_EVENT, handler);
-  }, []);
+  }, [enabled]);
   return navStyle !== "classic";
 }
 
