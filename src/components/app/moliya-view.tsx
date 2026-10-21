@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMobileAdd } from "@/lib/mobile-nav-style-store";
+import { useMobileAdd, useMobileAddChoices } from "@/lib/mobile-nav-style-store";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDownLeft,
@@ -84,8 +84,18 @@ export function MoliyaView() {
   const [dir, setDir] = useState(0); // swipe animatsiya yo'nalishi
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
-  // Glass nav'dagi "+" — Umumiy/Tranzaksiyalar'da yangi yozuv (boshqa tablar o'zi ushlaydi).
-  const hideFab = useMobileAdd(() => { setEditing(null); setAddOpen(true); }, tab === "umumiy" || tab === "tranzaksiyalar");
+  // Yangi yozuv qaysi tur bilan ochilsin (glass nav yelpig'ichidan tanlanadi).
+  const [newType, setNewType] = useState<TransactionType>("EXPENSE");
+  function openNew(type: TransactionType) { setEditing(null); setNewType(type); setAddOpen(true); }
+  // Glass nav'dagi "+" — Umumiy/Tranzaksiyalar'da Kirim/Chiqim yelpig'ichi
+  // (boshqa tablar o'zi ushlaydi).
+  const hideFab = useMobileAddChoices(
+    [
+      { id: "INCOME", label: "Kirim", icon: ArrowDownLeft, color: INCOME_COLOR, onPick: () => openNew("INCOME") },
+      { id: "EXPENSE", label: "Chiqim", icon: ArrowUpRight, color: EXPENSE_COLOR, onPick: () => openNew("EXPENSE") },
+    ],
+    tab === "umumiy" || tab === "tranzaksiyalar"
+  );
   // "Kirim-chiqim" tabidagi faol tur (Umumiy'dagi taqsimotdan o'tishda boshqariladi)
   const [catType, setCatType] = useState<TransactionType>("EXPENSE");
 
@@ -355,14 +365,14 @@ export function MoliyaView() {
       {(tab === "umumiy" || tab === "tranzaksiyalar") && (
         <>
           <button
-            onClick={() => { setEditing(null); setAddOpen(true); }}
+            onClick={() => openNew("EXPENSE")}
             className="mt-3 hidden w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-[13.5px] font-medium text-muted transition-colors hover:border-border-strong hover:bg-hover hover:text-foreground md:flex"
           >
             <Plus className="size-4" />
             Yangi yozuv
           </button>
           <button
-            onClick={() => { setEditing(null); setAddOpen(true); }}
+            onClick={() => openNew("EXPENSE")}
             aria-label="Qo'shish"
             className={cn("fixed bottom-20 right-4 z-30 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-5px_rgba(0,0,0,0.35)] transition-transform hover:scale-105 active:scale-95 md:hidden", hideFab && "hidden")}
             style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}
@@ -375,6 +385,7 @@ export function MoliyaView() {
       <TxnDialog
         open={addOpen}
         editing={editing}
+        initialType={newType}
         categories={categories}
         transactions={transactions}
         onClose={closeDialog}
@@ -1775,9 +1786,12 @@ function TxnDialog({
   onUpdate,
   onRemove,
   onAddCategory,
+  initialType = "EXPENSE",
 }: {
   open: boolean;
   editing: Transaction | null;
+  /** Yangi yozuv shu tur bilan ochiladi. */
+  initialType?: TransactionType;
   categories: FinanceCategory[];
   transactions: Transaction[];
   onClose: () => void;
@@ -1822,7 +1836,7 @@ function TxnDialog({
       setDate(editing.date);
       setNote(editing.note ?? "");
     } else {
-      setType("EXPENSE");
+      setType(initialType);
       setAmountStr("");
       setCategoryId(null);
       setDate(dateKey());

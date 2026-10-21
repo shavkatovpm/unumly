@@ -67,6 +67,44 @@ export function useMobileAdd(onAdd: () => void, enabled = true): boolean {
   return navStyle !== "classic";
 }
 
+/* "+" bosilganda bitta amal o'rniga tanlovlar (masalan Moliya: Kirim /
+   Chiqim) — nav ularni "+" ustida yelpig'ich bo'lib ochadi. Bir vaqtda
+   faqat bitta sahifa/tab ro'yxatdan o'tkazadi. */
+
+export type MobileAddChoice = {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  color: string;
+  onPick: () => void;
+};
+
+let choices: MobileAddChoice[] | null = null;
+const choiceListeners = new Set<() => void>();
+function subscribeChoices(cb: () => void) { choiceListeners.add(cb); return () => { choiceListeners.delete(cb); }; }
+function getChoices() { return choices; }
+function getServerChoices(): MobileAddChoice[] | null { return null; }
+function setChoices(next: MobileAddChoice[] | null) { choices = next; for (const l of choiceListeners) l(); }
+
+export function useMobileAddChoicesValue(): MobileAddChoice[] | null {
+  return useSyncExternalStore(subscribeChoices, getChoices, getServerChoices);
+}
+
+/** Qaytaradi: FAB yashirilishi kerakmi (glass uslub tanlangan). */
+export function useMobileAddChoices(list: MobileAddChoice[], enabled = true): boolean {
+  const navStyle = useMobileNavStyle();
+  const listRef = useRef(list);
+  useEffect(() => { listRef.current = list; });
+  useEffect(() => {
+    if (!enabled) return;
+    // Label/rang/ikona ro'yxatdan o'tganda olinadi; onPick har doim eng so'nggisi.
+    const own = listRef.current.map((c, i) => ({ ...c, onPick: () => listRef.current[i]?.onPick() }));
+    setChoices(own);
+    return () => { if (choices === own) setChoices(null); };
+  }, [enabled]);
+  return navStyle !== "classic";
+}
+
 export function triggerMobileAdd() {
   const ev = new Event(MOBILE_ADD_EVENT, { cancelable: true });
   window.dispatchEvent(ev);

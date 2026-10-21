@@ -28,7 +28,12 @@ import {
   resolvePrimaryItems,
   type NavItemId,
 } from "@/lib/mobile-nav";
-import { triggerMobileAdd, useMobileNavStyle } from "@/lib/mobile-nav-style-store";
+import {
+  triggerMobileAdd,
+  useMobileAddChoicesValue,
+  useMobileNavStyle,
+  type MobileAddChoice,
+} from "@/lib/mobile-nav-style-store";
 import { useProfile } from "@/lib/profile-store";
 import { useProjects, useHydratedProjects } from "@/lib/projects-store";
 import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
@@ -114,6 +119,12 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
     };
   }, []);
 
+  // "+" tanlovlari (masalan Moliya: Kirim/Chiqim) — yelpig'ich qaysi sahifada
+  // ochilgan bo'lsa, faqat o'sha yerda ko'rinadi (route o'zgarsa o'zi yopiladi).
+  const addChoices = useMobileAddChoicesValue();
+  const [fanAt, setFanAt] = useState<string | null>(null);
+  const fanOpen = fanAt === pathname && !!addChoices && !keyboardOpen;
+
   const sheet = (
     <AnimatePresence>
       {sheetOpen && (
@@ -146,9 +157,32 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
       },
     ];
     const NavComp = navStyle === "glassDock" ? GlassDockNav : GlassSplitNav;
+    const onPlus = () => {
+      if (!addChoices) return triggerMobileAdd();
+      setFanAt(fanOpen ? null : pathname);
+    };
     return (
       <>
-        <NavComp entries={entries} hidden={keyboardOpen} />
+        <AnimatePresence>
+          {fanOpen && (
+            <motion.div
+              key="fan-scrim"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setFanAt(null)}
+              className="fixed inset-0 z-20 bg-black/25 backdrop-blur-[3px] md:hidden"
+            />
+          )}
+        </AnimatePresence>
+        <AddFan
+          open={fanOpen}
+          choices={addChoices}
+          stacked={navStyle === "glassSplit"}
+          onPick={(c) => { setFanAt(null); c.onPick(); }}
+        />
+        <NavComp entries={entries} hidden={keyboardOpen} plusOpen={fanOpen} onPlus={onPlus} />
         {sheet}
       </>
     );
@@ -252,6 +286,67 @@ const GLASS_SHADOW =
   "0 10px 40px -10px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(255,255,255,0.08)";
 const FLOAT_BOTTOM = "calc(env(safe-area-inset-bottom, 0px) + 12px)";
 const hideClass = "pointer-events-none translate-y-[calc(100%+24px)] opacity-0";
+const POP = { type: "spring", damping: 22, stiffness: 420 } as const;
+
+/* "+" tanlovlari — "+" ustidan yelpig'ich bo'lib otilib chiqadi.
+   Dock: "+" markazda → chapga/o'ngga yoyiladi. Split: "+" o'ng chetda →
+   tepaga qarab ustma-ust. */
+function AddFan({
+  open,
+  choices,
+  stacked,
+  onPick,
+}: {
+  open: boolean;
+  choices: MobileAddChoice[] | null;
+  stacked: boolean;
+  onPick: (c: MobileAddChoice) => void;
+}) {
+  const n = choices?.length ?? 0;
+  return (
+    <div
+      className="pointer-events-none fixed z-30 md:hidden"
+      style={
+        stacked
+          ? { right: 42, bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px + 72px)" }
+          : { left: "50%", bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px + 76px)" }
+      }
+    >
+      <AnimatePresence>
+        {open &&
+          choices?.map((c, i) => {
+            const x = stacked ? 0 : (i - (n - 1) / 2) * 128;
+            const y = stacked ? -i * 92 : 0;
+            return (
+              <motion.button
+                key={c.id}
+                type="button"
+                onClick={() => onPick(c)}
+                initial={{ opacity: 0, x: 0, y: 40, scale: 0.4 }}
+                animate={{ opacity: 1, x, y, scale: 1 }}
+                exit={{ opacity: 0, x: 0, y: 40, scale: 0.4 }}
+                transition={{ ...POP, delay: i * 0.05 }}
+                className={cn(
+                  "pointer-events-auto absolute bottom-0 flex w-[76px] flex-col items-center gap-1.5",
+                  stacked ? "-right-[38px]" : "-left-[38px]"
+                )}
+              >
+                <span
+                  className="grid size-[60px] place-items-center rounded-full text-white shadow-[0_12px_28px_-8px_rgba(0,0,0,0.45)] ring-[5px] ring-white/40 transition-transform active:scale-95 dark:ring-white/10"
+                  style={{ background: c.color }}
+                >
+                  <c.icon className="size-6" strokeWidth={2.4} />
+                </span>
+                <span className={cn("rounded-full px-2.5 py-0.5 text-[12.5px] font-semibold text-foreground", GLASS)}>
+                  {c.label}
+                </span>
+              </motion.button>
+            );
+          })}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 function GlassTab({
   e,
@@ -308,7 +403,15 @@ function GlassTab({
 }
 
 /* D: Glass bar + markazda ko'tarilgan "+" */
-function GlassDockNav({ entries, hidden }: { entries: GlassEntry[]; hidden: boolean }) {
+type GlassNavProps = {
+  entries: GlassEntry[];
+  hidden: boolean;
+  /** Yelpig'ich ochiq — "+" × ga aylanadi. */
+  plusOpen: boolean;
+  onPlus: () => void;
+};
+
+function GlassDockNav({ entries, hidden, plusOpen, onPlus }: GlassNavProps) {
   const mid = Math.ceil(entries.length / 2);
   return (
     <nav
@@ -327,11 +430,13 @@ function GlassDockNav({ entries, hidden }: { entries: GlassEntry[]; hidden: bool
       <div className="flex w-16 shrink-0 justify-center">
         <button
           type="button"
-          onClick={triggerMobileAdd}
-          aria-label="Qo'shish"
+          onClick={onPlus}
+          aria-label={plusOpen ? "Yopish" : "Qo'shish"}
           className="-mt-9 grid size-14 place-items-center rounded-full bg-foreground text-background shadow-[0_10px_24px_-6px_rgba(0,0,0,0.5)] ring-[5px] ring-white/40 backdrop-blur transition-transform active:scale-95 dark:ring-white/10"
         >
-          <Plus className="size-6" strokeWidth={2.4} />
+          <motion.span animate={{ rotate: plusOpen ? 45 : 0 }} transition={POP} className="grid">
+            <Plus className="size-6" strokeWidth={2.4} />
+          </motion.span>
         </button>
       </div>
       {entries.slice(mid).map((e) => (
@@ -342,7 +447,7 @@ function GlassDockNav({ entries, hidden }: { entries: GlassEntry[]; hidden: bool
 }
 
 /* E: Glass kapsula (faqat ikonalar) + yonida alohida glass "+" doira */
-function GlassSplitNav({ entries, hidden }: { entries: GlassEntry[]; hidden: boolean }) {
+function GlassSplitNav({ entries, hidden, plusOpen, onPlus }: GlassNavProps) {
   return (
     <div
       className={cn(
@@ -362,15 +467,17 @@ function GlassSplitNav({ entries, hidden }: { entries: GlassEntry[]; hidden: boo
       </nav>
       <button
         type="button"
-        onClick={triggerMobileAdd}
-        aria-label="Qo'shish"
+        onClick={onPlus}
+        aria-label={plusOpen ? "Yopish" : "Qo'shish"}
         className={cn(
           "grid size-[60px] shrink-0 place-items-center rounded-full text-foreground transition-transform active:scale-95",
           GLASS
         )}
         style={{ boxShadow: GLASS_SHADOW }}
       >
-        <Plus className="size-7" strokeWidth={2.2} />
+        <motion.span animate={{ rotate: plusOpen ? 45 : 0 }} transition={POP} className="grid">
+          <Plus className="size-7" strokeWidth={2.2} />
+        </motion.span>
       </button>
     </div>
   );
