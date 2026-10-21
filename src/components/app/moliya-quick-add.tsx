@@ -367,19 +367,6 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
                   <AnimatedAmount value={amount} color={k.color} fontSize={sizes.amountFont} />
                   <p className="mt-1.5 text-[12px] text-faint">so&apos;m</p>
                 </motion.div>
-                <motion.div
-                  layout="position"
-                  animate={{ opacity: noteOpen ? 0 : 1 }}
-                  transition={{ duration: 0.18 }}
-                  aria-hidden={noteOpen}
-                  className={cn("mt-4 flex justify-center gap-1.5", noteOpen && "pointer-events-none")}
-                >
-                  {[10_000, 50_000, 100_000, 500_000].map((v) => (
-                    <button key={v} onClick={() => setAmount((a) => Math.min(a + v, 999_999_999_999))} className="rounded-full border border-border px-3 py-1.5 text-[13px] text-muted active:bg-hover">
-                      +{v / 1000}k
-                    </button>
-                  ))}
-                </motion.div>
               </div>
 
               {/* Izoh yozilayotganda raqamlar joyida qolib, faqat fade bo'ladi —
