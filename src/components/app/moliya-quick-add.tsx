@@ -312,7 +312,6 @@ function Sheet({ initialType, categories, transactions, onClose, onCreate, rende
                     </motion.p>
                   </AnimatePresence>
                 </div>
-                <p className="mt-0.5 text-[11.5px] text-faint">Chapga / o&apos;ngga surib Chiqim ↔ Kirim</p>
               </div>
               <TypePager
                 index={typeIdx}
