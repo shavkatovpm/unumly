@@ -533,11 +533,16 @@ function Keypad({
   );
 }
 
-/* Summa — belgisiz; har bir yangi raqam pastdan silliq chiqadi, son markazga
-   silliq moslashadi. Belgilar chapdan sanab key oladi — raqam oxiriga
-   qo'shilgani (yoki o'chirilgani) animatsiya bo'ladi, qolganlari joyida. */
+/* Summa — belgisiz. Yangi raqam faqat o'ng chetda paydo bo'ladi, qolganlari
+   chapga silliq suriladi. Har bir raqam key'ni "nechanchi raqam" (chapdan,
+   bo'shliqlarsiz) bo'yicha oladi — shunda "1 234" kabi guruhlash bo'shlig'i
+   qo'shilganda mavjud raqamlar qayta chizilmaydi; bo'shliq esa o'zidan oldingi
+   raqamlar soni bilan belgilanadi. */
 function AnimatedAmount({ value, color }: { value: number; color: string }) {
-  const chars = formatSom(value).split("");
+  let digits = 0;
+  const chars = formatSom(value)
+    .split("")
+    .map((ch) => (ch === " " ? { ch, key: `s${digits}` } : { ch, key: value ? `d${digits++}` : "zero" }));
   return (
     <motion.p
       layout
@@ -547,9 +552,9 @@ function AnimatedAmount({ value, color }: { value: number; color: string }) {
       aria-live="polite"
     >
       <AnimatePresence initial={false} mode="popLayout">
-        {chars.map((ch, i) => (
+        {chars.map(({ ch, key }) => (
           <motion.span
-            key={`${i}-${ch === " " ? "s" : "d"}`}
+            key={key}
             layout="position"
             initial={{ opacity: 0, y: 14, filter: "blur(4px)" }}
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
