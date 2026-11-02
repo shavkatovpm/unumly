@@ -6,8 +6,8 @@
  * Qadamlar ixtiyoriy va faqat maqsad oynasi ichida qo'shiladi.
  */
 
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronLeft, ChevronRight, ChevronsDown, ListChecks, Pencil, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMobileAdd } from "@/lib/mobile-add";
@@ -33,6 +33,15 @@ import { ListLoader } from "./widgets/list-loader";
 
 const SPRING = { type: "spring", stiffness: 420, damping: 36 } as const;
 
+/* Davrlar orasida barmoq bilan o'tish — Moliya tablari bilan bir xil. */
+const SWIPE_THRESHOLD = 56;
+const SWIPE_VARIANTS = {
+  enter: (dir: number) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
+  center: { x: "0%", opacity: 1 },
+  exit: (dir: number) => ({ x: dir > 0 ? "-100%" : "100%", opacity: 0 }),
+};
+
+
 const PROMPTS: Record<GoalHorizon, { question: string; placeholder: string }> = {
   WEEK: { question: "Bu hafta nimaga erishmoqchisiz?", placeholder: "Masalan: Landing sahifani tugatish" },
   MONTH: { question: "Bu oy qanday natija bo'lsin?", placeholder: "Masalan: Ilk 10 ta mijozni topish" },
@@ -46,6 +55,11 @@ export function MaqsadView() {
   const { goals, ready } = useHorizonGoals();
   const [today] = useState(todayIso);
   const [horizon, setHorizon] = useState<GoalHorizon>("WEEK");
+  const [dir, setDir] = useState(0); // swipe animatsiya yo'nalishi
+  const [touchSwipe, setTouchSwipe] = useState(false);
+  useEffect(() => {
+    setTouchSwipe(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
   // Har bir tabning o'z tanlangan davri.
   const [periods, setPeriods] = useState<Record<GoalHorizon, string>>(() => ({
     WEEK: periodStartOf("WEEK", today),
@@ -67,6 +81,16 @@ export function MaqsadView() {
   function shift(delta: number) {
     setPeriods((p) => ({ ...p, [horizon]: shiftPeriod(horizon, period, delta) }));
   }
+  function selectHorizon(next: GoalHorizon) {
+    const order = HORIZONS.map((h) => h.id);
+    const delta = order.indexOf(next) - order.indexOf(horizon);
+    setDir(Math.sign(delta));
+    setHorizon(next);
+  }
+  function swipe(delta: number) {
+    const next = HORIZONS[HORIZONS.findIndex((h) => h.id === horizon) + delta];
+    if (next) selectHorizon(next.id);
+  }
 
   return (
     <div className="flex flex-col overflow-hidden" style={{ height: "var(--tg-vh, 100vh)" }}>
@@ -76,7 +100,7 @@ export function MaqsadView() {
         </div>
         <div className="px-4 pb-3 pt-3 md:hidden">
           <h1 className="text-[28px] font-bold tracking-[-0.03em]">Maqsad</h1>
-          <div className="mt-3"><PeriodTiles value={horizon} onChange={setHorizon} /></div>
+          <div className="mt-3"><PeriodTiles value={horizon} onChange={selectHorizon} /></div>
         </div>
         <div className="mx-auto hidden w-full max-w-2xl px-4 pb-3 md:block md:px-6">
           <div role="tablist" aria-label="Maqsad davri" className="grid grid-cols-4 rounded-xl bg-subtle p-1">
@@ -88,7 +112,7 @@ export function MaqsadView() {
                   type="button"
                   role="tab"
                   aria-selected={on}
-                  onClick={() => setHorizon(h.id)}
+                  onClick={() => selectHorizon(h.id)}
                   className={cn("relative h-9 rounded-lg text-[13.5px] font-semibold transition-colors", on ? "text-black" : "text-faint")}
                 >
                   {on && <motion.span layoutId="maqsad-horizon" transition={SPRING} className="absolute inset-0 rounded-lg bg-white shadow-[0_1px_3px_rgba(0,0,0,0.12)]" />}
@@ -101,7 +125,26 @@ export function MaqsadView() {
       </header>
 
       {/* Pastda suzuvchi nav uchun joy — kontent uning ostida qolmasin */}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <AnimatePresence initial={false} custom={dir}>
+          <motion.div
+            key={horizon}
+            custom={dir}
+            variants={SWIPE_VARIANTS}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ x: { type: "spring", stiffness: 460, damping: 42 }, opacity: { duration: 0.18 } }}
+            drag={touchSwipe ? "x" : false}
+            dragDirectionLock
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.16}
+            onDragEnd={(_, info) => {
+              if (info.offset.x < -SWIPE_THRESHOLD || info.velocity.x < -500) swipe(1);
+              else if (info.offset.x > SWIPE_THRESHOLD || info.velocity.x > 500) swipe(-1);
+            }}
+            className="absolute inset-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]"
+          >
         <div className="mx-auto w-full max-w-2xl px-4 pb-32 md:px-6 md:pb-12">
           <div className="flex items-center gap-2 pb-3">
             <button type="button" onClick={() => shift(-1)} aria-label="Oldingi davr" className="grid size-9 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-hover">
@@ -142,6 +185,8 @@ export function MaqsadView() {
             </>
           )}
         </div>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {form && (
@@ -151,7 +196,7 @@ export function MaqsadView() {
           goal={form.goal}
           periodStart={period}
           today={today}
-          onCreatedIn={setHorizon}
+          onCreatedIn={selectHorizon}
           onClose={() => setForm(null)}
         />
       )}
