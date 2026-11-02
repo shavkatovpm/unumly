@@ -11,12 +11,20 @@ import { refreshIdeas } from "@/lib/ideas-store";
 import { refreshCategories } from "@/lib/categories-store";
 import { syncOccurrences } from "@/lib/habits-store";
 import { migrateLocalStorageOnce } from "@/lib/migrate-localstorage";
+import { preloadAppData } from "@/lib/preload";
 import { startOfDay, toDateInputValue, parseTimeToMinutes } from "@/lib/dates";
+import { AppIntro } from "./app-intro";
 import { Sidebar } from "./sidebar";
 import { MobileBottomNav } from "./mobile-bottom-nav";
 import { OPEN_NEW_TASK_EVENT } from "@/lib/mobile-add";
 
 const STORAGE_OPEN = "unumly:sidebar:open";
+
+const PRELOAD_ROUTES = [
+  ...NAV_ROUTES.map((r) => r.href).filter((href) => href !== "/qarz"),
+  "/loyiha",
+  "/pomodoro",
+];
 
 function readInitialOpen(): boolean {
   if (typeof window === "undefined") return false;
@@ -29,6 +37,7 @@ function readInitialOpen(): boolean {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const { plans } = usePlans();
   const todayIso = useMemo(() => toDateInputValue(startOfDay()), []);
 
@@ -67,6 +76,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setHasMounted(true);
   }, []);
+
+  // Bo'limlarning ma'lumoti ham, sahifasi ham kirishdayoq tayyorlanadi —
+  // keyin bo'limdan bo'limga o'tishda loading chiqmaydi.
+  useEffect(() => {
+    preloadAppData();
+    for (const href of PRELOAD_ROUTES) router.prefetch(href);
+  }, [router]);
 
   // One-time localStorage → DB migration (only runs if the user had local
   // plans from before backend was enabled). After import, refresh the
@@ -162,7 +178,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Command palette + global klaviatura shortcut'lari (faqat desktop) ──
-  const router = useRouter();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteMode, setPaletteMode] = useState<"command" | "newTask" | "help">("command");
   const paletteOpenRef = useRef(paletteOpen);
@@ -308,6 +323,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom navigation */}
       <MobileBottomNav todayCount={todayCount} />
+
+      <AppIntro />
 
       {/* Buyruqlar oynasi (⌘K) + klaviatura shortcut'lari — desktop */}
       <CommandPalette

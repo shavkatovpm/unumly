@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Category, CategoryColor } from "@/lib/types";
 import * as actions from "@/lib/categories-actions";
+import { appData } from "@/lib/app-data";
 
 /* ════════════════════════════════════════════════════════════
    Categories store — in-memory cache backed by server actions.
@@ -65,8 +66,7 @@ function hydrateOnce(key: string, projectId?: string) {
   const s = getScope(key);
   if (s.hydrated || s.hydrating || typeof window === "undefined") return;
   s.hydrating = true;
-  void actions
-    .listCategories(projectId)
+  void (projectId ? actions.listCategories(projectId) : appData().then((d) => d?.categories ?? actions.listCategories()))
     .then((rows) => {
       s.hydrated = true;
       // Shu birinchi fetch davomida optimistik mutatsiya boshlangan
@@ -82,6 +82,8 @@ function hydrateOnce(key: string, projectId?: string) {
       s.hydrating = false;
     });
 }
+
+export function preloadCategories(projectId?: string) { hydrateOnce(scopeKey(projectId), projectId); }
 
 /** Force a re-fetch from the server (used after first-login import).
  *  Faqat shaxsiy (asosiy Reja) uchun. */
@@ -235,6 +237,8 @@ export function useCategories(projectId?: string) {
     const unsub = subscribe(key, () => forceRender((n) => n + 1));
     hydrateOnce(key, projectId);
     const s = getScope(key);
+    // Oldindan yuklangan — ko'rsatamiz va orqa fonda yangilaymiz.
+    if (s.hydrated && s.pollSubscribers === 0) fetchAndReconcile(key, projectId);
     s.pollSubscribers++;
     startPolling(key, projectId);
     function onVisible() {

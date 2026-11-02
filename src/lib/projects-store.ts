@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { CategoryColor, Project } from "@/lib/types";
 import * as actions from "@/lib/projects-actions";
+import { appData } from "@/lib/app-data";
 
 /* Loyihalar (Project workspaces) — habits-store bilan bir xil naqsh:
    in-memory cache, optimistik yangilash, server actions bilan orqa fonda
@@ -19,11 +20,14 @@ function nextId() { return typeof crypto !== "undefined" && "randomUUID" in cryp
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void actions.listProjects()
+  void appData()
+    .then((d) => d?.projects ?? actions.listProjects())
     .then((rows) => { hydrated = true; if (pending === 0) memoryState = rows; emit(); })
     .catch(() => { hydrated = true; emit(); })
     .finally(() => { hydrating = false; });
 }
+
+export function preloadProjects() { hydrateOnce(); }
 
 export async function refreshProjects(): Promise<void> {
   try { memoryState = await actions.listProjects(); hydrated = true; emit(); } catch { /* */ }

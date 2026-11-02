@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import * as focusActions from "@/lib/taqsimot-actions";
 import * as settingsActions from "@/lib/user-settings-actions";
 import { DEFAULT_WEEKLY_CAPACITY } from "@/lib/kategoriya";
+import { appData } from "@/lib/app-data";
 
 /* Loyihalar taqsimoti — sig'im/foiz sozlamalari + joriy haftalik tally
    (ProjectFocusLog). projects-store.ts bilan bir xil naqsh: xotiradagi
@@ -31,7 +32,8 @@ function withPending<T>(p: Promise<T>): Promise<T> {
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void Promise.all([settingsActions.getTaqsimotSettings(), focusActions.getFocusCounts()])
+  void appData()
+    .then((d) => d?.taqsimot ?? Promise.all([settingsActions.getTaqsimotSettings(), focusActions.getFocusCounts()]))
     .then(([settings, counts]) => {
       hydrated = true;
       // Shu birinchi fetch davomida optimistik mutatsiya (masalan, sig'im
@@ -54,6 +56,8 @@ function hydrateOnce() {
       hydrating = false;
     });
 }
+
+export function preloadTaqsimot() { hydrateOnce(); }
 
 function subscribe(cb: () => void) {
   listeners.add(cb);

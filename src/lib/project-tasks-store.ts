@@ -30,19 +30,24 @@ function subscribe(projectId: string, cb: () => void) {
 }
 function nextId() { return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36); }
 
+function loadTasks(projectId: string) {
+  if (cache.has(projectId) || inFlight.has(projectId)) return;
+  const req = actions.listProjectTasks(projectId)
+    .then((rows) => { cache.set(projectId, rows); emit(projectId); return rows; })
+    .catch(() => { cache.set(projectId, cache.get(projectId) ?? []); emit(projectId); return []; })
+    .finally(() => { inFlight.delete(projectId); });
+  inFlight.set(projectId, req);
+}
+
+export function preloadProjectTasks(projectId: string) { loadTasks(projectId); }
+
 export function useProjectTasks(projectId: string | null) {
   const [, forceRender] = useState(0);
 
   useEffect(() => {
     if (!projectId) return;
     const unsub = subscribe(projectId, () => forceRender((n) => n + 1));
-    if (!cache.has(projectId) && !inFlight.has(projectId)) {
-      const req = actions.listProjectTasks(projectId)
-        .then((rows) => { cache.set(projectId, rows); emit(projectId); return rows; })
-        .catch(() => { cache.set(projectId, cache.get(projectId) ?? []); emit(projectId); return []; })
-        .finally(() => { inFlight.delete(projectId); });
-      inFlight.set(projectId, req);
-    }
+    loadTasks(projectId);
     return unsub;
   }, [projectId]);
 

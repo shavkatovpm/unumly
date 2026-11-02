@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjects, useHydratedProjects } from "@/lib/projects-store";
+import { preloadProject } from "@/lib/preload";
 import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
 import { ListLoader } from "./widgets/list-loader";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
@@ -31,6 +32,10 @@ export function LoyihaWorkspaceView({ projectId }: { projectId: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    preloadProject(projectId);
+  }, [projectId]);
 
   const project = projects.find((p) => p.id === projectId);
 

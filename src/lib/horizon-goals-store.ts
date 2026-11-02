@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { GoalHorizon, HorizonGoal, HorizonGoalStep } from "@/lib/types";
 import * as actions from "@/lib/horizon-goals-actions";
+import { appData } from "@/lib/app-data";
 import { dropPlanLocally, refreshPlans } from "@/lib/plans-store";
 import { lowerHorizon, moveTargetPeriod } from "@/lib/horizon-goals";
 
@@ -24,11 +25,14 @@ function newId() { return crypto.randomUUID(); }
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void actions.listHorizonGoals()
+  void appData()
+    .then((d) => d?.horizonGoals ?? actions.listHorizonGoals())
     .then((rows) => { if (pending === 0) memoryState = rows; })
     .catch(() => {})
     .finally(() => { hydrated = true; hydrating = false; emit(); });
 }
+
+export function preloadHorizonGoals() { hydrateOnce(); }
 
 function reconcile() {
   if (pending > 0) return;

@@ -5,6 +5,7 @@ import type { Plan, PlanPriority, PlanScope, Subtask } from "@/lib/types";
 import { DEFER_LIMIT, effectiveStatus, todayInTashkent } from "@/lib/plan-status";
 import { playOnCreate } from "@/lib/sounds";
 import * as actions from "@/lib/plans-actions";
+import { appData } from "@/lib/app-data";
 import { markHabitDay as markHabitDayAction } from "@/lib/habits-actions";
 
 /* ════════════════════════════════════════════════════════════
@@ -36,8 +37,8 @@ function nextId() {
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void actions
-    .listPlans()
+  void appData()
+    .then((d) => d?.plans ?? actions.listPlans())
     .then((rows) => {
       hydrated = true;
       // Agar shu birinchi fetch davomida optimistik mutatsiya (masalan,
@@ -56,6 +57,8 @@ function hydrateOnce() {
       hydrating = false;
     });
 }
+
+export function preloadPlans() { hydrateOnce(); }
 
 /** Force a re-fetch from the server (used after first-login import). */
 export async function refreshPlans(): Promise<void> {

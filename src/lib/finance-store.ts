@@ -13,6 +13,7 @@ import * as txnActions from "@/lib/finance-actions";
 import * as catActions from "@/lib/finance-categories-actions";
 import * as budgetActions from "@/lib/finance-budgets-actions";
 import * as goalActions from "@/lib/finance-goals-actions";
+import { appData } from "@/lib/app-data";
 
 /* Moliya — in-memory cache backed by server actions (goals-store pattern).
    Transaction, FinanceCategory va Budget bir snapshot ostida saqlanadi;
@@ -60,11 +61,14 @@ async function loadAll(): Promise<Snapshot> {
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void loadAll()
+  void appData()
+    .then((d) => d?.finance ?? loadAll())
     .then((s) => { hydrated = true; if (pending === 0) snapshot = s; emit(); })
     .catch(() => { hydrated = true; emit(); })
     .finally(() => { hydrating = false; });
 }
+
+export function preloadFinance() { hydrateOnce(); }
 
 export async function refreshFinance(): Promise<void> {
   try { snapshot = await loadAll(); hydrated = true; emit(); } catch { /* */ }
@@ -374,7 +378,10 @@ export function summarize(txns: Transaction[], month: string): MonthSummary {
 export function useFinance() {
   const snap = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   useEffect(() => {
-    hydrateOnce(); subs++; startPoll();
+    hydrateOnce();
+    // Oldindan yuklangan — ko'rsatamiz va orqa fonda yangilaymiz.
+    if (hydrated && subs === 0) fetchReconcile();
+    subs++; startPoll();
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       subs--;

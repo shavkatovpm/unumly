@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { QuickList } from "@/lib/tezkor-types";
 import * as actions from "@/lib/tezkor-actions";
+import { appData } from "@/lib/app-data";
 
 /* ════════════════════════════════════════════════════════════
    Tezkor store — in-memory cache backed by server actions.
@@ -24,8 +25,8 @@ function emit() {
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void actions
-    .listLists()
+  void appData()
+    .then((d) => d?.quickLists ?? actions.listLists())
     .then((rows) => {
       hydrated = true;
       // Shu birinchi fetch davomida optimistik mutatsiya (masalan, sahifa
@@ -119,6 +120,8 @@ function stopPolling() {
     pollTimer = null;
   }
 }
+
+export function preloadQuickLists() { hydrateOnce(); }
 
 function maybeRefreshOnVisible() {
   if (document.visibilityState !== "visible") return;
@@ -391,6 +394,8 @@ export function restoreList(id: string): void {
 function useStoreLifecycle() {
   useEffect(() => {
     hydrateOnce();
+    // Oldindan yuklangan — ko'rsatamiz va orqa fonda yangilaymiz.
+    if (hydrated && pollSubscribers === 0) maybeRefreshOnVisible();
     pollSubscribers++;
     startPolling();
     document.addEventListener("visibilitychange", maybeRefreshOnVisible);

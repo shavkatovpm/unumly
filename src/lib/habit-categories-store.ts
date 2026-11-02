@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { HabitCategory } from "@/lib/types";
 import * as actions from "@/lib/habit-categories-actions";
+import { appData } from "@/lib/app-data";
 
 /* Habit categories — in-memory cache backed by server actions (mirrors
    categories-store). Optimistic mutations + cross-device polling. */
@@ -18,11 +19,14 @@ function nextId() { return typeof crypto !== "undefined" && "randomUUID" in cryp
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void actions.listHabitCategories()
+  void appData()
+    .then((d) => d?.habitCategories ?? actions.listHabitCategories())
     .then((rows) => { hydrated = true; if (pending === 0) memoryState = rows; emit(); })
     .catch(() => { hydrated = true; emit(); })
     .finally(() => { hydrating = false; });
 }
+
+export function preloadHabitCategories() { hydrateOnce(); }
 
 export async function refreshHabitCategories(): Promise<void> {
   try { memoryState = await actions.listHabitCategories(); hydrated = true; emit(); } catch { /* */ }
@@ -78,7 +82,10 @@ function removeCategory(id: string): void {
 export function useHabitCategories() {
   const categories = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   useEffect(() => {
-    hydrateOnce(); subs++; startPoll();
+    hydrateOnce();
+    // Oldindan yuklangan — ko'rsatamiz va orqa fonda yangilaymiz.
+    if (hydrated && subs === 0) fetchReconcile();
+    subs++; startPoll();
     document.addEventListener("visibilitychange", onVisible);
     return () => { subs--; document.removeEventListener("visibilitychange", onVisible); if (subs <= 0) { subs = 0; stopPoll(); } };
   }, []);

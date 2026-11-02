@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { Habit } from "@/lib/types";
 import * as actions from "@/lib/habits-actions";
+import { appData } from "@/lib/app-data";
 import { refreshPlans, markHabitDay as markHabitDayPlan } from "@/lib/plans-store";
 
 /* Habits — in-memory cache backed by server actions. Each mutation also
@@ -36,11 +37,14 @@ export async function syncOccurrences(): Promise<void> {
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void actions.listHabits()
+  void appData()
+    .then((d) => d?.habits ?? actions.listHabits())
     .then((rows) => { hydrated = true; if (pending === 0) memoryState = rows; emit(); })
     .catch(() => { hydrated = true; emit(); })
     .finally(() => { hydrating = false; });
 }
+
+export function preloadHabits() { hydrateOnce(); }
 
 export async function refreshHabits(): Promise<void> {
   try { memoryState = await actions.listHabits(); hydrated = true; emit(); } catch { /* */ }
@@ -136,7 +140,10 @@ export function removeHabit(id: string): void {
 export function useHabits() {
   const all = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   useEffect(() => {
-    hydrateOnce(); subs++; startPoll();
+    hydrateOnce();
+    // Oldindan yuklangan — ko'rsatamiz va orqa fonda yangilaymiz.
+    if (hydrated && subs === 0) fetchReconcile();
+    subs++; startPoll();
     document.addEventListener("visibilitychange", onVisible);
     return () => { subs--; document.removeEventListener("visibilitychange", onVisible); if (subs <= 0) { subs = 0; stopPoll(); } };
   }, []);

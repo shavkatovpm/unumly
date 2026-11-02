@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { Currency, Debt, DebtType } from "@/lib/types";
 import * as actions from "@/lib/finance-debts-actions";
+import { appData } from "@/lib/app-data";
 
 /* Qarzdorlik — in-memory cache backed by server actions (goals-store pattern).
    Optimistik mutatsiyalar, server javobi bilan almashtirish, xatoda tiklash. */
@@ -22,11 +23,14 @@ function nextId() {
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void actions.listDebts()
+  void appData()
+    .then((d) => d?.debts ?? actions.listDebts())
     .then((rows) => { hydrated = true; if (pending === 0) memoryState = rows; emit(); })
     .catch(() => { hydrated = true; emit(); })
     .finally(() => { hydrating = false; });
 }
+
+export function preloadDebts() { hydrateOnce(); }
 
 export async function refreshDebts(): Promise<void> {
   try { memoryState = await actions.listDebts(); hydrated = true; emit(); } catch { /* */ }
@@ -167,7 +171,10 @@ export function removeDebt(id: string): void {
 export function useDebts() {
   const all = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   useEffect(() => {
-    hydrateOnce(); subs++; startPoll();
+    hydrateOnce();
+    // Oldindan yuklangan — ko'rsatamiz va orqa fonda yangilaymiz.
+    if (hydrated && subs === 0) fetchReconcile();
+    subs++; startPoll();
     document.addEventListener("visibilitychange", onVisible);
     return () => { subs--; document.removeEventListener("visibilitychange", onVisible); if (subs <= 0) { subs = 0; stopPoll(); } };
   }, []);

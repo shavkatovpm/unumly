@@ -10,6 +10,7 @@ import * as actions from "@/lib/pages-actions";
 
 const cache = new Map<string, Page[]>();
 const listeners = new Map<string, Set<() => void>>();
+const inFlight = new Set<string>();
 
 function emit(projectId: string) {
   for (const l of listeners.get(projectId) ?? []) l();
@@ -36,17 +37,24 @@ function collectSubtreeIds(list: Page[], rootId: string): Set<string> {
   return ids;
 }
 
+function loadPages(projectId: string) {
+  if (cache.has(projectId) || inFlight.has(projectId)) return;
+  inFlight.add(projectId);
+  void actions.listPages(projectId)
+    .then((rows) => { cache.set(projectId, rows); emit(projectId); })
+    .catch(() => { cache.set(projectId, cache.get(projectId) ?? []); emit(projectId); })
+    .finally(() => { inFlight.delete(projectId); });
+}
+
+export function preloadPages(projectId: string) { loadPages(projectId); }
+
 export function usePages(projectId: string | null) {
   const [, forceRender] = useState(0);
 
   useEffect(() => {
     if (!projectId) return;
     const unsub = subscribe(projectId, () => forceRender((n) => n + 1));
-    if (!cache.has(projectId)) {
-      void actions.listPages(projectId)
-        .then((rows) => { cache.set(projectId, rows); emit(projectId); })
-        .catch(() => { cache.set(projectId, cache.get(projectId) ?? []); emit(projectId); });
-    }
+    loadPages(projectId);
     return unsub;
   }, [projectId]);
 
