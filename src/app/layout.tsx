@@ -73,6 +73,12 @@ try {
   document.documentElement.dataset.theme = fam;
   document.documentElement.dataset.mode = md;
 } catch(e) {}
+try {
+  var nav = performance.getEntriesByType('navigation')[0];
+  if (sessionStorage.getItem('unumly:intro:seen') || (nav && nav.type === 'reload')) {
+    document.documentElement.dataset.intro = 'skip';
+  }
+} catch(e) {}
 `;
 
 export const metadata: Metadata = {

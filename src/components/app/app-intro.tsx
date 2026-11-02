@@ -5,6 +5,9 @@ import { MotionConfig } from "framer-motion";
 import { IntroTrace } from "@/components/brand/logo-intros";
 import { appData } from "@/lib/app-data";
 
+// Oyna ochiq turgan paytda saqlanadi: reload'da logo qayta chiqmaydi (layout BOOT_SCRIPT).
+const SEEN_KEY = "unumly:intro:seen";
+
 // Tarmoq osilib qolsa ham foydalanuvchi logoda qamalib qolmasin.
 const MAX_WAIT_MS = 4000;
 
@@ -14,10 +17,18 @@ export function AppIntro() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // Hozircha faqat mobil uchun.
-    if (window.matchMedia("(min-width: 768px)").matches) {
+    // Hozircha faqat mobil uchun; reload'da ichki loading ko'rinadi.
+    if (
+      window.matchMedia("(min-width: 768px)").matches ||
+      document.documentElement.dataset.intro === "skip"
+    ) {
       setDone(true);
       return;
+    }
+    try {
+      window.sessionStorage.setItem(SEEN_KEY, "1");
+    } catch {
+      /* ignore */
     }
     const timer = window.setTimeout(() => setReady(true), MAX_WAIT_MS);
     void appData("tasks").then(() => setReady(true));
@@ -27,7 +38,7 @@ export function AppIntro() {
   if (done) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] md:hidden" style={{ containerType: "size" }}>
+    <div className="fixed inset-0 z-[200] md:hidden [[data-intro=skip]_&]:hidden" style={{ containerType: "size" }}>
       <MotionConfig reducedMotion="user">
         <IntroTrace ready={ready} onDone={() => setDone(true)} />
       </MotionConfig>

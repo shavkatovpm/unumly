@@ -96,21 +96,23 @@ export function IntroTrace({ ready, onDone }: IntroProps) {
         fillRule="evenodd"
         mask={`url(#${maskId})`}
       />
-      {/* Qalam uchidagi nur */}
-      <motion.path
-        d={LOGO_STROKE_PATH}
-        fill="none"
-        stroke="#fff"
-        strokeWidth={34}
-        strokeLinecap="round"
-        style={{ filter: "blur(2cqmin)" }}
-        initial={{ pathLength: 0.04, pathOffset: 0, opacity: 0 }}
-        animate={{ pathOffset: 0.96, opacity: [0, 0.9, 0.9, 0] }}
-        transition={{
-          pathOffset: write,
-          opacity: { ...write, ease: "linear", times: [0, 0.08, 0.92, 1] },
-        }}
-      />
+      {/* Qalam uchidagi nur. CSS blur iOS WebKit'da SVG ichida ishlamaydi —
+          faqat SVG filtri bilan xira bo'ladi */}
+      <g filter={`url(#${softId})`}>
+        <motion.path
+          d={LOGO_STROKE_PATH}
+          fill="none"
+          stroke="#fff"
+          strokeWidth={34}
+          strokeLinecap="round"
+          initial={{ pathLength: 0.04, pathOffset: 0, opacity: 0 }}
+          animate={{ pathOffset: 0.96, opacity: [0, 0.9, 0.9, 0] }}
+          transition={{
+            pathOffset: write,
+            opacity: { ...write, ease: "linear", times: [0, 0.08, 0.92, 1] },
+          }}
+        />
+      </g>
     </LightStage>
   );
 }
