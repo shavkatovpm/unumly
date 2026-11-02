@@ -75,6 +75,7 @@ model User {
   habits            Habit[]
   habitCategories   HabitCategory[]
   goals             Goal[]
+  horizonGoals      HorizonGoal[]
   financeCategories FinanceCategory[]
   transactions      Transaction[]
   budgets           Budget[]
@@ -192,6 +193,11 @@ model Plan {
   // FK is unique. Toggling this plan's status syncs GoalStep.done.
   goalStepId String? @unique
 
+  // Haftalik maqsad yoki uning qadamidan "Bugunga" o'tkazilgan task. Task o'chsa
+  // maqsad qoladi, maqsad o'chsa task qoladi (SetNull) — holati sinxron.
+  horizonGoalId String? @unique
+  horizonStepId String? @unique
+
   // When set, this plan belongs to a Loyiha (Project) workspace rather than
   // the personal space. NULL = personal. Deleting the project deletes all
   // its scoped plans too (cascade).
@@ -210,6 +216,8 @@ model Plan {
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   habit       Habit?       @relation(fields: [habitId], references: [id], onDelete: Cascade)
   goalStep    GoalStep?    @relation(fields: [goalStepId], references: [id], onDelete: Cascade)
+  horizonGoal HorizonGoal? @relation(fields: [horizonGoalId], references: [id], onDelete: SetNull)
+  horizonStep HorizonGoalStep? @relation(fields: [horizonStepId], references: [id], onDelete: SetNull)
   project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectTask ProjectTask? @relation(fields: [projectTaskId], references: [id], onDelete: Cascade)
   botMessages BotMessage[]
@@ -340,6 +348,67 @@ model GoalStep {
   plan    Plan? // scheduled one-off occurrence (Plan.goalStepId)
 
   @@index([subGoalId])
+}
+
+// ─────────────────────────── Davriy maqsadlar ─────────────────────────────
+// Maqsad bo'limi: Yil → 3 oy → Oy → Hafta → Bugun. Har bir maqsad bitta davrga
+// tegishli (periodStart — davr boshlanish sanasi). Maqsad yoki uning qadami bir
+// pog'ona pastga o'tkaziladi: yuqori darajada — yangi maqsad (parentId yoki
+// sourceStepId), haftalikda — kunlik task (Plan). Pastdagisi bajarilsa, manbasi
+// ham bajariladi.
+// Yuqoridagi Goal/SubGoal/GoalStep — eski tuzilma, UI ishlatmaydi, ma'lumot
+// saqlanib turibdi.
+
+enum GoalHorizon {
+  WEEK
+  MONTH
+  QUARTER
+  YEAR
+}
+
+model HorizonGoal {
+  id     String @id @default(cuid())
+  userId String
+
+  horizon     GoalHorizon
+  periodStart String      @db.VarChar(10) // YYYY-MM-DD: dushanba / oy, chorak, yil boshi
+  title       String
+  done        Boolean     @default(false)
+  order       Int         @default(0)
+  parentId     String? // shu maqsad o'tkazilgan yuqori daraja maqsadi
+  sourceStepId String? // yoki yuqori daraja maqsadining qadami
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent     HorizonGoal?      @relation("HorizonGoalParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children   HorizonGoal[]     @relation("HorizonGoalParent")
+  sourceStep HorizonGoalStep?  @relation("HorizonStepChildGoals", fields: [sourceStepId], references: [id], onDelete: SetNull)
+  steps      HorizonGoalStep[]
+  plan       Plan?
+
+  @@index([userId, horizon, periodStart])
+  @@index([parentId])
+  @@index([sourceStepId])
+}
+
+model HorizonGoalStep {
+  id     String @id @default(cuid())
+  goalId String
+
+  title String
+  done  Boolean @default(false)
+  order Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  goal       HorizonGoal   @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  plan       Plan?
+  childGoals HorizonGoal[] @relation("HorizonStepChildGoals")
+
+  @@index([goalId])
 }
 
 // ───────────────────────── Loyiha (Project workspace) ─────────────────────────

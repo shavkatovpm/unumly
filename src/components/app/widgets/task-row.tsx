@@ -187,7 +187,7 @@ export function TaskRow({
         </span>
       )}
       {plan.habitId && <Repeat className={cn("shrink-0 text-faint", wide ? "size-4" : "size-3.5")} aria-label="Odat" />}
-      {plan.goalStepId && <Target className={cn("shrink-0 text-faint", wide ? "size-4" : "size-3.5")} aria-label="Maqsad qadami" />}
+      {(plan.goalStepId || plan.horizonStepId || plan.horizonGoalId) && <Target className={cn("shrink-0 text-faint", wide ? "size-4" : "size-3.5")} aria-label="Maqsad qadami" />}
 
       <button
         type="button"

@@ -41,8 +41,11 @@ export type Plan = {
   deferCount: number;
   /** Set when this plan is a generated occurrence of a recurring Habit. */
   habitId?: string;
-  /** Set when this plan is the scheduled occurrence of a Goal step (OKR qadami). */
+  /** Eski maqsad qadamidan yaratilgan task (faqat tarixiy yozuvlar uchun). */
   goalStepId?: string;
+  /** Maqsad yoki uning qadamidan o'tkazilgan task. */
+  horizonGoalId?: string;
+  horizonStepId?: string;
   /** Set when this plan belongs to a Loyiha (Project) workspace, not the personal space. */
   projectId?: string;
 };
@@ -114,46 +117,31 @@ export type Idea = {
   priority?: PlanPriority;
 };
 
-/* ─── Maqsad (Goals / OKR) ─── */
+/* ─── Maqsad (davriy) ─── */
 
-export type GoalStatus = "ACTIVE" | "DONE" | "ARCHIVED";
+export type GoalHorizon = "WEEK" | "MONTH" | "QUARTER" | "YEAR";
 
-/** Qadam — eng kichik birlik. Istalgan kunga (vaqt bilan) belgilanishi mumkin;
- *  belgilangach Plan occurrence sifatida task ko'rinishlarida paydo bo'ladi. */
-export type GoalStep = {
-  id: string;
-  subGoalId: string;
-  title: string;
-  done: boolean;
-  order: number;
-  // Belgilangan bo'lsa — bog'langan Plan occurrence ma'lumotlari (mirror).
-  scheduledFor?: string; // YYYY-MM-DD
-  time?: string;         // HH:MM
-  planId?: string;       // bog'langan Plan id
-};
-
-/** Kichik maqsad (key result) — qadamlardan tashkil topadi. */
-export type SubGoal = {
+/** "Nima qilish kerak" qadami. Kunlik taskka aylanishi mumkin. */
+export type HorizonGoalStep = {
   id: string;
   goalId: string;
   title: string;
+  done: boolean;
   order: number;
-  steps: GoalStep[];
+  scheduledFor?: string; // YYYY-MM-DD — bog'langan task sanasi
 };
 
-/** Maqsad (OKR) — kichik maqsadlar daraxti. */
-export type Goal = {
+export type HorizonGoal = {
   id: string;
+  horizon: GoalHorizon;
+  periodStart: string;   // YYYY-MM-DD
   title: string;
-  icon?: string;          // lucide key
-  deadline?: string;      // YYYY-MM-DD
-  status: GoalStatus;
+  done: boolean;
   order: number;
-  archivedAt?: string;    // ISO datetime
-  createdAt: string;      // ISO datetime
-  subGoals: SubGoal[];
-  /** Set when this goal belongs to a Loyiha (Project) workspace, not the personal space. */
-  projectId?: string;
+  parentId?: string;     // qaysi yuqori maqsaddan o'tkazilgan
+  sourceStepId?: string; // qaysi yuqori qadamdan o'tkazilgan
+  scheduledFor?: string; // kunlik taskka o'tkazilgan bo'lsa — sanasi
+  steps: HorizonGoalStep[];
 };
 
 /* ─── Loyiha (Project workspace) ─── */

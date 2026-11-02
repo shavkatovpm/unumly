@@ -46,7 +46,7 @@ async function ensureHabitCategoriesSeeded(ownerUserId: string): Promise<void> {
 async function getStructureImpl(ownerUserId: string) {
   await Promise.all([ensurePersonalCategoriesSeeded(ownerUserId), ensureHabitCategoriesSeeded(ownerUserId)]);
 
-  const [projects, planCounts, ideaCounts, taskCounts, pageCounts, goalCounts, categories, habitCategories, personalQuickLists] =
+  const [projects, planCounts, ideaCounts, taskCounts, pageCounts, openGoalCount, categories, habitCategories, personalQuickLists] =
     await Promise.all([
       prisma.project.findMany({
         where: { userId: ownerUserId, archivedAt: null },
@@ -73,11 +73,7 @@ async function getStructureImpl(ownerUserId: string) {
         where: { project: { userId: ownerUserId } },
         _count: { _all: true },
       }),
-      prisma.goal.groupBy({
-        by: ["projectId"],
-        where: { userId: ownerUserId, status: "ACTIVE" },
-        _count: { _all: true },
-      }),
+      prisma.horizonGoal.count({ where: { userId: ownerUserId, done: false } }),
       prisma.category.findMany({
         where: { userId: ownerUserId },
         orderBy: [{ order: "asc" }],
@@ -97,7 +93,6 @@ async function getStructureImpl(ownerUserId: string) {
   const ideaByProject = byProject(ideaCounts);
   const taskByProject = byProject(taskCounts);
   const pageByProject = byProject(pageCounts);
-  const goalByProject = byProject(goalCounts);
 
   const personalCategories = categories
     .filter((c) => !c.projectId)
@@ -114,7 +109,7 @@ async function getStructureImpl(ownerUserId: string) {
     personal: {
       openPlans: planByProject.get(null) ?? 0,
       openIdeas: ideaByProject.get(null) ?? 0,
-      openGoals: goalByProject.get(null) ?? 0,
+      openGoals: openGoalCount,
       openQuickLists: personalQuickLists,
       categories: personalCategories,
     },
@@ -128,14 +123,13 @@ async function getStructureImpl(ownerUserId: string) {
       openIdeas: ideaByProject.get(p.id) ?? 0,
       openProjectTasks: taskByProject.get(p.id) ?? 0,
       pageCount: pageByProject.get(p.id) ?? 0,
-      openGoals: goalByProject.get(p.id) ?? 0,
       categories: categoriesByProject.get(p.id) ?? [],
     })),
     enums: {
       planPriority: ["LOW", "MEDIUM", "HIGH"],
       planScope: ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"],
       planStatus: ["TODO", "IN_PROGRESS", "DONE", "MISSED", "CANCELLED", "ARCHIVED"],
-      goalStatus: ["ACTIVE", "DONE", "ARCHIVED"],
+      goalHorizon: ["WEEK", "MONTH", "QUARTER", "YEAR"],
       habitDays: "0=Yakshanba .. 6=Shanba (JS getDay() bilan bir xil)",
     },
   };

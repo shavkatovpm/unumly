@@ -6,74 +6,56 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   mcpListGoals,
   mcpCreateGoal,
-  mcpCreateSubgoal,
   mcpCreateStep,
   mcpUpdateGoal,
   mcpUpdateStep,
   mcpDeleteGoal,
-  mcpDeleteSubgoal,
   mcpDeleteStep,
 } from "@/lib/mcp/goals";
-import { goalStatusEnum, textResult } from "./shared";
+import { dateStr, goalHorizonEnum, textResult } from "./shared";
 
-/** Maqsad (OKR): Goal → SubGoal → GoalStep, 3 pog'ona. v1'da UI-granular
- *  amallar (qayta tartiblash, qadamni kalendarga bog'lash/uzish) chiqarilmagan
- *  — faqat daraxt yaratish/o'qish va qadam matni/holatini yangilash bor. */
+/** Maqsad: 4 davr (WEEK, MONTH, QUARTER, YEAR). Har bir maqsad bitta davrga
+ *  tegishli, bir pog'ona yuqoridagi maqsadga bog'lanadi va ichida qadamlar bor. */
 export function registerGoalTools(server: McpServer, ownerUserId: string) {
   server.registerTool(
     "list_goals",
     {
-      title: "Maqsadlarni (OKR) ro'yxatlash",
+      title: "Maqsadlarni ro'yxatlash",
       description:
-        "Barcha maqsadlarni to'liq daraxt bilan qaytaradi: Goal → SubGoal (kichik maqsad) → GoalStep " +
-        "(qadam). Har qadamda done holati va (bog'langan bo'lsa) kalendardagi sanasi ko'rinadi.",
-      inputSchema: {},
+        "Davriy maqsadlarni qadamlari bilan qaytaradi. horizon berilsa — shu daraja; horizon va date birga " +
+        "berilsa — o'sha sana tushadigan davr. Daraja zanjiri: YEAR → QUARTER → MONTH → WEEK.",
+      inputSchema: { horizon: goalHorizonEnum.optional(), date: dateStr.optional() },
     },
-    async () => textResult(await mcpListGoals(ownerUserId))
+    async (filter) => textResult(await mcpListGoals(ownerUserId, filter))
   );
 
   server.registerTool(
     "create_goal",
     {
-      title: "Yangi maqsad (OKR) yaratish",
+      title: "Yangi maqsad yaratish",
       description:
-        "Yangi Goal yaratadi. subGoals ixtiyoriy — berilsa, kichik maqsadlar va ularning qadamlari ham " +
-        "BITTA chaqiruvda birga yaratiladi (to'liq daraxtni bir yo'la qurish uchun qulay).",
+        "Berilgan davrga maqsad qo'shadi. date ixtiyoriy (standart — bugun): shu sana tushadigan hafta, oy, " +
+        "chorak yoki yil olinadi. parentId — shu maqsad qaysi yuqori darajadagi maqsaddan kelgani " +
+        "(YEAR → QUARTER → MONTH → WEEK). steps — ixtiyoriy qadamlar, bir chaqiruvda birga yaratiladi.",
       inputSchema: {
+        horizon: goalHorizonEnum,
         title: z.string().min(1),
-        icon: z.string().optional().describe("lucide icon nomi"),
-        deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-        subGoals: z
-          .array(
-            z.object({
-              title: z.string().min(1),
-              steps: z.array(z.object({ title: z.string().min(1) })).optional(),
-            })
-          )
-          .optional(),
+        date: dateStr.optional(),
+        parentId: z.string().optional(),
+        steps: z.array(z.string().min(1)).optional(),
       },
     },
-    async (args) => textResult(await mcpCreateGoal(ownerUserId, args))
-  );
-
-  server.registerTool(
-    "create_subgoal",
-    {
-      title: "Mavjud maqsadga kichik maqsad qo'shish",
-      description: "Berilgan Goal ostiga yangi SubGoal (kichik maqsad) qo'shadi.",
-      inputSchema: { goalId: z.string(), title: z.string().min(1) },
-    },
-    async ({ goalId, title }) => textResult(await mcpCreateSubgoal(ownerUserId, goalId, title))
+    async (input) => textResult(await mcpCreateGoal(ownerUserId, input))
   );
 
   server.registerTool(
     "create_step",
     {
-      title: "Mavjud kichik maqsadga qadam qo'shish",
-      description: "Berilgan SubGoal ostiga yangi GoalStep (qadam) qo'shadi.",
-      inputSchema: { subGoalId: z.string(), title: z.string().min(1) },
+      title: "Maqsadga qadam qo'shish",
+      description: "Mavjud maqsadga 'nima qilish kerak' qadamini qo'shadi.",
+      inputSchema: { goalId: z.string(), title: z.string().min(1) },
     },
-    async ({ subGoalId, title }) => textResult(await mcpCreateStep(ownerUserId, subGoalId, title))
+    async ({ goalId, title }) => textResult(await mcpCreateStep(ownerUserId, goalId, title))
   );
 
   server.registerTool(
@@ -81,14 +63,13 @@ export function registerGoalTools(server: McpServer, ownerUserId: string) {
     {
       title: "Maqsadni yangilash",
       description:
-        "Goal darajasidagi maydonlarni yangilaydi (title/icon/deadline/status). status=ARCHIVED qilinsa " +
-        "arxivlanadi.",
+        "Matn, bajarilgan holat yoki yuqori maqsad bog'lanishini (parentId, null — uzish) yangilaydi. done " +
+        "o'zgarsa, barcha qadamlar va ularga bog'langan tasklar ham birga o'zgaradi.",
       inputSchema: {
         id: z.string(),
         title: z.string().min(1).optional(),
-        icon: z.string().nullable().optional(),
-        deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-        status: goalStatusEnum.optional(),
+        done: z.boolean().optional(),
+        parentId: z.string().nullable().optional(),
       },
     },
     async ({ id, ...patch }) => textResult(await mcpUpdateGoal(ownerUserId, id, patch))
@@ -99,34 +80,18 @@ export function registerGoalTools(server: McpServer, ownerUserId: string) {
     {
       title: "Qadamni yangilash (matn/bajarilgan holat)",
       description:
-        "GoalStep'ning title/done maydonlarini yangilaydi. Agar qadam kalendarga bog'langan bo'lsa (biror " +
-        "sanaga belgilangan), title va done o'zgarishlari bog'langan Plan'ga (Bugun/Agenda'dagi ko'rinishi) " +
-        "ham avtomatik sinxronlanadi.",
+        "Qadam matni yoki holatini yangilaydi. Qadam Bugunga qo'shilgan bo'lsa, bog'langan task ham " +
+        "sinxronlanadi. Hamma qadam bajarilsa, maqsad ham bajarilgan bo'ladi.",
       inputSchema: { id: z.string(), title: z.string().min(1).optional(), done: z.boolean().optional() },
     },
     async ({ id, ...patch }) => textResult(await mcpUpdateStep(ownerUserId, id, patch))
   );
 
   server.registerTool(
-    "delete_subgoal",
-    {
-      title: "Kichik maqsadni o'chirish",
-      description:
-        "SubGoal'ni butunlay o'chiradi (hard delete). Ostidagi barcha GoalStep'lar va ularning kalendarga " +
-        "bog'langan Plan'lari DB darajasidagi ON DELETE CASCADE orqali birga o'chadi. Goal'ning o'zi " +
-        "o'chmaydi.",
-      inputSchema: { id: z.string() },
-    },
-    async ({ id }) => textResult(await mcpDeleteSubgoal(ownerUserId, id))
-  );
-
-  server.registerTool(
     "delete_step",
     {
       title: "Qadamni o'chirish",
-      description:
-        "GoalStep'ni butunlay o'chiradi (hard delete). Agar kalendarga bog'langan bo'lsa (biror sanaga " +
-        "belgilangan), bog'langan Plan ham DB darajasidagi ON DELETE CASCADE orqali birga o'chadi.",
+      description: "Qadamni butunlay o'chiradi. Bog'langan task o'chmaydi, faqat bog'lanish uziladi.",
       inputSchema: { id: z.string() },
     },
     async ({ id }) => textResult(await mcpDeleteStep(ownerUserId, id))
@@ -136,9 +101,7 @@ export function registerGoalTools(server: McpServer, ownerUserId: string) {
     "delete_goal",
     {
       title: "Maqsadni o'chirish",
-      description:
-        "Goal'ni butunlay o'chiradi (hard delete). Barcha SubGoal'lar, GoalStep'lar va ularning kalendarga " +
-        "bog'langan Plan'lari DB darajasidagi ON DELETE CASCADE orqali birga o'chadi.",
+      description: "Maqsadni qadamlari bilan butunlay o'chiradi. Bog'langan tasklar o'chmaydi.",
       inputSchema: { id: z.string() },
     },
     async ({ id }) => textResult(await mcpDeleteGoal(ownerUserId, id))

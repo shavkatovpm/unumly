@@ -3,6 +3,7 @@
 import { Prisma, type Plan as DbPlan } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { syncHorizonGoalDone, syncHorizonStepDone } from "@/lib/horizon-goal-sync";
 import { getSessionUser, getSessionUserId } from "@/lib/auth";
 import { computeNotifyAt, sanitizeLeadMin } from "@/lib/notify-time";
 import { DEFER_LIMIT, isDeferral, todayInTashkent } from "@/lib/plan-status";
@@ -47,6 +48,8 @@ function toPlan(p: DbPlan): Plan {
     deferCount: p.deferCount,
     habitId: p.habitId ?? undefined,
     goalStepId: p.goalStepId ?? undefined,
+    horizonGoalId: p.horizonGoalId ?? undefined,
+    horizonStepId: p.horizonStepId ?? undefined,
   };
 }
 
@@ -284,6 +287,13 @@ export async function togglePlanStatus(id: string): Promise<Plan> {
   // Maqsad bo'limidagi progress darhol mos keladi.
   if (existing.goalStepId) {
     void prisma.goalStep.update({ where: { id: existing.goalStepId }, data: { done: nowDone } }).catch(() => {});
+  }
+
+  if (existing.horizonStepId) {
+    void syncHorizonStepDone(existing.horizonStepId, nowDone).catch(() => {});
+  }
+  if (existing.horizonGoalId) {
+    void syncHorizonGoalDone(existing.horizonGoalId, nowDone).catch(() => {});
   }
 
   // Jadval taskidan yaratilgan Plan bo'lsa — "Bajarildi" holati orqaga,

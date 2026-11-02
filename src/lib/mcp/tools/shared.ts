@@ -14,7 +14,7 @@ export const statusEnum = z.enum([
   "CANCELLED",
   "ARCHIVED",
 ]);
-export const goalStatusEnum = z.enum(["ACTIVE", "DONE", "ARCHIVED"]);
+export const goalHorizonEnum = z.enum(["WEEK", "MONTH", "QUARTER", "YEAR"]);
 export const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD bo'lishi kerak");
 export const timeStr = z.string().regex(/^\d{2}:\d{2}$/, "HH:MM bo'lishi kerak");
 export const leadMin = z.union([z.literal(0), z.literal(5), z.literal(15), z.literal(30)]);

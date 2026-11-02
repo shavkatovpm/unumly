@@ -23,9 +23,9 @@ export function registerCoreTools(server: McpServer, ownerUserId: string) {
       title: "Umumiy xarita — loyihalar, kategoriyalar, enum qiymatlari",
       description:
         "Foydalanuvchining barcha faol (arxivlanmagan) loyihalarini — har biri uchun category (A/B/C/D), " +
-        "targetHours, ochiq Plan/Idea/ProjectTask/Goal soni va Hujjat (Page) soni bilan — hamda shaxsiy va " +
+        "targetHours, ochiq Plan/Idea/ProjectTask soni va Hujjat (Page) soni bilan — hamda shaxsiy va " +
         "loyiha-ichi Reja kategoriyalarini, Odat kategoriyalarini va barcha enum qiymatlarini (PlanPriority/" +
-        "PlanScope/PlanStatus/GoalStatus) qaytaradi. Boshqa deyarli barcha tool'larni chaqirishdan oldin — " +
+        "PlanScope/PlanStatus/GoalHorizon) qaytaradi. Boshqa deyarli barcha tool'larni chaqirishdan oldin — " +
         "mavjud projectId/categoryId'larni bilish uchun ishlatiladi. Moliya modellariga umuman kirmaydi.",
       inputSchema: {},
     },

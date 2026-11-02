@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { syncHorizonGoalDone, syncHorizonStepDone } from "@/lib/horizon-goal-sync";
 import {
   answerCallbackQuery,
   askForContact,
@@ -401,6 +402,12 @@ async function handleDoneCallback(cq: TgCallbackQuery, planId: string) {
     where: { id: plan.id },
     data: { status: "DONE", completedAt: new Date() },
   });
+  if (plan.horizonStepId) {
+    await syncHorizonStepDone(plan.horizonStepId, true).catch(() => {});
+  }
+  if (plan.horizonGoalId) {
+    await syncHorizonGoalDone(plan.horizonGoalId, true).catch(() => {});
+  }
 
   const messages = await prisma.botMessage.findMany({
     where: { planId: plan.id },

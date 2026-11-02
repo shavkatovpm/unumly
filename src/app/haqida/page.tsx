@@ -609,30 +609,27 @@ Gugurt`}</pre>
         {/* ─── 10. Maqsad ───────────────────────────────────── */}
         <Section id="maqsad" title="10. Maqsad bo'limi">
           <p>
-            <strong>Maqsad</strong> bo&apos;limi: uzoq muddatli maqsadlarni OKR
-            uslubida boshqarish. Uch pog&apos;ona: <strong>Maqsad → kichik
-            maqsadlar → qadamlar</strong>. Katta maqsadni mayda, bajarib
-            bo&apos;ladigan qadamlarga bo&apos;lib, har birini kunlik rejaga
-            belgilab borasiz.
+            <strong>Maqsad</strong> bo&apos;limida maqsadlar to&apos;rt davrga
+            bo&apos;linadi: <strong>Hafta, Oy, 3 oy va Yil</strong>. Har bir
+            maqsad bir pog&apos;ona pastga o&apos;tkaziladi: yillik maqsad 3
+            oylikka, 3 oylik oylikka, oylik haftalikka, haftalik esa kunlik
+            taskka.
           </p>
           <p>
-            Har bir qadamni <strong>istalgan kunga</strong> (ixtiyoriy vaqt
-            bilan, agar o&apos;sha vaqt band bo&apos;lmasa) belgilash mumkin.
-            Belgilangan qadam <strong>avtomatik vazifa</strong> bo&apos;lib,
-            Bugun, Agenda va Kalendarda <Target className="inline size-3.5" />{" "}
-            belgisi bilan ko&apos;rinadi. Vazifani bajarsangiz, qadam ham
-            bajarilgan deb belgilanadi (va aksincha).
+            Maqsad ichiga ixtiyoriy <strong>«Nima qilish kerak?»</strong>{" "}
+            qadamlarini qo&apos;shish mumkin. Qadam ham maqsad kabi pastga
+            o&apos;tkaziladi. Bugunga o&apos;tkazilgani Bugun, Agenda va Kalendarda{" "}
+            <Target className="inline size-3.5" /> belgisi bilan ko&apos;rinadi.
+            Pastdagisi bajarilsa, manbasi ham bajarilgan bo&apos;ladi.
           </p>
 
           <h3>Qanday ishlaydi</h3>
           <ul>
-            <li>&quot;+ Maqsad&quot;: nom, ixtiyoriy muddat (deadline) va ikona</li>
-            <li>Maqsad ichida <strong>kichik maqsadlar</strong>, ularning ichida <strong>qadamlar</strong> qo&apos;shiladi</li>
-            <li>Qadam yonidagi <strong>kalendar</strong> belgisi orqali uni kunga (va vaqtga) belgilash; xohlasangiz belgilashni olib tashlash</li>
-            <li>Qadamni belgilab bajarilgan deb qo&apos;yish (checkbox), nomini tahrirlash, o&apos;chirish</li>
-            <li>Kichik maqsad va qadamlarni <strong>sudrab tartiblash</strong> (mobil + desktop), nomini tahrirlash</li>
-            <li>Yo&apos;l xaritasi ko&apos;rinishi: 📍boshlanish → raqamli bekatlar → 🏁finish; <strong>progress halqasi</strong> (foiz) va muddatga qancha qolgani</li>
-            <li><strong>Faol</strong> / <strong>Bajarilgan</strong> / <strong>Arxiv</strong> tablari; maqsadni yakunlash, arxivlash/qaytarish yoki o&apos;chirish (tasdiq bilan)</li>
+            <li>Tepadagi tablardan davrni tanlang, ‹ › bilan oldingi yoki keyingi davrga o&apos;ting</li>
+            <li>Kartadagi tugma («Bugunga», «Haftaga», «Oyga», «3 oyga») maqsadni bir pog&apos;ona pastga o&apos;tkazadi</li>
+            <li>Maqsadni bossangiz, oyna ochiladi: qadam qo&apos;shish, belgilash, o&apos;tkazish, nomini tahrirlash, o&apos;chirish shu yerda</li>
+            <li>Hamma qadam bajarilsa, maqsad ham bajarilgan bo&apos;ladi</li>
+            <li>3 oylik davr — kalendar choragi: yanvar–mart, aprel–iyun, iyul–sentabr, oktabr–dekabr</li>
           </ul>
         </Section>
 

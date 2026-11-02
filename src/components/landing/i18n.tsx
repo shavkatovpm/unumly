@@ -46,7 +46,7 @@ const uz = {
     kalendar: { title: "Kalendar", short: "Kun · hafta · oy · yil" },
     reja: { title: "Reja", short: "Uzoq muddatli rejalar" },
     odat: { title: "Odat", short: "Takrorlanuvchi odatlar" },
-    maqsad: { title: "Maqsad", short: "OKR maqsadlari" },
+    maqsad: { title: "Maqsad", short: "Haftadan yilgacha" },
     moliya: { title: "Moliya", short: "Byudjet va xarajat" },
   },
   ctaSec: {
@@ -179,7 +179,7 @@ const en: Translation = {
     kalendar: { title: "Calendar", short: "Day · week · month · year" },
     reja: { title: "Plans", short: "Long-term plans" },
     odat: { title: "Habits", short: "Recurring habits" },
-    maqsad: { title: "Goals", short: "OKR goals" },
+    maqsad: { title: "Goals", short: "Week to year" },
     moliya: { title: "Finance", short: "Budget & expenses" },
   },
   ctaSec: {
@@ -310,7 +310,7 @@ const ru: Translation = {
     kalendar: { title: "Календарь", short: "День · неделя · месяц · год" },
     reja: { title: "Планы", short: "Долгосрочные планы" },
     odat: { title: "Привычки", short: "Повторяющиеся привычки" },
-    maqsad: { title: "Цели", short: "OKR-цели" },
+    maqsad: { title: "Цели", short: "От недели до года" },
     moliya: { title: "Финансы", short: "Бюджет и расходы" },
   },
   ctaSec: {

@@ -42,8 +42,8 @@ export default function HomePage() {
             rejalar, Tab yoki Kanban ko&apos;rinishida.
           </li>
           <li>
-            <strong>Odat va Maqsad</strong>: takrorlanuvchi odatlar va OKR
-            uslubidagi maqsadlar.
+            <strong>Odat va Maqsad</strong>: takrorlanuvchi odatlar va haftalik,
+            oylik, 3 oylik, yillik maqsadlar.
           </li>
           <li>
             <strong>Moliya</strong>: daromad va xarajatlarni yozish, byudjet

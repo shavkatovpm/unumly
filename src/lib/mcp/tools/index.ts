@@ -27,6 +27,6 @@ export function registerMcpTools(server: McpServer) {
   registerProjectTaskTools(server, ownerUserId); // Jadval: ProjectTask
   registerPageTools(server, ownerUserId); // Hujjatlar: Page (BlockNote ↔ markdown)
   registerHabitTools(server, ownerUserId); // Odat: Habit (+ HabitCategory — get_structure orqali)
-  registerGoalTools(server, ownerUserId); // Maqsad: Goal/SubGoal/GoalStep
+  registerGoalTools(server, ownerUserId); // Maqsad: HorizonGoal/HorizonGoalStep
   registerTezkorTools(server, ownerUserId); // Tezkor: QuickList
 }
