@@ -1,11 +1,12 @@
 "use client";
 
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createContext, useContext, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Pencil, Trash2, Undo2, X, type LucideIcon } from "lucide-react";
-import { cn, isEditableElement } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { useMobileSheetClose } from "@/lib/mobile-add";
+import { useKeyboardArea } from "@/lib/use-keyboard-area";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 
 /* Mobil qo'shish oynalari uchun umumiy "Mono" qobiq: yuqorida Telegram zonasi
@@ -14,32 +15,6 @@ import { useScrollLock } from "@/lib/use-scroll-lock";
 
 const noopSubscribe = () => () => {};
 const NAV_SPACE = 104; // nav va uning ko'tarilgan "+" tugmasi uchun joy
-const KEYBOARD_MIN = 120;
-const KEYBOARD_RATIO = 0.42; // o'lchanmaguncha: telefon klaviaturasining odatiy ulushi
-const KEYBOARD_KEY = "unumly:keyboard-height";
-const SETTLE_MS = 400;
-
-// Klaviaturasiz ekran balandligi (oynalar orasida saqlanadi).
-let screenHeight = 0;
-let keyboardCache: number | null = null;
-
-function loadKeyboardHeight(): number | null {
-  if (keyboardCache === null) {
-    try {
-      keyboardCache = Number(localStorage.getItem(KEYBOARD_KEY)) || null;
-    } catch {
-      keyboardCache = null;
-    }
-  }
-  return keyboardCache;
-}
-
-function saveKeyboardHeight(height: number) {
-  keyboardCache = height;
-  try {
-    localStorage.setItem(KEYBOARD_KEY, String(height));
-  } catch {}
-}
 
 // Panel ichidagi MonoSave shu joyga chiqadi; undefined — panel tashqarisida.
 const FooterSlot = createContext<HTMLElement | null | undefined>(undefined);
@@ -56,71 +31,13 @@ export function useIsMobile(): boolean {
   );
 }
 
-/* Oyna o'lchami klaviaturaning kech keladigan signallariga (--tg-vh, visualViewport)
-   bog'lanmaydi: yozish boshlanishi bilan klaviatura joyi oldindan ajratiladi,
-   shuning uchun oyna va Saqlash tugmasi klaviatura chiqib bo'lgach qimirlamaydi. */
-function useSheetLayout(panelRef: React.RefObject<HTMLDivElement | null>) {
-  const [fullHeight, setFullHeight] = useState(() => {
-    const h = window.visualViewport?.height ?? window.innerHeight;
-    if (!isEditableElement(document.activeElement)) screenHeight = h;
-    screenHeight = Math.max(screenHeight, h);
-    return screenHeight;
-  });
-  const [keyboardHeight, setKeyboardHeight] = useState(() => loadKeyboardHeight() ?? Math.round(fullHeight * KEYBOARD_RATIO));
-  const [typing, setTyping] = useState(false);
-  const [top, setTop] = useState(0);
-
-  useLayoutEffect(() => {
-    const panel = panelRef.current;
-    if (!panel) return;
-    const sync = () => setTyping(panel.contains(document.activeElement) && isEditableElement(document.activeElement));
-    const onFocusOut = () => window.setTimeout(sync, 0);
-    sync();
-    panel.addEventListener("focusin", sync);
-    panel.addEventListener("focusout", onFocusOut);
-    return () => {
-      panel.removeEventListener("focusin", sync);
-      panel.removeEventListener("focusout", onFocusOut);
-    };
-  }, [panelRef]);
-
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    function update() {
-      const h = vv!.height;
-      screenHeight = Math.max(screenHeight, h);
-      setFullHeight(screenHeight);
-      setTop(Math.max(0, vv!.offsetTop));
-      const measured = Math.round(screenHeight - h);
-      if (measured <= KEYBOARD_MIN) return;
-      saveKeyboardHeight(measured);
-      // Keyingi ochilishda aniq o'lcham; ochiq oyna faqat tugma yopilib qolsa o'zgaradi.
-      setKeyboardHeight((cur) => Math.max(cur, measured));
-    }
-    vv.addEventListener("resize", update);
-    vv.addEventListener("scroll", update);
-    return () => {
-      vv.removeEventListener("resize", update);
-      vv.removeEventListener("scroll", update);
-    };
-  }, []);
-
-  return { maxHeight: fullHeight - (typing ? keyboardHeight + 12 : NAV_SPACE), top };
-}
-
 function Panel({ onClose, label, children }: { onClose: () => void; label: string; children: React.ReactNode }) {
   useScrollLock(true);
   useMobileSheetClose(onClose);
   const panelRef = useRef<HTMLDivElement>(null);
-  const { maxHeight, top } = useSheetLayout(panelRef);
+  const area = useKeyboardArea(panelRef, true);
+  const height = area.visibleHeight === null ? "var(--tg-vh, 100dvh)" : `${area.visibleHeight - (area.typing ? 12 : NAV_SPACE)}px`;
   const [footer, setFooter] = useState<HTMLDivElement | null>(null);
-  // Birinchi kadrdan to'g'ri o'lchamda; silliq o'zgarish faqat ochilib bo'lgach (masalan keyinroq yozish boshlansa).
-  const [settled, setSettled] = useState(false);
-  useEffect(() => {
-    const t = window.setTimeout(() => setSettled(true), SETTLE_MS);
-    return () => window.clearTimeout(t);
-  }, []);
   return (
     <motion.div
       ref={panelRef}
@@ -131,10 +48,10 @@ function Panel({ onClose, label, children }: { onClose: () => void; label: strin
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: -24, opacity: 0, transition: { duration: 0.16, ease: "easeIn" } }}
       transition={{ type: "spring", damping: 30, stiffness: 360 }}
-      className={cn("fixed inset-x-3 z-[25] flex flex-col overflow-hidden rounded-[30px] bg-background shadow-2xl", settled && "transition-[max-height] duration-200")}
+      className={cn("fixed inset-x-3 z-[25] flex flex-col overflow-hidden rounded-[30px] bg-background shadow-2xl", area.settled && "transition-[max-height] duration-200")}
       style={{
-        top: `calc(${top}px + var(--modal-safe-top))`,
-        maxHeight: `calc(${maxHeight}px - var(--modal-safe-top))`,
+        top: `calc(${area.top}px + var(--modal-safe-top))`,
+        maxHeight: `calc(${height} - var(--modal-safe-top))`,
       }}
     >
       <FooterSlot.Provider value={footer}>

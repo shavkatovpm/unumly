@@ -1132,7 +1132,8 @@ function MaterialTabBar({
   function tabBtn(c: Category) {
     const isA = tab === c.id;
     const color = CATEGORY_PALETTE[c.color].oklch;
-    const count = ideas.filter((i) => i.categoryId === c.id).length;
+    // Faqat ro'yxatda turganlar: bajarilgan va tozalanganlar sanalmaydi.
+    const count = ideas.filter((i) => i.categoryId === c.id && !i.done).length;
     return (
       <button
         ref={(el) => { tabBtnRefs.current[c.id] = el; }}
