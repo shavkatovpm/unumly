@@ -329,7 +329,8 @@ export function CommandPalette({
 function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[12vh]"
+      className="fixed inset-0 z-[60] flex items-start justify-center px-4"
+      style={{ paddingTop: "max(12vh, var(--modal-safe-top))" }}
       role="dialog"
       aria-modal="true"
       data-command-palette

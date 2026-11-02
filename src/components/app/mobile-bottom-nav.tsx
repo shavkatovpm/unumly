@@ -421,7 +421,7 @@ function BoshqaruvSheet({
             onClose();
           }
         }}
-        className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92vh] flex-col rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 flex max-h-[min(92vh,calc(var(--tg-vh,100dvh)-var(--modal-safe-top)))] flex-col rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         {/* Drag handle — swipe-close (drag faqat shu yerdan boshlanadi) yoki tap-to-close */}

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { GoalHorizon, HorizonGoal, HorizonGoalStep } from "@/lib/types";
 import * as actions from "@/lib/horizon-goals-actions";
-import { refreshPlans } from "@/lib/plans-store";
+import { dropPlanLocally, refreshPlans } from "@/lib/plans-store";
 import { lowerHorizon, moveTargetPeriod } from "@/lib/horizon-goals";
 
 /* Davriy maqsadlar — in-memory cache backed by server actions. O'zgarish darhol
@@ -103,6 +103,14 @@ export const horizonGoalsApi = {
     if (goal.horizon === "WEEK") patch(goal.id, (g) => ({ ...g, scheduledFor: today }));
     const childId = optimisticChild(goal, today, { parentId: goal.id });
     run(actions.moveHorizonGoal(goal.id, today, childId), true);
+  },
+  /** Bugun'dagi taskni maqsadga qaytaradi. */
+  returnPlan(planId: string) {
+    dropPlanLocally(planId);
+    pending++;
+    actions.returnPlanToGoal(planId)
+      .catch(() => {})
+      .finally(() => { pending--; reconcile(); void refreshPlans(); });
   },
   addStep(goalId: string, title: string) {
     const id = newId();

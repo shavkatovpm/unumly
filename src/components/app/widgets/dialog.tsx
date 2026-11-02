@@ -112,8 +112,10 @@ export function Dialog({
               top: vp?.top ?? 0,
               height: vp ? `${vp.height}px` : "var(--tg-vh, 100dvh)",
               ...(mobilePlacement === "top"
-                ? { paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)" }
-                : null),
+                ? { paddingTop: "var(--modal-safe-top)" }
+                : isCenter
+                  ? { paddingTop: "var(--modal-safe-top)" }
+                  : null),
             }
           : undefined
       }
@@ -134,7 +136,7 @@ export function Dialog({
         className={cn(
           "relative z-10 flex w-full max-w-md flex-col border border-border bg-surface shadow-2xl",
           mobilePlacement === "center" && "max-h-[calc(100%-2rem)] overflow-hidden rounded-xl",
-          mobilePlacement === "bottom" && "max-h-[90vh] overflow-hidden rounded-t-2xl sm:rounded-xl",
+          mobilePlacement === "bottom" && "max-h-[min(90vh,calc(var(--tg-vh,100dvh)-var(--modal-safe-top)))] overflow-hidden rounded-t-2xl sm:rounded-xl",
           mobilePlacement === "top" && "max-h-[calc(100%-2rem)] overflow-hidden rounded-2xl sm:max-h-[85vh] sm:rounded-xl",
           className
         )}

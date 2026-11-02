@@ -1103,7 +1103,7 @@ export function HaftaView({
               />
               <div
                 className="fixed inset-0 z-50 flex items-start justify-center px-4 md:hidden"
-                style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 4rem)" }}
+                style={{ paddingTop: "var(--modal-safe-top-roomy)" }}
                 onClick={cancel}
               >
                 <motion.div

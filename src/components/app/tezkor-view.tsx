@@ -259,7 +259,7 @@ function CreateListModal({
           />
           <div
             className="fixed inset-0 z-50 flex items-start justify-center px-4 sm:items-center"
-            style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 4rem)" }}
+            style={{ paddingTop: "var(--modal-safe-top-roomy)" }}
             onClick={onClose}
           >
             <motion.div

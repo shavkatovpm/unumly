@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Check, X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon, Pencil, ListChecks, Tag } from "lucide-react";
+import { Bell, Check, X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon, Pencil, ListChecks, Tag, Undo2 } from "lucide-react";
+import { horizonGoalsApi } from "@/lib/horizon-goals-store";
 import type { Plan, PlanPriority, Subtask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useRejaCategoryMap } from "@/lib/use-reja-category";
@@ -309,6 +310,11 @@ export function TaskDetail({
     onClose();
   }
 
+  function handleReturnToGoal() {
+    horizonGoalsApi.returnPlan(plan!.id);
+    onClose();
+  }
+
   const isView = mode === "view";
 
   return (
@@ -539,14 +545,26 @@ export function TaskDetail({
           {draft ? (
             <span />
           ) : (
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-faint transition-colors hover:bg-danger-soft hover:text-danger"
-            >
-              <Trash2 className="size-3" />
-              O&apos;chirish
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-faint transition-colors hover:bg-danger-soft hover:text-danger"
+              >
+                <Trash2 className="size-3" />
+                O&apos;chirish
+              </button>
+              {(plan?.horizonGoalId || plan?.horizonStepId) && (
+                <button
+                  type="button"
+                  onClick={handleReturnToGoal}
+                  className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-muted transition-colors hover:bg-hover hover:text-foreground"
+                >
+                  <Undo2 className="size-3" />
+                  Maqsadga qaytarish
+                </button>
+              )}
+            </div>
           )}
           <div className="flex items-center gap-2">
             {isView ? (

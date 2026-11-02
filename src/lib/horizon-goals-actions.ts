@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { createPlan } from "@/lib/plans-actions";
-import { recomputeHorizonGoal, setHorizonGoalDoneDeep, setHorizonStepDoneDeep } from "@/lib/horizon-goal-sync";
+import { recomputeHorizonGoal, setHorizonGoalDoneDeep, setHorizonStepDoneDeep, syncHorizonGoalDone, syncHorizonStepDone } from "@/lib/horizon-goal-sync";
 import { lowerHorizon, moveTargetPeriod } from "@/lib/horizon-goals";
 import type { GoalHorizon, HorizonGoal } from "@/lib/types";
 
@@ -145,6 +145,23 @@ export async function moveHorizonGoal(id: string, today: string, childId: string
     await prisma.plan.update({ where: { id: plan.id }, data: { horizonGoalId: id } });
   }
   return loadGoal(id, user.id);
+}
+
+/** Adashib Bugunga o'tkazilgan taskni bekor qiladi: task butunlay o'chadi,
+ *  maqsad/qadam yana o'tkazishga tayyor. Bajarilgan bo'lsa — belgisi ham qaytadi. */
+export async function returnPlanToGoal(planId: string): Promise<void> {
+  const user = await requireUser();
+  const plan = await prisma.plan.findFirst({
+    where: { id: planId, userId: user.id },
+    select: { status: true, horizonGoalId: true, horizonStepId: true },
+  });
+  if (!plan || (!plan.horizonGoalId && !plan.horizonStepId)) throw new Error("NOT_FOUND");
+  await prisma.botMessage.deleteMany({ where: { planId } });
+  await prisma.plan.delete({ where: { id: planId } });
+  if (plan.status === "DONE") {
+    if (plan.horizonStepId) await syncHorizonStepDone(plan.horizonStepId, false);
+    if (plan.horizonGoalId) await syncHorizonGoalDone(plan.horizonGoalId, false);
+  }
 }
 
 export async function addHorizonStep(input: { id: string; goalId: string; title: string }): Promise<HorizonGoal> {

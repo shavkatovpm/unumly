@@ -70,6 +70,10 @@
      hech narsa o'zgarmaydi.
      https://core.telegram.org/bots/webapps#events-available-for-mini-apps */
   --tg-safe-top: calc(var(--tg-content-safe-area-inset-top, 0px) + var(--tg-safe-area-inset-top, 0px));
+
+  /* Modallar yuqori chegarasi — close/⋮ zonasi va status bar ostidan boshlanadi. */
+  --modal-safe-top: max(calc(var(--tg-safe-top) + 12px), calc(env(safe-area-inset-top, 0px) + 1rem));
+  --modal-safe-top-roomy: max(calc(var(--tg-safe-top) + 12px), calc(env(safe-area-inset-top, 0px) + 4rem));
 }
 
 /* Dark base = Mono's natural dark sibling. Applies to ANY family in dark mode;

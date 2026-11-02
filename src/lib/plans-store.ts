@@ -446,6 +446,12 @@ export function useCancelledPlans(): Plan[] {
 }
 
 /** Soft delete — moves a plan to trash. Trash auto-purges after 30 days. */
+/** Plan serverda butunlay o'chirilganda (maqsadga qaytarish) cache'dan olib tashlaydi. */
+export function dropPlanLocally(id: string): void {
+  memoryState = memoryState.filter((p) => p.id !== id);
+  emit();
+}
+
 export function removePlan(id: string): void {
   const prev = memoryState.find((p) => p.id === id);
   if (!prev) return;
