@@ -529,7 +529,7 @@ export function BugunView() {
                             {b.items.length}
                           </p>
                         </header>
-                        <ul className={cn(wide ? "space-y-2.5" : "divide-y divide-border/70")}>
+                        <ul className={cn(wide ? "space-y-[5px]" : "divide-y divide-border/70")}>
                           {b.items.map((p) => {
                             // Faol oyna: vaqti kelgan, lekin davomiyligi hali
                             // tugamagan, bajarilmagan bugungi task → ko'k.

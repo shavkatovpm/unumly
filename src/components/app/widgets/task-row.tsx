@@ -106,7 +106,7 @@ export function TaskRow({
       onClick={() => onOpen?.(plan.id)}
       className={cn(
         "group flex items-center overflow-hidden hover:bg-hover/60",
-        wide ? "gap-3.5 rounded-xl border border-border px-4" : "gap-3 px-3",
+        wide ? "gap-3.5 rounded-xl border border-border px-4" : "gap-1.5 px-3",
         plan.habitId && !visualDone && "bg-accent-soft/40",
         visualDone && "bg-subtle/30",
         isNew && "task-pop",
