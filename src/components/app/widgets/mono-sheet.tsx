@@ -1,20 +1,48 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Pencil, Trash2, Undo2, X, type LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, isEditableElement } from "@/lib/utils";
 import { useMobileSheetClose } from "@/lib/mobile-add";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 
 /* Mobil qo'shish oynalari uchun umumiy "Mono" qobiq: yuqorida Telegram zonasi
    ostidan boshlanadi, pastki nav ko'rinib turadi va undagi × oynani yopadi.
-   Klaviatura ochilsa nav yashirinadi, oyna ko'rinadigan maydonga sig'adi. */
+   Yozish paytida nav yashirinadi, oyna klaviatura ustiga sig'adi. */
 
 const noopSubscribe = () => () => {};
 const NAV_SPACE = 104; // nav va uning ko'tarilgan "+" tugmasi uchun joy
 const KEYBOARD_MIN = 120;
+const KEYBOARD_RATIO = 0.42; // o'lchanmaguncha: telefon klaviaturasining odatiy ulushi
+const KEYBOARD_KEY = "unumly:keyboard-height";
+const SETTLE_MS = 400;
+
+// Klaviaturasiz ekran balandligi (oynalar orasida saqlanadi).
+let screenHeight = 0;
+let keyboardCache: number | null = null;
+
+function loadKeyboardHeight(): number | null {
+  if (keyboardCache === null) {
+    try {
+      keyboardCache = Number(localStorage.getItem(KEYBOARD_KEY)) || null;
+    } catch {
+      keyboardCache = null;
+    }
+  }
+  return keyboardCache;
+}
+
+function saveKeyboardHeight(height: number) {
+  keyboardCache = height;
+  try {
+    localStorage.setItem(KEYBOARD_KEY, String(height));
+  } catch {}
+}
+
+// Panel ichidagi MonoSave shu joyga chiqadi; undefined — panel tashqarisida.
+const FooterSlot = createContext<HTMLElement | null | undefined>(undefined);
 
 export function useIsMobile(): boolean {
   return useSyncExternalStore(
@@ -28,14 +56,48 @@ export function useIsMobile(): boolean {
   );
 }
 
-function useVisibleArea() {
-  const [area, setArea] = useState<{ height: number; top: number } | null>(null);
-  const base = useRef(0);
+/* Oyna o'lchami klaviaturaning kech keladigan signallariga (--tg-vh, visualViewport)
+   bog'lanmaydi: yozish boshlanishi bilan klaviatura joyi oldindan ajratiladi,
+   shuning uchun oyna va Saqlash tugmasi klaviatura chiqib bo'lgach qimirlamaydi. */
+function useSheetLayout(panelRef: React.RefObject<HTMLDivElement | null>) {
+  const [fullHeight, setFullHeight] = useState(() => {
+    const h = window.visualViewport?.height ?? window.innerHeight;
+    if (!isEditableElement(document.activeElement)) screenHeight = h;
+    screenHeight = Math.max(screenHeight, h);
+    return screenHeight;
+  });
+  const [keyboardHeight, setKeyboardHeight] = useState(() => loadKeyboardHeight() ?? Math.round(fullHeight * KEYBOARD_RATIO));
+  const [typing, setTyping] = useState(false);
+  const [top, setTop] = useState(0);
+
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const sync = () => setTyping(panel.contains(document.activeElement) && isEditableElement(document.activeElement));
+    const onFocusOut = () => window.setTimeout(sync, 0);
+    sync();
+    panel.addEventListener("focusin", sync);
+    panel.addEventListener("focusout", onFocusOut);
+    return () => {
+      panel.removeEventListener("focusin", sync);
+      panel.removeEventListener("focusout", onFocusOut);
+    };
+  }, [panelRef]);
+
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    base.current = vv.height;
-    const update = () => setArea({ height: vv.height, top: Math.max(0, vv.offsetTop) });
+    function update() {
+      const h = vv!.height;
+      screenHeight = Math.max(screenHeight, h);
+      setFullHeight(screenHeight);
+      setTop(Math.max(0, vv!.offsetTop));
+      const measured = Math.round(screenHeight - h);
+      if (measured <= KEYBOARD_MIN) return;
+      saveKeyboardHeight(measured);
+      // Keyingi ochilishda aniq o'lcham; ochiq oyna faqat tugma yopilib qolsa o'zgaradi.
+      setKeyboardHeight((cur) => Math.max(cur, measured));
+    }
     vv.addEventListener("resize", update);
     vv.addEventListener("scroll", update);
     return () => {
@@ -43,17 +105,25 @@ function useVisibleArea() {
       vv.removeEventListener("scroll", update);
     };
   }, []);
-  return { area, base };
+
+  return { maxHeight: fullHeight - (typing ? keyboardHeight + 12 : NAV_SPACE), top };
 }
 
 function Panel({ onClose, label, children }: { onClose: () => void; label: string; children: React.ReactNode }) {
   useScrollLock(true);
   useMobileSheetClose(onClose);
-  const { area, base } = useVisibleArea();
-  const keyboard = !!area && base.current - area.height > KEYBOARD_MIN;
-  const height = area ? `${area.height}px` : "var(--tg-vh, 100dvh)";
+  const panelRef = useRef<HTMLDivElement>(null);
+  const { maxHeight, top } = useSheetLayout(panelRef);
+  const [footer, setFooter] = useState<HTMLDivElement | null>(null);
+  // Birinchi kadrdan to'g'ri o'lchamda; silliq o'zgarish faqat ochilib bo'lgach (masalan keyinroq yozish boshlansa).
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setSettled(true), SETTLE_MS);
+    return () => window.clearTimeout(t);
+  }, []);
   return (
     <motion.div
+      ref={panelRef}
       role="dialog"
       aria-modal="true"
       aria-label={label}
@@ -61,13 +131,17 @@ function Panel({ onClose, label, children }: { onClose: () => void; label: strin
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: -24, opacity: 0, transition: { duration: 0.16, ease: "easeIn" } }}
       transition={{ type: "spring", damping: 30, stiffness: 360 }}
-      className="fixed inset-x-3 z-[25] space-y-2 overflow-y-auto overscroll-contain rounded-[30px] bg-background p-2 shadow-2xl"
+      className={cn("fixed inset-x-3 z-[25] flex flex-col overflow-hidden rounded-[30px] bg-background shadow-2xl", settled && "transition-[max-height] duration-200")}
       style={{
-        top: `calc(${area?.top ?? 0}px + var(--modal-safe-top))`,
-        maxHeight: `calc(${height} - var(--modal-safe-top) - ${keyboard ? 12 : NAV_SPACE}px)`,
+        top: `calc(${top}px + var(--modal-safe-top))`,
+        maxHeight: `calc(${maxHeight}px - var(--modal-safe-top))`,
       }}
     >
-      {children}
+      <FooterSlot.Provider value={footer}>
+        <div className="min-h-0 flex-auto space-y-2 overflow-y-auto overscroll-contain p-2">{children}</div>
+      </FooterSlot.Provider>
+      {/* Saqlash tugmasi aylanmaydigan qismda — oyna bilan bitta bo'lib harakatlanadi */}
+      <div ref={setFooter} className="shrink-0 px-2 pb-2 empty:hidden" />
     </motion.div>
   );
 }
@@ -281,14 +355,17 @@ export function MonoExpand({ open, children }: { open: boolean; children: React.
 }
 
 export function MonoSave({ disabled, onClick, children }: { disabled?: boolean; onClick: () => void; children?: React.ReactNode }) {
-  return (
+  const slot = useContext(FooterSlot);
+  const button = (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="sticky bottom-0 flex h-[52px] w-full items-center justify-center gap-2 rounded-[22px] bg-accent text-[15.5px] font-bold text-accent-ink transition-colors disabled:bg-subtle disabled:text-faint"
+      className="flex h-[52px] w-full items-center justify-center gap-2 rounded-[22px] bg-accent text-[15.5px] font-bold text-accent-ink transition-colors disabled:bg-subtle disabled:text-faint"
     >
       <Check className="size-5" strokeWidth={3} /> {children ?? "Qo'shish"}
     </button>
   );
+  if (slot === undefined) return button;
+  return slot ? createPortal(button, slot) : null;
 }
