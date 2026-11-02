@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMobileAdd } from "@/lib/mobile-add";
+import { MonoBlock, MonoHeader, MonoSave, MonoSheet, useIsMobile } from "./widgets/mono-sheet";
 import { AnimatePresence, motion } from "framer-motion";
 import { useBlurInputOnScrollOut } from "@/lib/use-blur-on-scroll-out";
 import {
@@ -211,7 +212,40 @@ function ListCard({
   );
 }
 
-function CreateListModal({
+function CreateListModal(props: { open: boolean; onClose: () => void; onCreate: (name: string, items: string[]) => void }) {
+  const mobile = useIsMobile();
+  if (!mobile) return <CreateListModalDesktop {...props} />;
+  return (
+    <MonoSheet open={props.open} onClose={props.onClose} label="Yangi ro'yhat">
+      <CreateListMobile {...props} />
+    </MonoSheet>
+  );
+}
+
+/* Mobil: nom ixtiyoriy, har qatorga bitta narsa (ko'p qatorli matn ham qo'yiladi). */
+function CreateListMobile({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string, items: string[]) => void }) {
+  const [name, setName] = useState("");
+  const [body, setBody] = useState("");
+  const items = body.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  return (
+    <>
+      <MonoHeader label="Yangi ro'yhat" value={name} onChange={setName} placeholder="Nom (ixtiyoriy)" onClose={onClose} autoFocus={false} />
+      <MonoBlock icon={ListChecks} label="Har qatorga bitta narsa" aside={<span className="tabular-nums opacity-60">{items.length} ta</span>}>
+        <textarea
+          autoFocus
+          rows={7}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder={"Bodring\nPomidor\nGugurt"}
+          className="w-full resize-none bg-transparent text-[16px] font-medium leading-relaxed outline-none placeholder:font-normal placeholder:text-faint"
+        />
+      </MonoBlock>
+      <MonoSave disabled={items.length === 0} onClick={() => onCreate(name.trim() || defaultListName(), items)}>Saqlash</MonoSave>
+    </>
+  );
+}
+
+function CreateListModalDesktop({
   open,
   onClose,
   onCreate,

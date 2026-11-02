@@ -26,39 +26,25 @@ export function useMobileAdd(onAdd: () => void, enabled = true): void {
   }, [enabled]);
 }
 
-/* "+" bosilganda bitta amal o'rniga tanlovlar (masalan Moliya: Kirim /
-   Chiqim) — nav ularni "+" ustida yelpig'ich bo'lib ochadi. Bir vaqtda
-   faqat bitta sahifa/tab ro'yxatdan o'tkazadi. */
+/* Mono oyna ochiq paytda nav'dagi "+" × bo'ladi va shu oynani yopadi. */
 
-export type MobileAddChoice = {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  color: string;
-  onPick: () => void;
-};
+let sheetClose: (() => void) | null = null;
+const sheetListeners = new Set<() => void>();
+function subscribeSheet(cb: () => void) { sheetListeners.add(cb); return () => { sheetListeners.delete(cb); }; }
+function setSheetClose(next: (() => void) | null) { sheetClose = next; for (const l of sheetListeners) l(); }
 
-let choices: MobileAddChoice[] | null = null;
-const choiceListeners = new Set<() => void>();
-function subscribeChoices(cb: () => void) { choiceListeners.add(cb); return () => { choiceListeners.delete(cb); }; }
-function getChoices() { return choices; }
-function getServerChoices(): MobileAddChoice[] | null { return null; }
-function setChoices(next: MobileAddChoice[] | null) { choices = next; for (const l of choiceListeners) l(); }
-
-export function useMobileAddChoicesValue(): MobileAddChoice[] | null {
-  return useSyncExternalStore(subscribeChoices, getChoices, getServerChoices);
+export function useMobileSheetCloseValue(): (() => void) | null {
+  return useSyncExternalStore(subscribeSheet, () => sheetClose, () => null);
 }
 
-export function useMobileAddChoices(list: MobileAddChoice[], enabled = true): void {
-  const listRef = useRef(list);
-  useEffect(() => { listRef.current = list; });
+export function useMobileSheetClose(onClose: () => void): void {
+  const ref = useRef(onClose);
+  useEffect(() => { ref.current = onClose; });
   useEffect(() => {
-    if (!enabled) return;
-    // Label/rang/ikona ro'yxatdan o'tganda olinadi; onPick har doim eng so'nggisi.
-    const own = listRef.current.map((c, i) => ({ ...c, onPick: () => listRef.current[i]?.onPick() }));
-    setChoices(own);
-    return () => { if (choices === own) setChoices(null); };
-  }, [enabled]);
+    const own = () => ref.current();
+    setSheetClose(own);
+    return () => { if (sheetClose === own) setSheetClose(null); };
+  }, []);
 }
 
 export function triggerMobileAdd() {

@@ -15,7 +15,6 @@ import {
   Sun,
   Sunrise,
   Sunset,
-  X,
 } from "lucide-react";
 import { useHydrated, useMissedPlans, usePlans } from "@/lib/plans-store";
 import { MissedSection } from "./widgets/missed-section";
@@ -38,9 +37,9 @@ import { TaskRow } from "./widgets/task-row";
 import { TaskAnalytics } from "./widgets/task-analytics";
 import { TimePickerPopover } from "./widgets/time-picker-popover";
 import { TaskDetail } from "./widgets/task-detail";
+import { TaskAddSheet } from "./widgets/task-add-sheet";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
-import { useScrollLock } from "@/lib/use-scroll-lock";
 
 export function BugunView() {
   const { plans, create, update, toggleStatus, remove, deferToToday, setCancelled } = usePlans();
@@ -185,20 +184,8 @@ export function BugunView() {
   const [draftPlan, setDraftPlan] = useState<Plan | null>(null);
   const detailPlan = detailId ? plans.find((p) => p.id === detailId) ?? null : null;
   const inputRef = useRef<HTMLInputElement>(null);
-  const mobileInputRef = useRef<HTMLInputElement>(null);
   const timeBtnRef = useRef<HTMLButtonElement>(null);
-  const mobileTimeBtnRef = useRef<HTMLButtonElement>(null);
   const animationTimerRef = useRef<number | null>(null);
-
-  useScrollLock(mobileSheet);
-
-  useEffect(() => {
-    if (mobileSheet) {
-      // Focus title input as soon as the sheet renders (no delay so iOS
-      // accepts the keyboard request inside the user-gesture window)
-      mobileInputRef.current?.focus({ preventScroll: false });
-    }
-  }, [mobileSheet]);
 
   function openDetailForCurrent() {
     const t = title.trim();
@@ -218,7 +205,6 @@ export function BugunView() {
     setDraftPlan(draft);
     setTitle("");
     setTime("");
-    setMobileSheet(false);
     setShowTime(false);
   }
 
@@ -249,13 +235,17 @@ export function BugunView() {
       scheduledFor: todayIso,
       time: time || undefined,
     });
-    setJustCreatedId(newId);
-    if (animationTimerRef.current) window.clearTimeout(animationTimerRef.current);
-    animationTimerRef.current = window.setTimeout(() => setJustCreatedId(null), 500);
+    markCreated(newId);
     setTitle("");
     setTime("");
     setShowTime(false);
     inputRef.current?.focus();
+  }
+
+  function markCreated(id: string) {
+    setJustCreatedId(id);
+    if (animationTimerRef.current) window.clearTimeout(animationTimerRef.current);
+    animationTimerRef.current = window.setTimeout(() => setJustCreatedId(null), 500);
   }
 
   return (
@@ -425,7 +415,7 @@ export function BugunView() {
 
         <TimePickerPopover
           open={showTime}
-          triggerRef={mobileSheet ? mobileTimeBtnRef : timeBtnRef}
+          triggerRef={timeBtnRef}
           value={time}
           onChange={(v) => setTime(v)}
           onClear={() => setTime("")}
@@ -624,113 +614,15 @@ export function BugunView() {
         }}
       />
 
-      {/* Mobile add-task centered modal */}
-      <AnimatePresence>
-      {mobileSheet && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => setMobileSheet(false)}
-            className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[3px] md:hidden"
-          />
-          <div
-            className="fixed inset-0 z-50 flex items-start justify-center px-4 md:hidden"
-            style={{ paddingTop: "var(--modal-safe-top-roomy)" }}
-            onClick={() => setMobileSheet(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, y: -12, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.98 }}
-              transition={{ type: "spring", damping: 28, stiffness: 360 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
-            >
-            <header className="flex items-center justify-between border-b border-border px-5 py-3">
-              <p className="text-[15px] font-semibold tracking-[-0.01em]">Yangi reja</p>
-              <button
-                type="button"
-                onClick={() => setMobileSheet(false)}
-                aria-label="Yopish"
-                className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            </header>
-            <form
-              onSubmit={(e) => {
-                submit(e);
-                setMobileSheet(false);
-              }}
-              className="space-y-3 px-5 py-4"
-            >
-              <input
-                ref={mobileInputRef}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Bugun nima qilmoqchisiz?"
-                autoFocus
-                className="w-full bg-transparent text-[17px] placeholder:text-faint focus:outline-none"
-              />
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <button
-                    ref={mobileTimeBtnRef}
-                    type="button"
-                    // onMouseDown preventDefault — input fokusini saqlab qoladi
-                    // (klaviatura yopilmaydi, viewport o'zgarmaydi, popover sakramaydi)
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setShowTime((v) => !v)}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-[13px] tabular-nums transition-colors",
-                      isTimePast
-                        ? "border-danger bg-danger-soft text-danger"
-                        : showTime
-                        ? "border-border-strong bg-subtle"
-                        : "text-muted hover:border-border-strong hover:text-foreground"
-                    )}
-                    title={isTimePast ? "O'tib ketgan vaqt" : undefined}
-                  >
-                    <Clock className="size-3.5" />
-                    {time || "Vaqt"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openDetailForCurrent}
-                    disabled={!title.trim()}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] transition-colors",
-                      !title.trim()
-                        ? "cursor-not-allowed text-faint/60"
-                        : "text-muted hover:border-border-strong hover:text-foreground"
-                    )}
-                  >
-                    <Pencil className="size-3.5" />
-                    Batafsil
-                  </button>
-                </div>
-                <button
-                  type="submit"
-                  disabled={!title.trim() || isTimePast}
-                  className={cn(
-                    "rounded-md px-4 py-2 text-[13.5px] font-medium transition-opacity",
-                    !title.trim() || isTimePast
-                      ? "cursor-not-allowed bg-foreground/40 text-background"
-                      : "bg-accent text-accent-ink hover:opacity-90"
-                  )}
-                >
-                  Qo&apos;shish
-                </button>
-              </div>
-            </form>
-            </motion.div>
-          </div>
-        </>
-      )}
-      </AnimatePresence>
+      <TaskAddSheet
+        open={mobileSheet}
+        onClose={() => setMobileSheet(false)}
+        plans={plans}
+        defaultDate={startOfDay()}
+        placeholder="Bugun nima qilmoqchisiz?"
+        onCreate={(input) => markCreated(create(input))}
+        onDetail={setDraftPlan}
+      />
 
       {confirmEl}
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMobileAdd, useMobileAddChoices } from "@/lib/mobile-add";
+import { useMobileAdd } from "@/lib/mobile-add";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDownLeft,
@@ -43,7 +43,7 @@ import { DatePickerButton } from "./widgets/date-picker-button";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
 import { QarzPanel } from "./qarz-view";
-import { MoliyaQuickAdd } from "./moliya-quick-add";
+import { MoliyaQuickAdd, MoliyaTypeCapsule } from "./moliya-quick-add";
 
 const INCOME_COLOR = "oklch(0.62 0.13 158)"; // yashil
 const EXPENSE_COLOR = "oklch(0.62 0.17 22)"; // qizil
@@ -85,7 +85,7 @@ export function MoliyaView() {
   const [dir, setDir] = useState(0); // swipe animatsiya yo'nalishi
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
-  // Yangi yozuv qaysi tur bilan ochilsin (glass nav yelpig'ichidan tanlanadi).
+  // Yangi yozuv qaysi tur bilan ochilsin ("+" dagi oq kapsuladan tanlanadi).
   const [newType, setNewType] = useState<TransactionType>("EXPENSE");
   // Mobilda — "avval kategoriya" tez oynasi; desktop'da (va tahrirlashda) — odatdagi forma.
   const [quickOpen, setQuickOpen] = useState(false);
@@ -95,15 +95,10 @@ export function MoliyaView() {
     if (window.matchMedia("(max-width: 767px)").matches) setQuickOpen(true);
     else setAddOpen(true);
   }
-  // Glass nav'dagi "+" — Umumiy/Tranzaksiyalar'da Kirim/Chiqim yelpig'ichi
+  // Glass nav'dagi "+" — Umumiy/Tranzaksiyalar'da Kirim/Chiqim kapsulasi
   // (boshqa tablar o'zi ushlaydi).
-  useMobileAddChoices(
-    [
-      { id: "INCOME", label: "Kirim", icon: ArrowDownLeft, color: INCOME_COLOR, onPick: () => openNew("INCOME") },
-      { id: "EXPENSE", label: "Chiqim", icon: ArrowUpRight, color: EXPENSE_COLOR, onPick: () => openNew("EXPENSE") },
-    ],
-    tab === "umumiy" || tab === "tranzaksiyalar"
-  );
+  const [typeChoiceOpen, setTypeChoiceOpen] = useState(false);
+  useMobileAdd(() => setTypeChoiceOpen(true), tab === "umumiy" || tab === "tranzaksiyalar");
   // "Kirim-chiqim" tabidagi faol tur (Umumiy'dagi taqsimotdan o'tishda boshqariladi)
   const [catType, setCatType] = useState<TransactionType>("EXPENSE");
 
@@ -382,6 +377,11 @@ export function MoliyaView() {
         </>
       )}
 
+      <MoliyaTypeCapsule
+        open={typeChoiceOpen}
+        onClose={() => setTypeChoiceOpen(false)}
+        onPick={(type) => { setTypeChoiceOpen(false); openNew(type); }}
+      />
       <MoliyaQuickAdd
         open={quickOpen}
         initialType={newType}

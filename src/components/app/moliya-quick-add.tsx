@@ -21,6 +21,7 @@ import type { FinanceCategory, Transaction, TransactionType } from "@/lib/types"
 import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
 import { financeIcon } from "@/lib/finance-icons";
 import { dateKey, formatSom } from "@/lib/money";
+import { useMobileSheetClose } from "@/lib/mobile-add";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import { DatePickerButton } from "./widgets/date-picker-button";
 
@@ -83,6 +84,51 @@ const catGradient = (c: FinanceCategory) =>
   `linear-gradient(150deg, ${catOklch(c)}, color-mix(in oklch, ${catOklch(c)} 72%, black))`;
 
 const noopSubscribe = () => () => {};
+
+/* "+" bosilganda ekran o'rtasida ochiladigan Kirim | Chiqim tanlovi. */
+const CAPSULE_KINDS = [kindOf("INCOME"), kindOf("EXPENSE")];
+const CAPSULE_WIDTH = "min(calc(100vw - 48px), 320px)";
+
+export function MoliyaTypeCapsule({ open, onPick, onClose }: { open: boolean; onPick: (type: TransactionType) => void; onClose: () => void }) {
+  return <AnimatePresence>{open && <TypeCapsule key="type-capsule" onPick={onPick} onClose={onClose} />}</AnimatePresence>;
+}
+
+function TypeCapsule({ onPick, onClose }: { onPick: (type: TransactionType) => void; onClose: () => void }) {
+  useMobileSheetClose(onClose);
+  return createPortal(
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.18 }}
+        onClick={onClose}
+        className="fixed inset-0 z-20 bg-black/35 backdrop-blur-[3px] md:hidden"
+      />
+      {/* O'rtada: nav joyini hisobga olib */}
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-[25] grid place-items-center md:hidden" style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 96px)" }}>
+        <motion.div
+          initial={{ width: 76, opacity: 0.6 }}
+          animate={{ width: "var(--capsule-w)", opacity: 1 }}
+          exit={{ width: 76, opacity: 0, transition: { duration: 0.16 } }}
+          transition={SPRING}
+          style={{ "--capsule-w": CAPSULE_WIDTH } as React.CSSProperties}
+          className="pointer-events-auto flex h-[76px] gap-1.5 overflow-hidden rounded-full border border-border bg-surface p-1.5 shadow-[0_18px_40px_-14px_rgba(0,0,0,0.5)]"
+        >
+          {CAPSULE_KINDS.map((x) => (
+            <button key={x.id} type="button" onClick={() => onPick(x.id)} className="flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-subtle text-[15.5px] font-bold transition-transform active:scale-95">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full text-white" style={{ background: x.color }}>
+                <x.icon className="size-[18px]" strokeWidth={2.4} />
+              </span>
+              {x.label}
+            </button>
+          ))}
+        </motion.div>
+      </div>
+    </>,
+    document.body
+  );
+}
 
 export function MoliyaQuickAdd(props: Props) {
   // Portal faqat brauzerda (SSR'da document yo'q).

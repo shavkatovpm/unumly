@@ -30,8 +30,7 @@ import {
 } from "@/lib/mobile-nav";
 import {
   triggerMobileAdd,
-  useMobileAddChoicesValue,
-  type MobileAddChoice,
+  useMobileSheetCloseValue,
 } from "@/lib/mobile-add";
 import { useProfile } from "@/lib/profile-store";
 import { useProjects, useHydratedProjects } from "@/lib/projects-store";
@@ -98,11 +97,7 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
 
   const keyboardOpen = useKeyboardOpen();
 
-  // "+" tanlovlari (masalan Moliya: Kirim/Chiqim) — yelpig'ich qaysi sahifada
-  // ochilgan bo'lsa, faqat o'sha yerda ko'rinadi (route o'zgarsa o'zi yopiladi).
-  const addChoices = useMobileAddChoicesValue();
-  const [fanAt, setFanAt] = useState<string | null>(null);
-  const fanOpen = fanAt === pathname && !!addChoices && !keyboardOpen;
+  const sheetClose = useMobileSheetCloseValue();
 
   const sheet = (
     <AnimatePresence>
@@ -135,30 +130,12 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
     },
   ];
   const onPlus = () => {
-    if (!addChoices) return triggerMobileAdd();
-    setFanAt(fanOpen ? null : pathname);
+    if (sheetClose) return sheetClose();
+    triggerMobileAdd();
   };
   return (
     <>
-      <AnimatePresence>
-        {fanOpen && (
-          <motion.div
-            key="fan-scrim"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => setFanAt(null)}
-            className="fixed inset-0 z-20 bg-black/25 backdrop-blur-[3px] md:hidden"
-          />
-        )}
-      </AnimatePresence>
-      <AddFan
-        open={fanOpen}
-        choices={addChoices}
-        onPick={(c) => { setFanAt(null); c.onPick(); }}
-      />
-      <GlassDockNav entries={entries} hidden={keyboardOpen} plusOpen={fanOpen} onPlus={onPlus} />
+      <GlassDockNav entries={entries} hidden={keyboardOpen} plusOpen={!!sheetClose} onPlus={onPlus} />
       {sheet}
     </>
   );
@@ -183,55 +160,6 @@ const GLASS_SHADOW =
 const FLOAT_BOTTOM = "calc(env(safe-area-inset-bottom, 0px) + 12px)";
 const hideClass = "pointer-events-none translate-y-[calc(100%+24px)] opacity-0";
 const POP = { type: "spring", damping: 22, stiffness: 420 } as const;
-
-/* "+" tanlovlari — markazdagi "+" ustidan chapga/o'ngga yelpig'ich bo'lib
-   otilib chiqadi. */
-function AddFan({
-  open,
-  choices,
-  onPick,
-}: {
-  open: boolean;
-  choices: MobileAddChoice[] | null;
-  onPick: (c: MobileAddChoice) => void;
-}) {
-  const n = choices?.length ?? 0;
-  return (
-    <div
-      className="pointer-events-none fixed z-30 md:hidden"
-      style={{ left: "50%", bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px + 76px)" }}
-    >
-      <AnimatePresence>
-        {open &&
-          choices?.map((c, i) => {
-            const x = (i - (n - 1) / 2) * 128;
-            return (
-              <motion.button
-                key={c.id}
-                type="button"
-                onClick={() => onPick(c)}
-                initial={{ opacity: 0, x: 0, y: 40, scale: 0.4 }}
-                animate={{ opacity: 1, x, y: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 0, y: 40, scale: 0.4 }}
-                transition={{ ...POP, delay: i * 0.05 }}
-                className="pointer-events-auto absolute -left-[38px] bottom-0 flex w-[76px] flex-col items-center gap-1.5"
-              >
-                <span
-                  className="grid size-[60px] place-items-center rounded-full text-white shadow-[0_12px_28px_-8px_rgba(0,0,0,0.45)] ring-[5px] ring-white/40 transition-transform active:scale-95 dark:ring-white/10"
-                  style={{ background: c.color }}
-                >
-                  <c.icon className="size-6" strokeWidth={2.4} />
-                </span>
-                <span className={cn("rounded-full px-2.5 py-0.5 text-[12.5px] font-semibold text-foreground", GLASS)}>
-                  {c.label}
-                </span>
-              </motion.button>
-            );
-          })}
-      </AnimatePresence>
-    </div>
-  );
-}
 
 function GlassTab({
   e,

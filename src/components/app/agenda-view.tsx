@@ -2,13 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMobileAdd } from "@/lib/mobile-add";
-import { AnimatePresence, motion } from "framer-motion";
-import { Calendar as CalendarIcon, Check, Clock, Pencil, Plus, Repeat, Tag, X } from "lucide-react";
+import { motion } from "framer-motion";
+import { Calendar as CalendarIcon, Check, Clock, Pencil, Plus, Repeat, Tag } from "lucide-react";
 import { useHydrated, usePlans } from "@/lib/plans-store";
 import { useHabits } from "@/lib/habits-store";
 import { useRejaCategoryMap } from "@/lib/use-reja-category";
 import { useDragReorder } from "@/lib/use-drag-reorder";
-import { useBlurInputOnScrollOut } from "@/lib/use-blur-on-scroll-out";
 import type { Plan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -21,10 +20,10 @@ import {
 } from "@/lib/dates";
 import { MiniMonth } from "./kalendar/mini-month";
 import { TimePickerPopover } from "./widgets/time-picker-popover";
+import { TaskAddSheet } from "./widgets/task-add-sheet";
 import { TaskDetail } from "./widgets/task-detail";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
-import { useScrollLock } from "@/lib/use-scroll-lock";
 import { playOnComplete } from "@/lib/sounds";
 
 const UZ_WEEKDAYS = [
@@ -259,16 +258,8 @@ export function AgendaView() {
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
   const animationTimerRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const mobileInputRef = useRef<HTMLInputElement>(null);
   const timeBtnRef = useRef<HTMLButtonElement>(null);
-  const mobileTimeBtnRef = useRef<HTMLButtonElement>(null);
   const calendarWrapRef = useRef<HTMLDivElement>(null);
-  const mobileCalendarWrapRef = useRef<HTMLDivElement>(null);
-  const mobileSheetRef = useRef<HTMLDivElement>(null);
-  useBlurInputOnScrollOut(mobileSheetRef, mobileSheet);
-
-  useScrollLock(mobileSheet);
-
   useEffect(() => {
     return () => {
       if (animationTimerRef.current) window.clearTimeout(animationTimerRef.current);
@@ -279,19 +270,11 @@ export function AgendaView() {
     if (!showCalendar) return;
     function onClick(e: MouseEvent) {
       if (calendarWrapRef.current?.contains(e.target as Node)) return;
-      if (mobileCalendarWrapRef.current?.contains(e.target as Node)) return;
       setShowCalendar(false);
     }
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, [showCalendar]);
-
-  useEffect(() => {
-    if (mobileSheet) {
-      // Focus immediately so iOS keyboard opens within the user gesture window
-      mobileInputRef.current?.focus({ preventScroll: false });
-    }
-  }, [mobileSheet]);
 
   function openDetailForCurrent() {
     const t = title.trim();
@@ -312,7 +295,6 @@ export function AgendaView() {
     setTime("");
     setShowCalendar(false);
     setShowTime(false);
-    setMobileSheet(false);
   }
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -325,14 +307,18 @@ export function AgendaView() {
       scheduledFor: toDateInputValue(date),
       time: time || undefined,
     });
-    setJustCreatedId(newId);
-    if (animationTimerRef.current) window.clearTimeout(animationTimerRef.current);
-    animationTimerRef.current = window.setTimeout(() => setJustCreatedId(null), 500);
+    markCreated(newId);
     setTitle("");
     setTime("");
     setShowTime(false);
     setShowCalendar(false);
     inputRef.current?.focus();
+  }
+
+  function markCreated(id: string) {
+    setJustCreatedId(id);
+    if (animationTimerRef.current) window.clearTimeout(animationTimerRef.current);
+    animationTimerRef.current = window.setTimeout(() => setJustCreatedId(null), 500);
   }
 
   const upcoming = useMemo(() => {
@@ -523,7 +509,7 @@ export function AgendaView() {
 
         <TimePickerPopover
           open={showTime}
-          triggerRef={mobileSheet ? mobileTimeBtnRef : timeBtnRef}
+          triggerRef={timeBtnRef}
           value={time}
           onChange={(v) => setTime(v)}
           onClear={() => setTime("")}
@@ -639,142 +625,15 @@ export function AgendaView() {
         }}
       />
 
-      {/* Mobile add-task centered modal */}
-      <AnimatePresence>
-      {mobileSheet && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={() => {
-              setMobileSheet(false);
-              setShowCalendar(false);
-              setShowTime(false);
-            }}
-            className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[3px] md:hidden"
-          />
-          <div
-            className="fixed inset-0 z-50 flex items-start justify-center px-4 md:hidden"
-            style={{ paddingTop: "var(--modal-safe-top-roomy)" }}
-            onClick={() => {
-              setMobileSheet(false);
-              setShowCalendar(false);
-              setShowTime(false);
-            }}
-          >
-            <motion.div
-              ref={mobileSheetRef}
-              initial={{ opacity: 0, y: -12, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.98 }}
-              transition={{ type: "spring", damping: 28, stiffness: 360 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm max-h-[calc(var(--tg-vh,100dvh)-var(--modal-safe-top-roomy)-1rem)] overflow-y-auto rounded-2xl border border-border bg-surface shadow-2xl"
-            >
-            <header className="flex items-center justify-between border-b border-border px-5 py-3">
-              <p className="text-[15px] font-semibold tracking-[-0.01em]">Yangi reja</p>
-              <button
-                type="button"
-                onClick={() => setMobileSheet(false)}
-                aria-label="Yopish"
-                className="grid size-8 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            </header>
-            <form
-              onSubmit={(e) => {
-                submit(e);
-                setMobileSheet(false);
-              }}
-              className="space-y-3 px-5 py-4"
-            >
-              <input
-                ref={mobileInputRef}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Yaqin kunlarga reja..."
-                autoFocus
-                className="w-full bg-transparent text-[17px] placeholder:text-faint focus:outline-none"
-              />
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <button
-                    ref={mobileTimeBtnRef}
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      setShowCalendar(false);
-                      setShowTime((v) => !v);
-                    }}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-[13px] tabular-nums transition-colors",
-                      showTime
-                        ? "border-border-strong bg-subtle"
-                        : "text-muted hover:border-border-strong hover:text-foreground"
-                    )}
-                  >
-                    <Clock className="size-3.5" />
-                    {time || "Vaqt"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openDetailForCurrent}
-                    disabled={!title.trim()}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] transition-colors",
-                      !title.trim()
-                        ? "cursor-not-allowed text-faint/60"
-                        : "text-muted hover:border-border-strong hover:text-foreground"
-                    )}
-                  >
-                    <Pencil className="size-3.5" />
-                    Batafsil
-                  </button>
-                </div>
-                <button
-                  type="submit"
-                  disabled={!title.trim()}
-                  className={cn(
-                    "rounded-md px-4 py-2 text-[13.5px] font-medium transition-opacity",
-                    !title.trim()
-                      ? "cursor-not-allowed bg-foreground/40 text-background"
-                      : "bg-accent text-accent-ink hover:opacity-90"
-                  )}
-                >
-                  Qo&apos;shish
-                </button>
-              </div>
-
-              {showCalendar && (
-                <div
-                  ref={mobileCalendarWrapRef}
-                  className="overflow-hidden rounded-md border border-border bg-subtle/40 p-3"
-                >
-                  <div className="reveal-down">
-                    <MiniMonth
-                      today={today}
-                      selected={date}
-                      plans={plans}
-                      onSelect={(d) => {
-                        setDate(d);
-                        setShowCalendar(false);
-                      }}
-                    />
-                    <p className="mt-2 text-center text-[11px] text-faint">
-                      Bugundan keyingi kunni tanlang.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </form>
-            </motion.div>
-          </div>
-        </>
-      )}
-      </AnimatePresence>
+      <TaskAddSheet
+        open={mobileSheet}
+        onClose={() => setMobileSheet(false)}
+        plans={plans}
+        defaultDate={tomorrow}
+        placeholder="Yaqin kunlarga reja..."
+        onCreate={(input) => markCreated(create(input))}
+        onDetail={setDraftPlan}
+      />
 
       {confirmEl}
     </div>

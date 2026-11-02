@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMobileAdd } from "@/lib/mobile-add";
+import { MonoBlock, MonoHeader, MonoSave, MonoSheet, MonoTile, useIsMobile } from "./widgets/mono-sheet";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -15,7 +16,7 @@ import {
   ChevronDown, ChevronLeft, ChevronRight, Clock, Code, Coffee, Dog, DollarSign, Droplet, Dumbbell,
   Feather, Flame, Folder, Footprints, Gamepad2, Gift, Glasses, GraduationCap, Guitar, Hammer,
   Headphones, Heart, Home, Languages, Laptop, Leaf, MapPin, Medal, Moon, Mountain, Music, Notebook,
-  Paintbrush, Palette, PawPrint, Pencil, Phone, PiggyBank, Pill, Plane, Plus, Puzzle, Rocket, Salad,
+  Paintbrush, Palette, PawPrint, Pencil, Phone, PiggyBank, Pill, Plane, Plus, Puzzle, Repeat, Rocket, Salad,
   ShoppingCart, ShowerHead, Smile, Sparkles, Sprout, Star, Sun, Target, Trash2, TreePine, Umbrella,
   Users, Utensils, Wallet, Wind, Wrench, X, Zap,
 } from "lucide-react";
@@ -605,7 +606,83 @@ function HabitDetailSheet({ cats, plans, habit, onClose, onArchive, onRemove, on
 }
 
 /* ════════ Modallar ════════ */
-function AddHabitModal({ cats, plans, initialCategory, initialDays, onClose, onAdd, onCreateCategory }: { cats: HabitCategory[]; plans: Plan[]; initialCategory?: string | null; initialDays?: number[]; onClose: () => void; onAdd: (input: { title: string; categoryId: string | null; days: number[]; time?: string; showInAgenda: boolean }) => void; onCreateCategory: (input: { label: string; icon: string }) => string }) {
+type AddHabitProps = { cats: HabitCategory[]; plans: Plan[]; initialCategory?: string | null; initialDays?: number[]; onClose: () => void; onAdd: (input: { title: string; categoryId: string | null; days: number[]; time?: string; showInAgenda: boolean }) => void; onCreateCategory: (input: { label: string; icon: string }) => string };
+
+function AddHabitModal(props: AddHabitProps) {
+  const mobile = useIsMobile();
+  return mobile ? <AddHabitMobile {...props} /> : <AddHabitDesktop {...props} />;
+}
+
+/* Mobil: Mono kataklar. Toifa tanlash majburiy (yoki «Toifasiz»), xuddi desktop kabi. */
+function AddHabitMobile({ cats, plans, initialCategory, initialDays, onClose, onAdd, onCreateCategory }: AddHabitProps) {
+  const [title, setTitle] = useState("");
+  const [categoryId, setCategoryId] = useState<string | null | undefined>(initialCategory);
+  const [days, setDays] = useState<number[]>(initialDays && initialDays.length ? [...initialDays] : [...ALL_DAYS]);
+  const [time, setTime] = useState("");
+  const [showInAgenda, setShowInAgenda] = useState(true);
+  const [catsOpen, setCatsOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newLabel, setNewLabel] = useState("");
+  const [newIcon, setNewIcon] = useState<IconKey>(randomIcon);
+  const [timeOpen, setTimeOpen] = useState(false);
+  const timeRef = useRef<HTMLButtonElement>(null);
+  const daily = days.length >= 7;
+  const chosen = categoryId !== undefined;
+  const catLabel = categoryId === null ? "Toifasiz" : cats.find((c) => c.id === categoryId)?.label;
+
+  function pickCategory(id: string | null) { setCategoryId(id); setCreating(false); setCatsOpen(false); }
+  function createNow() {
+    if (!newLabel.trim()) return;
+    pickCategory(onCreateCategory({ label: newLabel.trim(), icon: newIcon }));
+    setNewLabel("");
+    setNewIcon(randomIcon());
+  }
+  function submit() {
+    if (!title.trim() || categoryId === undefined || days.length === 0) return;
+    onAdd({ title: title.trim(), categoryId, days: [...days].sort((a, b) => a - b), time: time || undefined, showInAgenda });
+    onClose();
+  }
+
+  const chip = (on: boolean) => cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[14px] font-medium transition-colors", on ? "bg-accent text-accent-ink" : "bg-subtle text-muted");
+  return (
+    <MonoSheet open onClose={onClose} label="Yangi odat">
+      <MonoHeader label="Yangi odat" value={title} onChange={setTitle} placeholder="Masalan: Suv ichish" onEnter={submit} onClose={onClose} />
+      <MonoBlock icon={Repeat} label="Qaysi kunlari" aside={<button type="button" onClick={() => setDays(daily ? [] : [...ALL_DAYS])} className={cn("font-semibold", daily ? "text-foreground" : "text-faint")}>Har kuni</button>}>
+        <div className="grid grid-cols-7 gap-1">
+          {WEEK_FROM_MON.map((idx) => {
+            const on = days.includes(idx);
+            return <button key={idx} type="button" aria-pressed={on} onMouseDown={(e) => e.preventDefault()} onClick={() => setDays((p) => (on ? p.filter((x) => x !== idx) : [...p, idx]))} className={cn("h-10 rounded-xl text-[13px] font-bold transition-colors", on ? "bg-accent text-accent-ink" : "bg-subtle text-faint")}>{UZ_DAYS_SHORT[idx]}</button>;
+          })}
+        </div>
+      </MonoBlock>
+      <div className="grid grid-cols-2 gap-2">
+        <MonoTile icon={Clock} label="Eslatma" value={time || undefined} filled={!!time} buttonRef={timeRef} onClick={() => setTimeOpen((v) => !v)} />
+        <MonoTile icon={Folder} label="Toifa" value={catLabel} filled={chosen} onClick={() => setCatsOpen((v) => !v)} />
+      </div>
+      {(catsOpen || !chosen) && (
+        <MonoBlock icon={Folder} label={chosen ? "Toifa" : "Avval toifa tanlang"}>
+          <div className="flex flex-wrap gap-1.5">
+            {cats.map((c) => <button key={c.id} type="button" onClick={() => pickCategory(c.id)} className={chip(categoryId === c.id)}><CategoryIcon k={c.icon} className="size-3.5" /> {c.label}</button>)}
+            <button type="button" onClick={() => pickCategory(null)} className={chip(categoryId === null)}>Toifasiz</button>
+            <button type="button" onClick={() => setCreating((v) => !v)} className={chip(creating)}><Plus className="size-3.5" /> Yangi</button>
+          </div>
+          {creating && (
+            <div className="mt-3 space-y-3 border-t border-border pt-3">
+              <input autoFocus value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Yangi toifa nomi" className="w-full bg-transparent text-[16px] outline-none placeholder:text-faint" />
+              <IconPicker value={newIcon} onChange={setNewIcon} />
+              <button type="button" onClick={createNow} disabled={!newLabel.trim()} className="w-full rounded-xl bg-accent py-2.5 text-[14.5px] font-semibold text-accent-ink disabled:opacity-30">Toifa qo&apos;shish</button>
+            </div>
+          )}
+        </MonoBlock>
+      )}
+      <div className="rounded-[22px] border border-border bg-surface p-3"><AgendaToggle checked={showInAgenda} onChange={setShowInAgenda} /></div>
+      <MonoSave disabled={!chosen || !title.trim() || days.length === 0} onClick={submit} />
+      <TimePickerPopover open={timeOpen} triggerRef={timeRef} value={time} onChange={setTime} onClear={() => setTime("")} onClose={() => setTimeOpen(false)} occupiedSlots={occupiedForDays(plans, days).map((t) => ({ time: t, title: "" }))} />
+    </MonoSheet>
+  );
+}
+
+function AddHabitDesktop({ cats, plans, initialCategory, initialDays, onClose, onAdd, onCreateCategory }: AddHabitProps) {
   const [title, setTitle] = useState(""); const [categoryId, setCategoryId] = useState<string | null | undefined>(initialCategory); const [days, setDays] = useState<number[]>(initialDays && initialDays.length ? [...initialDays] : [...ALL_DAYS]); const [time, setTime] = useState("");
   const [showInAgenda, setShowInAgenda] = useState(true);
   const [creating, setCreating] = useState(false); const [newLabel, setNewLabel] = useState(""); const [newIcon, setNewIcon] = useState<IconKey>(randomIcon);

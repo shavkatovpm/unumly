@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Check, X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon, Pencil, ListChecks, Tag, Undo2 } from "lucide-react";
+import { Bell, Check, X, Trash2, Clock, Flag, FileText, Calendar as CalendarIcon, Pencil, ListChecks, Tag, Timer, Undo2 } from "lucide-react";
 import { horizonGoalsApi } from "@/lib/horizon-goals-store";
+import { togglePlanStatus } from "@/lib/plans-store";
 import type { Plan, PlanPriority, Subtask } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useRejaCategoryMap } from "@/lib/use-reja-category";
@@ -24,6 +25,7 @@ import {
 } from "@/lib/notify-time";
 import { getNotificationPrefs } from "@/lib/user-settings-actions";
 import { Dialog } from "./dialog";
+import { MonoActions, MonoBlock, MonoExpand, MonoSave, MonoSheet, MonoTile, useIsMobile } from "./mono-sheet";
 import { CollapseSection, SubtaskEditor, SubtaskViewList, makeSubtaskId } from "./subtask-ui";
 import { TimePickerPopover } from "./time-picker-popover";
 import { DatePickerPopover } from "./date-picker-popover";
@@ -76,6 +78,7 @@ export function TaskDetail({
   onCreate?: (input: Omit<Plan, "id" | "createdAt" | "order" | "status" | "deferCount">) => string;
 }) {
   const rejaCategoryMap = useRejaCategoryMap();
+  const mobile = useIsMobile();
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
@@ -243,6 +246,8 @@ export function TaskDetail({
   }
 
   const blockSave = isTimePast || isDateInPast;
+  // Mobil: tahrirlash shu oynaning ichida ochiladi; yangi task — darhol ochiq.
+  const mobileEditing = draft || explicitMode === "edit";
 
   // ─── Ichki vazifalar (sub-task) ───
   function addSubtask() {
@@ -255,7 +260,7 @@ export function TaskDetail({
   function toggleSub(id: string) {
     const next = subtasks.map((x) => (x.id === id ? { ...x, done: !x.done } : x));
     setSubtasks(next);
-    if (mode === "view" && plan) onUpdate(plan.id, { subtasks: next });
+    if ((mobile ? !mobileEditing : mode === "view") && plan) onUpdate(plan.id, { subtasks: next });
   }
   function removeSub(id: string) {
     setSubtasks((s) => s.filter((x) => x.id !== id));
@@ -316,6 +321,161 @@ export function TaskDetail({
   }
 
   const isView = mode === "view";
+
+  const pickers = (
+    <>
+      <TimePickerPopover
+        open={showTimePicker}
+        triggerRef={timeBtnRef}
+        value={time}
+        onChange={(v) => setTime(v)}
+        onClear={() => setTime("")}
+        onClose={() => setShowTimePicker(false)}
+        disableBefore={
+          effectiveDateIso === toDateInputValue(today)
+            ? (() => {
+                const n = new Date();
+                return `${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
+              })()
+            : undefined
+        }
+        occupiedSlots={
+          plans ? occupiedTimeSlots(plans, effectiveDateIso, plan.id) : []
+        }
+      />
+
+      <DatePickerPopover
+        open={showDatePicker}
+        triggerRef={dateBtnRef}
+        today={today}
+        selected={selectedDate}
+        plans={plans ?? []}
+        onSelect={(d) => setScheduledFor(toDateInputValue(d))}
+        onClose={() => setShowDatePicker(false)}
+      />
+    </>
+  );
+
+  if (mobile) {
+    const reja = rejaCategoryMap.get(plan.id);
+    const done = plan.status === "DONE";
+    const subDone = subtasks.filter((x) => x.done).length;
+    const meta = [formatUzDate(selectedDate), time, time && duration != null ? `${duration} daq.` : "", PRIORITY_DISPLAY[priority].label].filter(Boolean).join(" · ");
+
+    function addSubNow() {
+      const t = newSub.trim();
+      if (!t) return;
+      const next = [...subtasks, { id: makeSubtaskId(), title: t, done: false }];
+      setSubtasks(next);
+      setNewSub("");
+      onUpdate(plan!.id, { subtasks: next });
+    }
+    function toggleEdit() {
+      if (mobileEditing) {
+        revertToPlan();
+        setExplicitMode("view");
+      } else {
+        setExplicitMode("edit");
+      }
+    }
+    function cyclePriority() {
+      const i = PRIORITIES.findIndex((p) => p.value === priority);
+      setPriority(PRIORITIES[(i + 1) % PRIORITIES.length].value);
+    }
+
+    return (
+      <>
+        <MonoSheet open={open} onClose={onClose} label={draft ? "Yangi reja" : "Reja tafsilotlari"} dismissable={!mobileEditing}>
+          <div className="rounded-[24px] border border-border bg-surface p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[12.5px] font-semibold text-muted">{draft ? "Yangi reja" : "Reja"}</p>
+                <p className={cn("mt-0.5 text-[21px] font-bold leading-tight tracking-[-0.02em]", done && "text-faint line-through decoration-faint/60")}>{title || "Sarlavhasiz"}</p>
+              </div>
+              <button type="button" onClick={onClose} aria-label="Yopish" className="grid size-9 shrink-0 place-items-center rounded-full bg-subtle text-foreground">
+                <X className="size-4" strokeWidth={2.4} />
+              </button>
+            </div>
+            <p className={cn("mt-2 text-[13px] text-muted", (isDateInPast || isTimePast) && "text-danger")}>{meta}</p>
+            {reja && (
+              <p className="mt-1 inline-flex items-center gap-1.5 text-[13px] font-medium" style={{ color: reja.color }}>
+                <Tag className="size-3.5" /> {reja.label}
+              </p>
+            )}
+            {subtasks.length > 0 && (
+              <div className="mt-3 h-1 overflow-hidden rounded-full bg-subtle">
+                <div className="h-full rounded-full bg-accent transition-[width] duration-300" style={{ width: `${(subDone / subtasks.length) * 100}%` }} />
+              </div>
+            )}
+          </div>
+
+          {!draft && (
+            <MonoActions
+              done={done}
+              onToggleDone={() => togglePlanStatus(plan.id)}
+              editing={mobileEditing}
+              onToggleEdit={toggleEdit}
+              onDelete={handleDelete}
+            />
+          )}
+
+          <MonoExpand open={mobileEditing}>
+            <div className="rounded-[22px] border border-border bg-surface p-3">
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Reja nomi" className="w-full bg-transparent text-[17px] font-semibold outline-none placeholder:text-faint" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <MonoTile icon={CalendarIcon} label="Sana" value={formatUzDate(selectedDate)} filled danger={isDateInPast} buttonRef={dateBtnRef} onClick={() => { setShowDatePicker((v) => !v); setShowTimePicker(false); }} className="[&>span:last-child]:text-[15px]" />
+              <MonoTile icon={Clock} label="Vaqt" value={time || undefined} filled={!!time} danger={isTimePast} buttonRef={timeBtnRef} onClick={() => { setShowTimePicker((v) => !v); setShowDatePicker(false); }} />
+              <MonoTile icon={Flag} label="Muhimlik" value={PRIORITY_DISPLAY[priority].label} filled onClick={cyclePriority} />
+              <MonoTile icon={Bell} label="Eslatma" value={formatLeadLabel(effectiveLead)} filled={!!time} disabled={availableMin != null && availableMin < (LEAD_MIN_OPTIONS.find((o) => o > 0) ?? 10)} onClick={() => setShowLeadPicker((v) => !v)} className="[&>span:last-child]:text-[15px]" />
+            </div>
+            <MonoExpand open={showLeadPicker}>
+              <LeadChips value={effectiveLead} onChange={(next) => { setLeadMin(next); setShowLeadPicker(false); }} timeMissing={!time} availableMin={availableMin} />
+            </MonoExpand>
+            <MonoBlock icon={Timer} label={`Davomiyligi${maxDuration !== null ? ` · max ${maxDuration}m` : ""}`}>
+              <DurationPicker value={duration} onChange={setDuration} max={maxDuration} />
+            </MonoBlock>
+            <MonoBlock icon={FileText} label="Izoh">
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Qo'shimcha tafsilot..." rows={2} className="w-full resize-none bg-transparent text-[15px] leading-snug outline-none placeholder:text-faint" />
+            </MonoBlock>
+          </MonoExpand>
+
+          {!mobileEditing && notes.trim() && (
+            <MonoBlock icon={FileText} label="Izoh">
+              <p className="whitespace-pre-wrap text-[14.5px] leading-snug">{notes.trim()}</p>
+            </MonoBlock>
+          )}
+
+          <MonoBlock icon={ListChecks} label="Ichki vazifalar" aside={subtasks.length > 0 ? <span className="tabular-nums opacity-60">{subDone}/{subtasks.length}</span> : undefined}>
+            {mobileEditing ? (
+              <SubtaskEditor subtasks={subtasks} newSub={newSub} setNewSub={setNewSub} onAdd={addSubtask} onToggle={toggleSub} onRemove={removeSub} onEditTitle={editSubTitle} />
+            ) : (
+              <div className="space-y-2">
+                {subtasks.length > 0 && <SubtaskViewList subtasks={subtasks} onToggle={toggleSub} />}
+                <input
+                  value={newSub}
+                  onChange={(e) => setNewSub(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubNow(); } }}
+                  onBlur={addSubNow}
+                  enterKeyHint="send"
+                  placeholder="Vazifa qo'shish"
+                  className="w-full bg-transparent py-1 text-[15px] outline-none placeholder:text-faint"
+                />
+              </div>
+            )}
+          </MonoBlock>
+
+          {!draft && (plan.horizonGoalId || plan.horizonStepId) && (
+            <button type="button" onClick={handleReturnToGoal} className="flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[13px] font-medium text-muted">
+              <Undo2 className="size-3.5" /> Maqsadga qaytarish
+            </button>
+          )}
+          {mobileEditing && <MonoSave disabled={blockSave} onClick={save}>{draft ? undefined : "Saqlash"}</MonoSave>}
+        </MonoSheet>
+        {pickers}
+      </>
+    );
+  }
 
   return (
     <Dialog open={open} onClose={onClose} mobilePlacement="top" dismissable={false} className="max-w-lg sm:min-h-[60vh]">
@@ -609,35 +769,7 @@ export function TaskDetail({
         </footer>
       </form>
 
-      <TimePickerPopover
-        open={showTimePicker}
-        triggerRef={timeBtnRef}
-        value={time}
-        onChange={(v) => setTime(v)}
-        onClear={() => setTime("")}
-        onClose={() => setShowTimePicker(false)}
-        disableBefore={
-          effectiveDateIso === toDateInputValue(today)
-            ? (() => {
-                const n = new Date();
-                return `${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}`;
-              })()
-            : undefined
-        }
-        occupiedSlots={
-          plans ? occupiedTimeSlots(plans, effectiveDateIso, plan.id) : []
-        }
-      />
-
-      <DatePickerPopover
-        open={showDatePicker}
-        triggerRef={dateBtnRef}
-        today={today}
-        selected={selectedDate}
-        plans={plans ?? []}
-        onSelect={(d) => setScheduledFor(toDateInputValue(d))}
-        onClose={() => setShowDatePicker(false)}
-      />
+      {pickers}
     </Dialog>
   );
 }
@@ -791,6 +923,48 @@ function Row({
         {label}
       </span>
       <div>{children}</div>
+    </div>
+  );
+}
+
+/* Mobil: oyna ichida ochiladi (dropdown oyna chetida kesilib qolardi). */
+function LeadChips({
+  value,
+  onChange,
+  timeMissing,
+  availableMin,
+}: {
+  value: LeadMin;
+  onChange: (v: LeadMin) => void;
+  timeMissing: boolean;
+  availableMin: number | null;
+}) {
+  return (
+    <div className="rounded-[22px] border border-border bg-surface p-3">
+      <div role="listbox" className="flex flex-wrap gap-1.5">
+        {LEAD_MIN_OPTIONS.map((opt) => {
+          const active = opt === value;
+          const optDisabled = opt > 0 && availableMin != null && opt > availableMin;
+          return (
+            <button
+              key={opt}
+              type="button"
+              role="option"
+              aria-selected={active}
+              disabled={optDisabled}
+              onClick={() => onChange(opt)}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-[13px] font-semibold",
+                active ? "bg-accent text-accent-ink" : "bg-subtle",
+                optDisabled && "text-faint/50"
+              )}
+            >
+              {formatLeadOptionLabel(opt)}
+            </button>
+          );
+        })}
+      </div>
+      {timeMissing && <p className="mt-2 text-[12.5px] text-faint">Vaqt belgilanmagan — eslatma yuborilmaydi</p>}
     </div>
   );
 }

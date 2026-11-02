@@ -8,7 +8,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ListChecks, Pencil, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMobileAdd } from "@/lib/mobile-add";
 import { ensureVisibleOnFocus } from "@/lib/ensure-visible";
@@ -27,6 +27,7 @@ import {
 } from "@/lib/horizon-goals";
 import type { GoalHorizon, HorizonGoal, HorizonGoalStep } from "@/lib/types";
 import { Dialog } from "./widgets/dialog";
+import { MonoActions, MonoBlock, MonoExpand, MonoHeader, MonoSave, MonoSheet, useIsMobile } from "./widgets/mono-sheet";
 import { ConfirmDialog } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
 
@@ -84,9 +85,9 @@ export function MaqsadView() {
                   role="tab"
                   aria-selected={on}
                   onClick={() => setHorizon(h.id)}
-                  className={cn("relative h-9 rounded-lg text-[13.5px] font-semibold transition-colors", on ? "text-foreground" : "text-faint")}
+                  className={cn("relative h-9 rounded-lg text-[13.5px] font-semibold transition-colors", on ? "text-black" : "text-faint")}
                 >
-                  {on && <motion.span layoutId="maqsad-horizon" transition={SPRING} className="absolute inset-0 rounded-lg bg-surface shadow-[0_1px_3px_rgba(0,0,0,0.12)]" />}
+                  {on && <motion.span layoutId="maqsad-horizon" transition={SPRING} className="absolute inset-0 rounded-lg bg-white shadow-[0_1px_3px_rgba(0,0,0,0.12)]" />}
                   <span className="relative">{h.label}</span>
                 </button>
               );
@@ -140,6 +141,8 @@ export function MaqsadView() {
           horizon={horizon}
           goal={form.goal}
           periodStart={period}
+          today={today}
+          onCreatedIn={setHorizon}
           onClose={() => setForm(null)}
         />
       )}
@@ -246,21 +249,71 @@ function ProgressBar({ done, total, className }: { done: number; total: number; 
 }
 
 /* Maqsad ichi — qadamlar faqat shu yerda boshqariladi. */
-function GoalDetail({
-  goal,
-  goals,
-  today,
-  onClose,
-  onEdit,
-  onRemove,
-}: {
+type GoalDetailProps = {
   goal: HorizonGoal;
   goals: HorizonGoal[];
   today: string;
   onClose: () => void;
   onEdit: () => void;
   onRemove: () => void;
-}) {
+};
+
+function GoalDetail(props: GoalDetailProps) {
+  const mobile = useIsMobile();
+  return mobile ? <GoalDetailMobile {...props} /> : <GoalDetailDesktop {...props} />;
+}
+
+/* Mobil: Bajarildi · Tahrirlash · O'chirish, tahrirlash shu oynada ochiladi. */
+function GoalDetailMobile({ goal, goals, today, onClose, onRemove }: GoalDetailProps) {
+  const { done, total } = stepProgress(goal);
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(goal.title);
+
+  function toggleEdit() {
+    setTitle(goal.title);
+    setEditing((v) => !v);
+  }
+  function saveTitle() {
+    const t = title.trim();
+    if (t && t !== goal.title) api.rename(goal.id, t);
+    setEditing(false);
+  }
+
+  return (
+    <MonoSheet open onClose={onClose} label={goal.title} dismissable={!editing}>
+      <div className="rounded-[24px] border border-border bg-surface p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[12.5px] font-semibold text-muted">{horizonMeta(goal.horizon).adjective} · {periodRange(goal.horizon, goal.periodStart)}</p>
+            <p className={cn("mt-0.5 text-[21px] font-bold leading-tight tracking-[-0.02em]", goal.done && "text-faint line-through decoration-faint/60")}>{goal.title}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Yopish" className="grid size-9 shrink-0 place-items-center rounded-full bg-subtle text-foreground">
+            <X className="size-4" strokeWidth={2.4} />
+          </button>
+        </div>
+        {total > 0 && <ProgressBar done={done} total={total} className="mt-3" />}
+        {!goal.done && (
+          <div className="mt-3">
+            <MoveButton horizon={goal.horizon} moved={goalMoved(goal, goals, today)} onMove={() => api.moveGoal(goal, today)} />
+          </div>
+        )}
+      </div>
+      <MonoActions done={goal.done} onToggleDone={() => api.setDone(goal.id, !goal.done)} editing={editing} onToggleEdit={toggleEdit} onDelete={onRemove} />
+      <MonoExpand open={editing}>
+        <div className="rounded-[22px] border border-border bg-surface p-3">
+          <input value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveTitle(); }} enterKeyHint="done" placeholder="Maqsad nomi" className="w-full bg-transparent text-[17px] font-semibold outline-none placeholder:text-faint" />
+        </div>
+        <MonoSave disabled={!title.trim()} onClick={saveTitle}>Saqlash</MonoSave>
+      </MonoExpand>
+      <MonoBlock icon={ListChecks} label="Nima qilish kerak?" aside={total > 0 ? <span className="tabular-nums opacity-60">{done}/{total}</span> : undefined}>
+        {goal.steps.map((s) => <StepRow key={s.id} step={s} goal={goal} goals={goals} today={today} />)}
+        <AddStep goalId={goal.id} />
+      </MonoBlock>
+    </MonoSheet>
+  );
+}
+
+function GoalDetailDesktop({ goal, goals, today, onClose, onEdit, onRemove }: GoalDetailProps) {
   const { done, total } = stepProgress(goal);
   return (
     <Dialog open onClose={onClose} mobilePlacement="top" className="w-full max-w-md">
@@ -376,17 +429,68 @@ function AddStep({ goalId }: { goalId: string }) {
   );
 }
 
-function GoalForm({
-  horizon,
-  periodStart,
-  goal,
-  onClose,
-}: {
+type GoalFormProps = {
   horizon: GoalHorizon;
   periodStart: string;
+  today: string;
   goal?: HorizonGoal;
+  onCreatedIn: (h: GoalHorizon) => void;
   onClose: () => void;
-}) {
+};
+
+function GoalForm(props: GoalFormProps) {
+  const mobile = useIsMobile();
+  return mobile ? <GoalFormMobile {...props} /> : <GoalFormDesktop {...props} />;
+}
+
+/* Mobil: davr tanlovi bitta qatorda, tanlangani oq. */
+function GoalFormMobile({ horizon, periodStart, today, goal, onCreatedIn, onClose }: GoalFormProps) {
+  const [title, setTitle] = useState(goal?.title ?? "");
+  const [picked, setPicked] = useState(horizon);
+
+  function save() {
+    const t = title.trim();
+    if (!t) return;
+    if (goal) {
+      api.rename(goal.id, t);
+    } else {
+      // Ochiq tabda tanlangan davr, boshqa darajada — joriy davr.
+      api.create({ horizon: picked, periodStart: picked === horizon ? periodStart : periodStartOf(picked, today), title: t });
+      onCreatedIn(picked);
+    }
+    onClose();
+  }
+
+  return (
+    <MonoSheet open onClose={onClose} label={goal ? "Maqsadni tahrirlash" : "Yangi maqsad"}>
+      <MonoHeader label={goal ? "Tahrirlash" : "Yangi maqsad"} value={title} onChange={setTitle} placeholder={PROMPTS[picked].question} onEnter={save} onClose={onClose} />
+      {!goal && (
+        <div role="radiogroup" aria-label="Davr" className="grid grid-cols-4 rounded-[20px] bg-subtle p-1">
+          {HORIZONS.map((h) => {
+            const on = h.id === picked;
+            return (
+              <button
+                key={h.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setPicked(h.id)}
+                className={cn("relative h-11 rounded-2xl text-[14.5px] font-bold transition-colors", on ? "text-black" : "text-faint")}
+              >
+                {on && <motion.span layoutId="goal-form-horizon" transition={SPRING} className="absolute inset-0 rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.14)]" />}
+                <span className="relative">{h.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <MonoSave disabled={!title.trim()} onClick={save}>{goal ? "Saqlash" : undefined}</MonoSave>
+    </MonoSheet>
+  );
+}
+
+function GoalFormDesktop({ horizon, periodStart, goal, onClose }: GoalFormProps) {
   const [title, setTitle] = useState(goal?.title ?? "");
   const prompt = PROMPTS[horizon];
 
