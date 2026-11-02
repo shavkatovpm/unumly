@@ -5,7 +5,7 @@ import { useEffect, useSyncExternalStore } from "react";
 /* Bugun'dagi task ro'yxatining ko'rinishi — "classic" (hozirgi, ixcham) yoki
    "wide" (kattaroq, alohida karta har bir task uchun, katta ekran uchun
    mo'ljallangan). Faqat vizual tanlov — localStorage'da saqlanadi (server
-   sinxronizatsiyasi shart emas, workspace-store.ts'dagi tema tanlovi bilan
+   sinxronizatsiyasi shart emas, tema tanlovi bilan
    bir xil naqsh). Default har doim "classic".*/
 
 export type BugunTaskStyle = "classic" | "wide";

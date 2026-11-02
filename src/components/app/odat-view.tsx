@@ -30,6 +30,7 @@ import { Dialog } from "./widgets/dialog";
 import { ConfirmDialog } from "./widgets/confirm-dialog";
 import { TimePickerPopover } from "./widgets/time-picker-popover";
 import { ListLoader } from "./widgets/list-loader";
+import { fitInView } from "@/lib/fit-in-view";
 
 /* ─── Ikonalar ─── */
 const ICONS = {
@@ -368,7 +369,7 @@ function HabitsTab({ hydrated, cats, habits, archived, onOpen, onAddHabit, onAdd
       {menu && typeof document !== "undefined" && createPortal(
         <>
           <div className="fixed inset-0 z-[60]" onClick={() => setMenu(null)} />
-          <div className="fixed z-[61] min-w-[150px] overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-xl" style={{ top: menu.rect.bottom + 6, left: Math.min(menu.rect.left, (typeof window !== "undefined" ? window.innerWidth : 360) - 162) }}>
+          <div ref={fitInView} className="fixed z-[61] min-w-[150px] overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-xl" style={{ top: menu.rect.bottom + 6, left: Math.min(menu.rect.left, (typeof window !== "undefined" ? window.innerWidth : 360) - 162) }}>
             <button type="button" onClick={() => { onEditCategory(menu.id); setMenu(null); }} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] font-medium text-foreground hover:bg-hover"><Pencil className="size-4 text-faint" /> Tahrirlash</button>
             <button type="button" onClick={() => { onDeleteCategory(menu.id); setMenu(null); }} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] font-medium text-danger hover:bg-danger-soft"><Trash2 className="size-4" /> O&apos;chirish</button>
           </div>

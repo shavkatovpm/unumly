@@ -27,6 +27,7 @@ export function TimePicker({
   onClear,
   disableBefore,
   occupiedSlots,
+  large,
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -36,6 +37,8 @@ export function TimePicker({
   /** HH:MM slots already booked by other tasks (shown as busy, but still
    *  selectable — picking one schedules a parallel task at the same time). */
   occupiedSlots?: OccupiedSlot[];
+  /** Mobil oyna uchun: vaqtlar katta katakchalarda. */
+  large?: boolean;
 }) {
   const occupied = useMemo(() => {
     const set = new Set<string>();
@@ -70,7 +73,8 @@ export function TimePicker({
   useEffect(() => {
     const el = activeRef.current;
     if (!el || !listRef.current) return;
-    el.scrollIntoView({ block: "center" });
+    const list = listRef.current;
+    list.scrollTop = el.offsetTop - (list.clientHeight - el.offsetHeight) / 2;
   }, []);
 
   return (
@@ -82,7 +86,8 @@ export function TimePicker({
           disabled={currentDisabled}
           onClick={() => pick(current, occupied.set.has(current))}
           className={cn(
-            "flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[11px] tabular-nums transition-colors",
+            "flex items-center gap-1.5 border font-mono tabular-nums transition-colors",
+            large ? "h-10 rounded-full px-3.5 text-[13.5px]" : "rounded-md px-2 py-1 text-[11px]",
             currentDisabled
               ? "cursor-not-allowed border-border/40 bg-surface text-faint/50 line-through"
               : value === current
@@ -101,7 +106,10 @@ export function TimePicker({
           <button
             type="button"
             onClick={onClear}
-            className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-faint transition-colors hover:bg-hover hover:text-foreground"
+            className={cn(
+              "ml-auto flex items-center gap-1 text-faint transition-colors hover:bg-hover hover:text-foreground",
+              large ? "h-10 rounded-full px-3 text-[13.5px]" : "rounded-md px-2 py-1 text-[11px]"
+            )}
           >
             <X className="size-3" />
             Tozalash
@@ -144,6 +152,47 @@ export function TimePicker({
             </button>
           </div>
         </div>
+      ) : large ? (
+      <div
+        ref={listRef}
+        className="relative grid max-h-[min(52vh,396px)] grid-cols-4 gap-1.5 overflow-y-auto pt-1"
+      >
+        {ALL_SLOTS.map((slot) => {
+          const active = slot === value;
+          const isCurrent = slot === current;
+          const isPast = !!disableBefore && slot < disableBefore;
+          const isBusy = !isPast && occupied.set.has(slot);
+          const isScrollAnchor =
+            active ||
+            (!value &&
+              (disableBefore
+                ? slot === ALL_SLOTS.find((s) => s >= disableBefore)
+                : isCurrent));
+          return (
+            <button
+              key={slot}
+              ref={isScrollAnchor ? activeRef : null}
+              type="button"
+              disabled={isPast}
+              onClick={() => pick(slot, isBusy)}
+              aria-label={isBusy ? `${slot}, band` : slot}
+              className={cn(
+                "relative h-12 rounded-2xl font-mono text-[15px] tabular-nums transition-colors",
+                isPast && "cursor-not-allowed text-faint/40 line-through",
+                !isPast && active && "bg-accent font-semibold text-accent-ink",
+                !isPast && !active && isBusy && "bg-subtle text-muted",
+                !isPast && !active && !isBusy && "bg-subtle/60 text-foreground active:bg-hover",
+                !isPast && !active && isCurrent && "ring-1 ring-inset ring-current-time/50"
+              )}
+            >
+              {slot}
+              {isBusy && !active && (
+                <span className="absolute right-2 top-2 size-1.5 rounded-full bg-warning" />
+              )}
+            </button>
+          );
+        })}
+      </div>
       ) : (
       <div
         ref={listRef}

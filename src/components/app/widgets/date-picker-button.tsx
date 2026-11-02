@@ -4,6 +4,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { startOfDay, toDateInputValue } from "@/lib/dates";
+import { BigMonth } from "./big-month";
+import { useIsMobile } from "./mono-sheet";
+import { PickerModal } from "./picker-modal";
 
 const MONTHS = [
   "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
@@ -55,6 +59,7 @@ export function DatePickerButton({
 }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const isMobile = useIsMobile();
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
@@ -75,7 +80,7 @@ export function DatePickerButton({
 
   // Popover joylashuvini hisoblash (pastga sig'masa — tepaga)
   useLayoutEffect(() => {
-    if (!open || !btnRef.current) return;
+    if (!open || isMobile || !btnRef.current) return;
     const r = btnRef.current.getBoundingClientRect();
     const popH = popRef.current?.offsetHeight ?? 348;
     const popW = popRef.current?.offsetWidth ?? 300;
@@ -89,11 +94,11 @@ export function DatePickerButton({
     if (left + popW > window.innerWidth - margin) left = window.innerWidth - popW - margin;
     if (left < margin) left = margin;
     setCoords({ top, left });
-  }, [open, view]);
+  }, [open, isMobile, view]);
 
   // Tashqariga bosilsa / Esc — yopish
   useEffect(() => {
-    if (!open) return;
+    if (!open || isMobile) return;
     function onDown(e: MouseEvent) {
       const t = e.target as Node;
       if (popRef.current?.contains(t) || btnRef.current?.contains(t)) return;
@@ -108,7 +113,7 @@ export function DatePickerButton({
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, isMobile]);
 
   const isSet = !!value;
   const selected = active ?? isSet;
@@ -162,7 +167,22 @@ export function DatePickerButton({
         </button>
       )}
 
-      {mounted && open &&
+      {isMobile && (
+        <PickerModal open={open} onClose={() => setOpen(false)} label="Sana tanlash">
+          <BigMonth
+            today={startOfDay()}
+            selected={value ? new Date(`${value}T00:00:00`) : null}
+            min={min}
+            max={max}
+            onSelect={(d) => {
+              onChange(toDateInputValue(d));
+              setOpen(false);
+            }}
+          />
+        </PickerModal>
+      )}
+
+      {mounted && open && !isMobile &&
         createPortal(
           <div
             ref={popRef}

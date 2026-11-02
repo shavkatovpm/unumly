@@ -28,6 +28,7 @@ import {
   MoreVertical, Plus, Rows3, SquareCheck, Table as TableIcon, Trash2,
 } from "lucide-react";
 import "@blocknote/mantine/style.css";
+import { fitRef } from "@/lib/fit-in-view";
 
 // Loyihada rasm qo'shish imkoniyati butunlay o'chirilgan — "image" blok
 // turi sxemadan olib tashlanadi, shuning uchun u slash-menyu, "+" tugma,
@@ -388,7 +389,7 @@ function BlockActionMenu({
 
   return createPortal(
     <div
-      ref={menuRef}
+      ref={fitRef(menuRef)}
       role="menu"
       className="fixed z-[100] overflow-hidden rounded-lg border border-border bg-surface py-1.5 shadow-2xl ring-1 ring-black/5"
       style={{ top: pos.top, left: pos.left, width: BLOCK_MENU_WIDTH }}

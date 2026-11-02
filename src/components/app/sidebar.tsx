@@ -8,7 +8,6 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Boxes,
   Calendar as CalendarIcon,
   CheckCircle2,
   ChevronRight,
@@ -269,13 +268,6 @@ export function Sidebar({
             label="Kalendar"
             icon={CalendarIcon}
             active={isActive("/kalendar")}
-            onNavigate={closeOnMobile}
-          />
-          <SidebarLink
-            href="/workspace"
-            label="Workspace"
-            icon={Boxes}
-            active={isActive("/workspace")}
             onNavigate={closeOnMobile}
           />
         </Section>

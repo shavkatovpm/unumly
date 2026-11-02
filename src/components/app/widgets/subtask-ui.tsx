@@ -37,7 +37,7 @@ export function CollapseSection({
   );
 }
 
-/* ─── Ichki vazifalar tahrirlovchisi (form): matn | o'chir | done belgi (o'ngda) ─── */
+/* ─── Ichki vazifalar tahrirlovchisi (form): mobilda o'chir | matn | done belgi, desktopda matn | o'chir | done belgi ─── */
 export function SubtaskEditor({
   subtasks,
   newSub,
@@ -71,7 +71,7 @@ export function SubtaskEditor({
             type="button"
             onClick={() => onRemove(s.id)}
             aria-label="O'chirish"
-            className="grid size-6 shrink-0 place-items-center rounded text-faint transition-colors hover:text-danger"
+            className="-order-1 grid size-6 md:order-none shrink-0 place-items-center rounded text-faint transition-colors hover:text-danger"
           >
             <X className="size-3.5" />
           </button>

@@ -30,6 +30,7 @@ import { useDragReorder } from "@/lib/use-drag-reorder";
 import { CATEGORY_COLOR_KEYS, CATEGORY_PALETTE } from "@/lib/category-palette";
 import type { Category, CategoryColor, Idea } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { fitRef } from "@/lib/fit-in-view";
 import { Dialog } from "./widgets/dialog";
 import { ConfirmDialog, useConfirmRemove } from "./widgets/confirm-dialog";
 import { IdeaDetail } from "./widgets/idea-detail";
@@ -1226,7 +1227,7 @@ function MaterialTabBar({
       {portalReady && menuFor &&
         createPortal(
           <div
-            ref={menuRef}
+            ref={fitRef(menuRef)}
             className="fade-in fixed z-[100] w-44 overflow-hidden rounded-md border border-border bg-surface shadow-xl"
             style={{ top: menuFor.top, left: menuFor.left }}
           >
@@ -1379,7 +1380,7 @@ function KanbanView(props: ViewProps) {
       {portalReady && menuFor &&
         createPortal(
           <div
-            ref={menuRef}
+            ref={fitRef(menuRef)}
             className="fade-in fixed z-[100] w-36 overflow-hidden rounded-md border border-border bg-surface shadow-xl"
             style={{ top: menuFor.top, left: menuFor.left }}
           >

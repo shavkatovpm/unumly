@@ -17,3 +17,11 @@ export function defaultListName(now: Date = new Date()): string {
   const mm = String(tz.getUTCMinutes()).padStart(2, "0");
   return `Ro'yhat — ${day}-${m} ${hh}:${mm}`;
 }
+
+/** Qo'yilgan matnni narsalarga ajratadi; `- `, `•`, `1.`, `2)` boshlanishlari olib tashlanadi. */
+export function parseListLines(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*(?:[-–—•*]|\d+[.)])\s*/, "").trim())
+    .filter(Boolean);
+}

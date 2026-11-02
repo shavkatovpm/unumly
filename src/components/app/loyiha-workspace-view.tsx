@@ -21,6 +21,7 @@ import { JadvalPanel } from "./loyiha/jadval-panel";
 import { RejaView } from "./reja-view";
 import { ProjectIcon } from "./loyiha-icons";
 import { ProjectFormModal } from "./loyiha/project-form-modal";
+import { fitRef } from "@/lib/fit-in-view";
 
 type Tab = "reja" | "hujjatlar" | "tasklar";
 
@@ -232,7 +233,7 @@ function ProjectHeaderMenu({
 
   return createPortal(
     <div
-      ref={menuRef}
+      ref={fitRef(menuRef)}
       role="menu"
       className="fixed z-[100] overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-2xl ring-1 ring-black/5"
       style={{ top: pos.top, left: pos.left, width: HEADER_MENU_WIDTH }}

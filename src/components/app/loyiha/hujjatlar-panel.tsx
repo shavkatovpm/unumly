@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Check, ChevronRight, CornerDownRight, FileText, ListChecks, MoreVertical, Pencil, Plus, Table2, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fitRef } from "@/lib/fit-in-view";
 import { usePages } from "@/lib/pages-store";
 import type { Page } from "@/lib/types";
 import type { PartialBlock } from "@blocknote/core";
@@ -522,7 +523,7 @@ function PageCardMenu({
 
   return createPortal(
     <div
-      ref={menuRef}
+      ref={fitRef(menuRef)}
       role="menu"
       className="fixed z-[100] overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-2xl ring-1 ring-black/5"
       style={{ top: pos.top, left: pos.left, width: CARD_MENU_WIDTH }}

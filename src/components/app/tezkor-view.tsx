@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMobileAdd } from "@/lib/mobile-add";
-import { MonoBlock, MonoHeader, MonoSave, MonoSheet, useIsMobile } from "./widgets/mono-sheet";
+import { MonoHeader, MonoSave, MonoSheet, useIsMobile } from "./widgets/mono-sheet";
 import { AnimatePresence, motion } from "framer-motion";
 import { useBlurInputOnScrollOut } from "@/lib/use-blur-on-scroll-out";
 import {
   Bot,
   Check,
+  ChevronRight,
   ListChecks,
   Plus,
   Smartphone,
@@ -15,11 +16,13 @@ import {
 } from "lucide-react";
 import type { QuickList } from "@/lib/tezkor-types";
 import { useHydratedLists, useQuickLists } from "@/lib/tezkor-store";
-import { defaultListName } from "@/lib/tezkor-utils";
+import { defaultListName, parseListLines } from "@/lib/tezkor-utils";
 import { cn } from "@/lib/utils";
 import { ListLoader } from "./widgets/list-loader";
 import { useScrollLock } from "@/lib/use-scroll-lock";
+import { startOfDay, toDateInputValue } from "@/lib/dates";
 import { TezkorListDetail } from "./widgets/tezkor-list-detail";
+import { TezkorListSheet } from "./widgets/tezkor-list-sheet";
 
 export function TezkorView() {
   const {
@@ -35,6 +38,8 @@ export function TezkorView() {
     reorderItems,
   } = useQuickLists();
   const hydrated = useHydratedLists();
+  const mobile = useIsMobile();
+  const Detail = mobile ? TezkorListSheet : TezkorListDetail;
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -55,7 +60,7 @@ export function TezkorView() {
       style={{ height: "var(--tg-vh, 100vh)" }}
     >
       {/* Header */}
-      <header className="flex h-12 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
+      <header className="hidden h-12 items-center justify-between gap-2 border-b border-border px-4 md:flex md:px-6">
         <div className="flex min-w-0 items-center gap-2">
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Tezkor</h1>
           <span className="truncate text-[13px] text-faint sm:text-[12px]">
@@ -69,8 +74,11 @@ export function TezkorView() {
         )}
       </header>
 
+      {/* Mobil sarlavha */}
+      {lists.length > 0 && <MobileTitle lists={lists} />}
+
       {/* Content */}
-      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:pb-8 lg:max-w-3xl xl:max-w-4xl">
+      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-32 pt-2 sm:px-6 md:pb-8 md:pt-8 lg:max-w-3xl xl:max-w-4xl">
         {/* Intro / empty state */}
         {!hydrated && lists.length === 0 ? (
           <ListLoader />
@@ -110,7 +118,7 @@ export function TezkorView() {
               </button>
             </div>
 
-            <div className="rise-in space-y-2.5" style={{ animationDelay: "60ms" }}>
+            <div className="rise-in hidden space-y-2.5 md:block" style={{ animationDelay: "60ms" }}>
               {sorted.map((list) => (
                 <ListCard
                   key={list.id}
@@ -118,6 +126,10 @@ export function TezkorView() {
                   onOpen={() => setOpenId(list.id)}
                 />
               ))}
+            </div>
+
+            <div className="md:hidden">
+              <MobileLists lists={sorted} onOpen={setOpenId} />
             </div>
           </>
         )}
@@ -132,7 +144,7 @@ export function TezkorView() {
         }}
       />
 
-      <TezkorListDetail
+      <Detail
         list={openList}
         open={!!openList}
         onClose={() => setOpenId(null)}
@@ -152,6 +164,72 @@ export function TezkorView() {
         onReorderItems={reorderItems}
       />
     </div>
+  );
+}
+
+function MobileTitle({ lists }: { lists: QuickList[] }) {
+  const total = lists.reduce((n, l) => n + l.items.length, 0);
+  const done = lists.reduce((n, l) => n + l.items.filter((i) => i.done).length, 0);
+  return (
+    <div className="flex items-center justify-between px-4 pt-3 md:hidden">
+      <h1 className="text-[28px] font-bold tracking-[-0.03em]">Tezkor</h1>
+      <span className="rounded-full bg-subtle px-3 py-1.5 text-[13px] font-semibold tabular-nums">{done}/{total}</span>
+    </div>
+  );
+}
+
+function ProgressRing({ value, children }: { value: number; children: React.ReactNode }) {
+  const size = 38;
+  const stroke = 3.5;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <span className="relative grid size-[38px] shrink-0 place-items-center">
+      <svg width={size} height={size} className="absolute inset-0 -rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--subtle)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--foreground)" strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - value)} className="transition-[stroke-dashoffset] duration-300" />
+      </svg>
+      {children}
+    </span>
+  );
+}
+
+/* Mobil: yangilangan kuni bo'yicha guruhlangan ixcham ro'yhat. */
+function MobileLists({ lists, onOpen }: { lists: QuickList[]; onOpen: (id: string) => void }) {
+  const today = toDateInputValue(startOfDay());
+  const isToday = (l: QuickList) => toDateInputValue(new Date(l.updatedAt)) === today;
+  const groups = [
+    { label: "Bugun", rows: lists.filter(isToday) },
+    { label: "Avvalroq", rows: lists.filter((l) => !isToday(l)) },
+  ].filter((g) => g.rows.length > 0);
+
+  return (
+    <>
+      {groups.map((g) => (
+        <div key={g.label} className="mt-4">
+          <p className="mb-1.5 px-1 text-[13px] font-semibold text-muted">{g.label}</p>
+          <div className="overflow-hidden rounded-[22px] border border-border bg-surface">
+            {g.rows.map((l, idx) => {
+              const done = l.items.filter((i) => i.done).length;
+              const left = l.items.filter((i) => !i.done).map((i) => i.text).join(", ");
+              return (
+                <button key={l.id} type="button" onClick={() => onOpen(l.id)} className={cn("flex w-full items-center gap-3 px-3.5 py-3 text-left", idx > 0 && "border-t border-border")}>
+                  <ProgressRing value={l.items.length ? done / l.items.length : 0}>
+                    {l.source === "bot" ? <Bot className="size-3.5 text-muted" /> : <Check className="size-3.5 text-muted" strokeWidth={3} />}
+                  </ProgressRing>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[16px] font-semibold tracking-[-0.01em]">{l.name}</span>
+                    <span className="block truncate text-[13px] text-faint">{left || (l.items.length ? "Hammasi bajarildi" : "Bo'sh ro'yhat")}</span>
+                  </span>
+                  <span className="shrink-0 text-[13px] tabular-nums text-muted">{done}/{l.items.length}</span>
+                  <ChevronRight className="size-4 shrink-0 text-faint" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -222,25 +300,69 @@ function CreateListModal(props: { open: boolean; onClose: () => void; onCreate: 
   );
 }
 
-/* Mobil: nom ixtiyoriy, har qatorga bitta narsa (ko'p qatorli matn ham qo'yiladi). */
+/* Mobil: nom ixtiyoriy, narsalar qatorma-qator; qo'yilgan matn qatorlarga bo'linadi. */
 function CreateListMobile({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string, items: string[]) => void }) {
   const [name, setName] = useState("");
-  const [body, setBody] = useState("");
-  const items = body.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  const [rows, setRows] = useState<{ id: number; text: string }[]>([]);
+  const [text, setText] = useState("");
+  const nextId = useRef(1);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function push(lines: string[]) {
+    setRows((all) => [...all, ...lines.map((line) => ({ id: nextId.current++, text: line }))]);
+    setText("");
+  }
+  const items = [...rows.map((r) => r.text.trim()), text.trim()].filter(Boolean);
+
   return (
     <>
       <MonoHeader label="Yangi ro'yhat" value={name} onChange={setName} placeholder="Nom (ixtiyoriy)" onClose={onClose} autoFocus={false} />
-      <MonoBlock icon={ListChecks} label="Har qatorga bitta narsa" aside={<span className="tabular-nums opacity-60">{items.length} ta</span>}>
-        <textarea
-          autoFocus
-          rows={7}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder={"Bodring\nPomidor\nGugurt"}
-          className="w-full resize-none bg-transparent text-[16px] font-medium leading-relaxed outline-none placeholder:font-normal placeholder:text-faint"
-        />
-      </MonoBlock>
-      <MonoSave disabled={items.length === 0} onClick={() => onCreate(name.trim() || defaultListName(), items)}>Saqlash</MonoSave>
+      <div className="rounded-[24px] border border-border bg-surface px-4 py-2">
+        {rows.map((r) => (
+          <div key={r.id} className="flex h-11 items-center gap-2 border-b border-border">
+            <input
+              value={r.text}
+              onChange={(e) => setRows((all) => all.map((x) => (x.id === r.id ? { ...x, text: e.target.value } : x)))}
+              aria-label="Narsa"
+              className="min-w-0 flex-1 bg-transparent text-[16px] font-medium outline-none"
+            />
+            <button type="button" onClick={() => setRows((all) => all.filter((x) => x.id !== r.id))} aria-label="O'chirish" className="grid size-8 shrink-0 place-items-center rounded-full text-faint">
+              <X className="size-4" />
+            </button>
+          </div>
+        ))}
+        <div className="flex h-11 items-center gap-2">
+          <Plus className="size-5 shrink-0 text-faint" />
+          <input
+            ref={inputRef}
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && text.trim()) {
+                e.preventDefault();
+                push([text.trim()]);
+              }
+            }}
+            onPaste={(e) => {
+              const lines = parseListLines(e.clipboardData.getData("text"));
+              if (lines.length > 1) {
+                e.preventDefault();
+                push(lines);
+              }
+            }}
+            enterKeyHint="next"
+            placeholder={rows.length ? "Yana nima?" : "Birinchi narsani yozing yoki qo'ying"}
+            className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-faint"
+          />
+        </div>
+      </div>
+      <p className="flex items-center justify-center gap-1.5 py-1 text-[12.5px] text-faint">
+        <Bot className="size-3.5" /> Botga matn yuborsangiz ham ro&apos;yhat bo&apos;ladi
+      </p>
+      <MonoSave disabled={items.length === 0} onClick={() => onCreate(name.trim() || defaultListName(), items)}>
+        {items.length > 0 ? `${items.length} ta bilan saqlash` : "Saqlash"}
+      </MonoSave>
     </>
   );
 }

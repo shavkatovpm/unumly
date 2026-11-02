@@ -22,9 +22,6 @@ function toProject(p: DbProject): Project {
     archivedAt: p.archivedAt ? p.archivedAt.toISOString() : undefined,
     category: (p.category as LoyihaKategoriya | null) ?? undefined,
     targetHours: p.targetHours ?? undefined,
-    inWorkspaceAt: p.inWorkspaceAt ? p.inWorkspaceAt.toISOString() : undefined,
-    workspaceOrder: p.workspaceOrder ?? undefined,
-    workspacePriority: p.workspacePriority,
   };
 }
 
@@ -42,7 +39,6 @@ export type CreateProjectInput = {
   title: string;
   icon?: string;
   color?: CategoryColor;
-  addToWorkspace?: boolean;
 };
 
 export async function createProject(input: CreateProjectInput): Promise<Project> {
@@ -55,7 +51,6 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
       title: input.title.trim(),
       icon: input.icon,
       color: input.color,
-      ...(input.addToWorkspace && { inWorkspaceAt: new Date() }),
       order: (last?.order ?? -1) + 1,
     },
   });
@@ -70,9 +65,6 @@ export type UpdateProjectPatch = Partial<{
   archivedAt: string | null;
   category: LoyihaKategoriya | null;
   targetHours: number | null;
-  inWorkspaceAt: string | null;
-  workspaceOrder: number | null;
-  workspacePriority: number;
 }>;
 
 export async function updateProject(id: string, patch: UpdateProjectPatch): Promise<Project> {
@@ -90,11 +82,6 @@ export async function updateProject(id: string, patch: UpdateProjectPatch): Prom
       ...(patch.archivedAt !== undefined && { archivedAt: patch.archivedAt ? new Date(patch.archivedAt) : null }),
       ...(patch.category !== undefined && { category: patch.category }),
       ...(patch.targetHours !== undefined && { targetHours: patch.targetHours }),
-      ...(patch.inWorkspaceAt !== undefined && {
-        inWorkspaceAt: patch.inWorkspaceAt ? new Date(patch.inWorkspaceAt) : null,
-      }),
-      ...(patch.workspaceOrder !== undefined && { workspaceOrder: patch.workspaceOrder }),
-      ...(patch.workspacePriority !== undefined && { workspacePriority: patch.workspacePriority }),
     },
   });
   return toProject(row);
@@ -107,33 +94,3 @@ export async function removeProject(id: string): Promise<void> {
   await prisma.project.deleteMany({ where: { id, userId: user.id } });
 }
 
-/** /workspace grid'i uchun: shu kesimga qo'shilgan loyihalar, ularning
- *  workspace'ga qo'shilgan tasklari bilan birga — kartadagi "N/M task"
- *  hisobi shu yerdan (alohida so'rovsiz). */
-export type WorkspaceProjectRow = {
-  id: string;
-  title: string;
-  icon?: string;
-  color?: CategoryColor;
-  done: number;
-  total: number;
-  priority: number; // 1-3, 3 = eng muhim
-};
-
-export async function listWorkspaceProjects(): Promise<WorkspaceProjectRow[]> {
-  const user = await requireUser();
-  const rows = await prisma.project.findMany({
-    where: { userId: user.id, inWorkspaceAt: { not: null } },
-    include: { tasks: { where: { inWorkspaceAt: { not: null } }, select: { done: true } } },
-    orderBy: [{ workspaceOrder: "asc" }, { createdAt: "asc" }],
-  });
-  return rows.map((p) => ({
-    id: p.id,
-    title: p.title,
-    icon: p.icon ?? undefined,
-    color: (p.color as CategoryColor | null) ?? undefined,
-    done: p.tasks.filter((t) => t.done).length,
-    total: p.tasks.length,
-    priority: p.workspacePriority,
-  }));
-}

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
 import { KATEGORIYALAR } from "@/lib/kategoriya";
 import type { LoyihaKategoriya } from "@/lib/types";
+import { fitRef } from "@/lib/fit-in-view";
 
 /** Loyihaga A/B/C/D kategoriya belgilash — eski va yangi loyihalarning
  *  barchasida bir xil mexanizm orqali ishlaydi (PriorityPicker naqshiga
@@ -96,7 +97,7 @@ export function KategoriyaPicker({
       </button>
       {mounted && open && pos && createPortal(
         <div
-          ref={menuRef}
+          ref={fitRef(menuRef)}
           role="menu"
           style={{ top: pos.top, left: pos.left }}
           className="fixed z-[120] w-48 rounded-lg border border-border bg-surface p-1.5 shadow-lg"

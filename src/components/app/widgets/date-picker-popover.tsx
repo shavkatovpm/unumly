@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import type { Plan } from "@/lib/types";
 import { MiniMonth } from "../kalendar/mini-month";
+import { BigMonth } from "./big-month";
+import { useIsMobile } from "./mono-sheet";
+import { PickerModal } from "./picker-modal";
 
 const POPOVER_WIDTH = 280;
 const POPOVER_HEIGHT_APPROX = 320;
@@ -30,13 +33,18 @@ export function DatePickerPopover({
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [mounted, setMounted] = useState(false);
+  const isMobile = useIsMobile();
+  const planDates = useMemo(
+    () => new Set(plans.filter((p) => p.scope === "DAILY").map((p) => p.scheduledFor)),
+    [plans]
+  );
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useLayoutEffect(() => {
-    if (!open) {
+    if (!open || isMobile) {
       setPos(null);
       return;
     }
@@ -62,10 +70,10 @@ export function DatePickerPopover({
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
-  }, [open, triggerRef]);
+  }, [open, isMobile, triggerRef]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || isMobile) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.stopPropagation();
@@ -87,7 +95,23 @@ export function DatePickerPopover({
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [open, onClose, triggerRef]);
+  }, [open, isMobile, onClose, triggerRef]);
+
+  if (isMobile) {
+    return (
+      <PickerModal open={open} onClose={onClose} label="Sana tanlash">
+        <BigMonth
+          today={today}
+          selected={selected}
+          planDates={planDates}
+          onSelect={(d) => {
+            onSelect(d);
+            onClose();
+          }}
+        />
+      </PickerModal>
+    );
+  }
 
   if (!open || !mounted || !pos) return null;
 

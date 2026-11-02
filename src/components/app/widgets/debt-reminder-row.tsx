@@ -7,6 +7,7 @@ import type { DebtReminder } from "@/lib/debt-reminders";
 import { shiftIso } from "@/lib/debt-reminders";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { fitInView } from "@/lib/fit-in-view";
 
 const SNOOZE_OPTS = [
   { days: 1, label: "Ertaga" },
@@ -79,7 +80,7 @@ export function DebtReminderRow({
         {snoozeOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setSnoozeOpen(false)} />
-            <div className="absolute right-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-border bg-surface shadow-lg">
+            <div ref={fitInView} className="absolute right-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-border bg-surface shadow-lg">
               {SNOOZE_OPTS.map((o) => (
                 <button
                   key={o.days}

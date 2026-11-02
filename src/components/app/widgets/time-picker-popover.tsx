@@ -3,6 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { useIsMobile } from "./mono-sheet";
+import { PickerModal } from "./picker-modal";
 import { TimePicker } from "./time-picker";
 import type { OccupiedSlot } from "@/lib/dates";
 
@@ -34,6 +36,7 @@ export function TimePickerPopover({
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [mounted, setMounted] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     setMounted(true);
@@ -41,7 +44,7 @@ export function TimePickerPopover({
 
   // Compute position relative to the trigger.
   useLayoutEffect(() => {
-    if (!open) {
+    if (!open || isMobile) {
       setPos(null);
       return;
     }
@@ -93,12 +96,12 @@ export function TimePickerPopover({
         vv.removeEventListener("scroll", place);
       }
     };
-  }, [open, triggerRef]);
+  }, [open, isMobile, triggerRef]);
 
   // Close on Escape / outside click. Defer listener attach to next tick to
   // avoid catching the same click that opened the popover.
   useEffect(() => {
-    if (!open) return;
+    if (!open || isMobile) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.stopPropagation();
@@ -120,7 +123,25 @@ export function TimePickerPopover({
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [open, onClose, triggerRef]);
+  }, [open, isMobile, onClose, triggerRef]);
+
+  if (isMobile) {
+    return (
+      <PickerModal open={open} onClose={onClose} label="Vaqt tanlash">
+        <TimePicker
+          large
+          value={value}
+          onChange={(v) => {
+            onChange(v);
+            onClose();
+          }}
+          onClear={onClear}
+          disableBefore={disableBefore}
+          occupiedSlots={occupiedSlots}
+        />
+      </PickerModal>
+    );
+  }
 
   if (!open || !mounted || !pos) return null;
 

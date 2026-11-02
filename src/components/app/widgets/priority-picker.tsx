@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import type { PlanPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { fitRef } from "@/lib/fit-in-view";
 
 const OPTIONS: { value: PlanPriority; label: string; cls: string }[] = [
   { value: "HIGH",   label: "Yuqori", cls: "bg-priority-high" },
@@ -106,7 +107,7 @@ export function PriorityPicker({
       />
       {mounted && open && pos && createPortal(
         <div
-          ref={menuRef}
+          ref={fitRef(menuRef)}
           role="menu"
           style={{ top: pos.top, left: pos.left }}
           className="fixed z-[120] flex items-center gap-1 rounded-md border border-border bg-surface p-1 shadow-lg"

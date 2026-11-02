@@ -8,7 +8,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, ChevronLeft, ChevronRight, ListChecks, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ChevronsDown, ListChecks, Pencil, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMobileAdd } from "@/lib/mobile-add";
 import { ensureVisibleOnFocus } from "@/lib/ensure-visible";
@@ -71,10 +71,14 @@ export function MaqsadView() {
   return (
     <div className="flex flex-col overflow-hidden" style={{ height: "var(--tg-vh, 100vh)" }}>
       <header className="z-10 shrink-0 bg-background">
-        <div className="flex h-12 items-center px-4 md:px-6">
+        <div className="hidden h-12 items-center px-4 md:flex md:px-6">
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Maqsad</h1>
         </div>
-        <div className="mx-auto w-full max-w-2xl px-4 pb-3 md:px-6">
+        <div className="px-4 pb-3 pt-3 md:hidden">
+          <h1 className="text-[28px] font-bold tracking-[-0.03em]">Maqsad</h1>
+          <div className="mt-3"><PeriodTiles value={horizon} onChange={setHorizon} /></div>
+        </div>
+        <div className="mx-auto hidden w-full max-w-2xl px-4 pb-3 md:block md:px-6">
           <div role="tablist" aria-label="Maqsad davri" className="grid grid-cols-4 rounded-xl bg-subtle p-1">
             {HORIZONS.map((h) => {
               const on = h.id === horizon;
@@ -118,13 +122,18 @@ export function MaqsadView() {
             <EmptyState horizon={horizon} onAdd={() => setForm({})} />
           ) : (
             <>
-              <div className="mb-2 mt-2 flex items-baseline justify-between px-1">
+              <div className="mb-2 mt-2 hidden items-baseline justify-between px-1 md:flex">
                 <p className="text-[13px] font-semibold">{horizonMeta(horizon).adjective} maqsadlar</p>
                 <p className="text-[12.5px] tabular-nums text-faint">{doneCount}/{list.length} bajarildi</p>
               </div>
-              <div className="space-y-2">
+              <div className="hidden space-y-2 md:block">
                 {list.map((g) => (
                   <GoalCard key={g.id} goal={g} goals={goals} today={today} onOpen={() => setOpenId(g.id)} />
+                ))}
+              </div>
+              <div className="overflow-hidden rounded-[22px] border border-border bg-surface md:hidden">
+                {list.map((g) => (
+                  <GoalRow key={g.id} goal={g} goals={goals} today={today} onOpen={() => setOpenId(g.id)} />
                 ))}
               </div>
               <button type="button" onClick={() => setForm({})} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border py-3.5 text-[13.5px] font-medium text-muted transition-colors hover:bg-hover">
@@ -166,6 +175,39 @@ export function MaqsadView() {
         onClose={() => setRemoving(null)}
       />
     </div>
+  );
+}
+
+/* Mobil davr tanlovi: faqat nomlar, tanlangani to'liq rangda. */
+function PeriodTiles({ value, onChange }: { value: GoalHorizon; onChange: (h: GoalHorizon) => void }) {
+  return (
+    <div role="radiogroup" aria-label="Davr" className="grid grid-cols-4 gap-2">
+      {HORIZONS.map((h) => {
+        const on = h.id === value;
+        return (
+          <button
+            key={h.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onChange(h.id)}
+            className={cn("h-12 rounded-[18px] border text-[15px] font-semibold transition-colors", on ? "border-accent bg-accent text-accent-ink" : "border-border bg-surface text-muted")}
+          >
+            {h.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* Qadamlar soni bo'yicha bo'lakli ko'rsatkich. */
+function StepsBar({ steps }: { steps: HorizonGoalStep[] }) {
+  return (
+    <span className="flex gap-1">
+      {steps.map((s) => <span key={s.id} className={cn("h-1 flex-1 rounded-full transition-colors", s.done ? "bg-foreground" : "bg-subtle")} />)}
+    </span>
   );
 }
 
@@ -224,6 +266,26 @@ function GoalCard({ goal, goals, today, onOpen }: { goal: HorizonGoal; goals: Ho
       </div>
       {total > 0 && <ProgressBar done={done} total={total} className="mx-3.5 mb-3.5" />}
     </article>
+  );
+}
+
+/* Mobil: butun qator faqat maqsad ichiga kiradi, amallar oynada. */
+function GoalRow({ goal, goals, today, onOpen }: { goal: HorizonGoal; goals: HorizonGoal[]; today: string; onOpen: () => void }) {
+  const { done, total } = stepProgress(goal);
+  const moved = goalMoved(goal, goals, today);
+  return (
+    <button type="button" onClick={onOpen} className="flex min-h-[68px] w-full items-center gap-3 border-t border-border px-3.5 py-3 text-left first:border-t-0">
+      <span className={cn("grid size-6 shrink-0 place-items-center rounded-full border-2", goal.done ? "border-accent bg-accent text-accent-ink" : "border-border-strong")}>
+        {goal.done && <Check className="size-3.5" strokeWidth={3.5} />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={cn("block text-[15.5px] font-semibold leading-snug", goal.done && "text-faint line-through decoration-faint/60")}>{goal.title}</span>
+        {total > 0 && <span className="mt-1.5 block"><StepsBar steps={goal.steps} /></span>}
+        {total > 0 && <span className="mt-1 block text-[12px] text-faint">{done}/{total} qadam</span>}
+        {!goal.done && moved && <span className="mt-1 flex items-center gap-1 text-[12px] text-faint"><Check className="size-3" strokeWidth={3} />{moved}</span>}
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-faint" />
+    </button>
   );
 }
 
@@ -291,10 +353,17 @@ function GoalDetailMobile({ goal, goals, today, onClose, onRemove }: GoalDetailP
             <X className="size-4" strokeWidth={2.4} />
           </button>
         </div>
-        {total > 0 && <ProgressBar done={done} total={total} className="mt-3" />}
+        {total > 0 && <span className="mt-3 block"><StepsBar steps={goal.steps} /></span>}
         {!goal.done && (
           <div className="mt-3">
-            <MoveButton horizon={goal.horizon} moved={goalMoved(goal, goals, today)} onMove={() => api.moveGoal(goal, today)} />
+            {goalMoved(goal, goals, today) ? (
+              <MoveButton horizon={goal.horizon} moved={goalMoved(goal, goals, today)} onMove={() => {}} />
+            ) : (
+              <button type="button" onClick={() => api.moveGoal(goal, today)} className="flex h-9 items-center gap-1.5 rounded-full bg-subtle px-3.5 text-[13px] font-semibold">
+                <ChevronsDown className="size-4" />
+                <span>{`${MOVE_LABELS[goal.horizon].action} o'tkazish`}</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -306,7 +375,7 @@ function GoalDetailMobile({ goal, goals, today, onClose, onRemove }: GoalDetailP
         <MonoSave disabled={!title.trim()} onClick={saveTitle}>Saqlash</MonoSave>
       </MonoExpand>
       <MonoBlock icon={ListChecks} label="Nima qilish kerak?" aside={total > 0 ? <span className="tabular-nums opacity-60">{done}/{total}</span> : undefined}>
-        {goal.steps.map((s) => <StepRow key={s.id} step={s} goal={goal} goals={goals} today={today} />)}
+        {goal.steps.map((s) => <StepRowMobile key={s.id} step={s} goal={goal} goals={goals} today={today} />)}
         <AddStep goalId={goal.id} />
       </MonoBlock>
     </MonoSheet>
@@ -351,6 +420,55 @@ function GoalDetailDesktop({ goal, goals, today, onClose, onEdit, onRemove }: Go
         </footer>
       </div>
     </Dialog>
+  );
+}
+
+/* Mobil qadam: o'chirish chapda, belgilash o'ngda. */
+function StepRowMobile({ step, goal, goals, today }: { step: HorizonGoalStep; goal: HorizonGoal; goals: HorizonGoal[]; today: string }) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(step.title);
+  const moved = stepMoved(step, goal, goals, today);
+
+  function commit() {
+    setEditing(false);
+    const next = title.trim();
+    if (next && next !== step.title) api.renameStep(step.id, next);
+    else setTitle(step.title);
+  }
+
+  return (
+    <div className="flex min-h-11 items-center gap-1.5">
+      <button type="button" onClick={() => api.removeStep(step.id)} aria-label="Qadamni o'chirish" className="-ml-1.5 grid size-8 shrink-0 place-items-center rounded-full text-faint">
+        <X className="size-4" />
+      </button>
+      {editing ? (
+        <input
+          autoFocus
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onFocus={ensureVisibleOnFocus}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+          enterKeyHint="done"
+          className="min-w-0 flex-1 bg-transparent text-[16px] outline-none"
+        />
+      ) : (
+        <button type="button" onClick={() => setEditing(true)} className={cn("min-w-0 flex-1 truncate text-left text-[15px]", step.done && "text-faint line-through decoration-faint/60")}>
+          {step.title}
+        </button>
+      )}
+      {!step.done && !editing && (moved
+        ? <span className="flex shrink-0 items-center gap-1 text-[12px] text-faint"><Check className="size-3" strokeWidth={3} />{moved}</span>
+        : <button type="button" onClick={() => api.moveStep(step, goal, today)} aria-label={MOVE_LABELS[goal.horizon].action} className="grid size-8 shrink-0 place-items-center rounded-full text-muted"><ChevronsDown className="size-4" /></button>)}
+      <button
+        type="button"
+        onClick={() => api.setStepDone(step.id, !step.done)}
+        aria-label={step.done ? "Bajarilmagan deb belgilash" : "Bajarildi"}
+        className={cn("grid size-6 shrink-0 place-items-center rounded-full border-2 transition-colors", step.done ? "border-accent bg-accent text-accent-ink" : "border-border-strong")}
+      >
+        {step.done && <Check className="size-3.5" strokeWidth={3.5} />}
+      </button>
+    </div>
   );
 }
 
@@ -443,7 +561,7 @@ function GoalForm(props: GoalFormProps) {
   return mobile ? <GoalFormMobile {...props} /> : <GoalFormDesktop {...props} />;
 }
 
-/* Mobil: davr tanlovi bitta qatorda, tanlangani oq. */
+/* Mobil: davr katakchalarda, tanlangan davr nomi ostida. */
 function GoalFormMobile({ horizon, periodStart, today, goal, onCreatedIn, onClose }: GoalFormProps) {
   const [title, setTitle] = useState(goal?.title ?? "");
   const [picked, setPicked] = useState(horizon);
@@ -465,25 +583,12 @@ function GoalFormMobile({ horizon, periodStart, today, goal, onCreatedIn, onClos
     <MonoSheet open onClose={onClose} label={goal ? "Maqsadni tahrirlash" : "Yangi maqsad"}>
       <MonoHeader label={goal ? "Tahrirlash" : "Yangi maqsad"} value={title} onChange={setTitle} placeholder={PROMPTS[picked].question} onEnter={save} onClose={onClose} />
       {!goal && (
-        <div role="radiogroup" aria-label="Davr" className="grid grid-cols-4 rounded-[20px] bg-subtle p-1">
-          {HORIZONS.map((h) => {
-            const on = h.id === picked;
-            return (
-              <button
-                key={h.id}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setPicked(h.id)}
-                className={cn("relative h-11 rounded-2xl text-[14.5px] font-bold transition-colors", on ? "text-black" : "text-faint")}
-              >
-                {on && <motion.span layoutId="goal-form-horizon" transition={SPRING} className="absolute inset-0 rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.14)]" />}
-                <span className="relative">{h.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <>
+          <PeriodTiles value={picked} onChange={setPicked} />
+          <p className="px-2 text-center text-[13px] text-muted">
+            {periodName(picked, picked === horizon ? periodStart : periodStartOf(picked, today), today)} · {periodRange(picked, picked === horizon ? periodStart : periodStartOf(picked, today))}
+          </p>
+        </>
       )}
       <MonoSave disabled={!title.trim()} onClick={save}>{goal ? "Saqlash" : undefined}</MonoSave>
     </MonoSheet>
