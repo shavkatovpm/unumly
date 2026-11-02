@@ -23,7 +23,7 @@ function nextId() {
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void appData()
+  void appData("finance")
     .then((d) => d?.debts ?? actions.listDebts())
     .then((rows) => { hydrated = true; if (pending === 0) memoryState = rows; emit(); })
     .catch(() => { hydrated = true; emit(); })

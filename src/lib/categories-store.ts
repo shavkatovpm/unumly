@@ -66,7 +66,7 @@ function hydrateOnce(key: string, projectId?: string) {
   const s = getScope(key);
   if (s.hydrated || s.hydrating || typeof window === "undefined") return;
   s.hydrating = true;
-  void (projectId ? actions.listCategories(projectId) : appData().then((d) => d?.categories ?? actions.listCategories()))
+  void (projectId ? actions.listCategories(projectId) : appData("tasks").then((d) => d?.categories ?? actions.listCategories()))
     .then((rows) => {
       s.hydrated = true;
       // Shu birinchi fetch davomida optimistik mutatsiya boshlangan

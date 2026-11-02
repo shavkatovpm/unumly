@@ -37,7 +37,7 @@ export async function syncOccurrences(): Promise<void> {
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void appData()
+  void appData("rest")
     .then((d) => d?.habits ?? actions.listHabits())
     .then((rows) => { hydrated = true; if (pending === 0) memoryState = rows; emit(); })
     .catch(() => { hydrated = true; emit(); })

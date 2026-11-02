@@ -19,7 +19,7 @@ function nextId() { return typeof crypto !== "undefined" && "randomUUID" in cryp
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void appData()
+  void appData("rest")
     .then((d) => d?.habitCategories ?? actions.listHabitCategories())
     .then((rows) => { hydrated = true; if (pending === 0) memoryState = rows; emit(); })
     .catch(() => { hydrated = true; emit(); })

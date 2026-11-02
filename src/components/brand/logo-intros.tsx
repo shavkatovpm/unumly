@@ -43,7 +43,7 @@ function LightStage({
       style={{ background: NIGHT }}
       initial={{ opacity: 1 }}
       animate={{ opacity: played && ready ? 0 : 1 }}
-      transition={{ duration: 0.8, ease: "easeInOut" }}
+      transition={{ duration: 0.4, ease: "easeInOut" }}
       onAnimationComplete={() => {
         if (played && ready) onDone?.();
       }}
@@ -59,34 +59,14 @@ function LightStage({
   );
 }
 
-/** Harf to'liq yorug' holatga asta keladi, atrofida yumshoq nur qoladi */
-function SettledGlyph({ delay }: { delay: number }) {
-  return (
-    <motion.g
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay, duration: 1.1, ease: "easeInOut" }}
-    >
-      <path
-        d={LOGO_GLYPH_PATH}
-        fill="#fff"
-        fillRule="evenodd"
-        opacity={0.28}
-        style={{ filter: "blur(1.6cqmin)" }}
-      />
-      <path d={LOGO_GLYPH_PATH} fill="#fff" fillRule="evenodd" />
-    </motion.g>
-  );
-}
-
 /** Yorug'lik qalamdek harfni yozish tartibida bosib o'tadi */
 export function IntroTrace({ ready, onDone }: IntroProps) {
   const maskId = useId();
   const softId = useId();
-  const write = { delay: 0.3, duration: 2, ease: [0.45, 0.05, 0.4, 1] } as const;
+  const write = { delay: 0.1, duration: 1.4, ease: [0.45, 0.05, 0.4, 1] } as const;
   const region = { x: 0, y: 0, width: 512, height: 512 };
   return (
-    <LightStage playFor={3.7} ready={ready} onDone={onDone}>
+    <LightStage playFor={2} ready={ready} onDone={onDone}>
       <defs>
         <filter id={softId} filterUnits="userSpaceOnUse" {...region}>
           <feGaussianBlur stdDeviation={9} />
@@ -97,7 +77,7 @@ export function IntroTrace({ ready, onDone }: IntroProps) {
               d={LOGO_STROKE_PATH}
               fill="none"
               stroke="#fff"
-              strokeWidth={LOGO_STROKE_WIDTH + 18}
+              strokeWidth={LOGO_STROKE_WIDTH + 30}
               strokeLinecap="round"
               strokeLinejoin="round"
               initial={{ pathLength: 0, opacity: 0 }}
@@ -131,7 +111,6 @@ export function IntroTrace({ ready, onDone }: IntroProps) {
           opacity: { ...write, ease: "linear", times: [0, 0.08, 0.92, 1] },
         }}
       />
-      <SettledGlyph delay={2.15} />
     </LightStage>
   );
 }

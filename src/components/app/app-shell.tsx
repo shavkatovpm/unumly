@@ -277,6 +277,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden">
+      {/* HTML'da birinchi turadi — sekin tarmoqda ham ilovadan oldin chiziladi */}
+      <AppIntro />
+
       {/* Hamburger toggle — desktop only (mobile uses bottom tabs) */}
       <button
         type="button"
@@ -323,8 +326,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom navigation */}
       <MobileBottomNav todayCount={todayCount} />
-
-      <AppIntro />
 
       {/* Buyruqlar oynasi (⌘K) + klaviatura shortcut'lari — desktop */}
       <CommandPalette

@@ -24,37 +24,56 @@ function optional<T>(p: Promise<T>): Promise<T | null> {
   return p.catch(() => null);
 }
 
-async function loadAppData() {
-  const [plans, ideas, categories, habits, habitCategories, horizonGoals, finance, debts, projects, quickLists, taqsimot] =
-    await Promise.all([
-      optional(listPlans()),
-      optional(listIdeas()),
-      optional(listCategories()),
-      optional(listHabits()),
-      optional(listHabitCategories()),
-      optional(listHorizonGoals()),
-      optional(
-        Promise.all([
-          listTransactions(),
-          listFinanceCategories(),
-          listBudgets(),
-          listFinancialGoals(),
-        ]).then(([txns, cats, budgets, goals]) => ({ txns, cats, budgets, goals }))
-      ),
-      optional(listDebts()),
-      optional(listProjects()),
-      optional(listLists()),
-      optional(Promise.all([getTaqsimotSettings(), getFocusCounts()])),
-    ]);
-  return { plans, ideas, categories, habits, habitCategories, horizonGoals, finance, debts, projects, quickLists, taqsimot };
+async function loadTasks() {
+  const [plans, categories, ideas, quickLists, projects] = await Promise.all([
+    optional(listPlans()),
+    optional(listCategories()),
+    optional(listIdeas()),
+    optional(listLists()),
+    optional(listProjects()),
+  ]);
+  return { plans, categories, ideas, quickLists, projects };
 }
 
-export type AppData = Awaited<ReturnType<typeof loadAppData>>;
+async function loadFinance() {
+  const [finance, debts] = await Promise.all([
+    optional(
+      Promise.all([
+        listTransactions(),
+        listFinanceCategories(),
+        listBudgets(),
+        listFinancialGoals(),
+      ]).then(([txns, cats, budgets, goals]) => ({ txns, cats, budgets, goals }))
+    ),
+    optional(listDebts()),
+  ]);
+  return { finance, debts };
+}
 
-export async function GET() {
+async function loadRest() {
+  const [habits, habitCategories, horizonGoals, taqsimot] = await Promise.all([
+    optional(listHabits()),
+    optional(listHabitCategories()),
+    optional(listHorizonGoals()),
+    optional(Promise.all([getTaqsimotSettings(), getFocusCounts()])),
+  ]);
+  return { habits, habitCategories, horizonGoals, taqsimot };
+}
+
+const LOADERS = { tasks: loadTasks, finance: loadFinance, rest: loadRest };
+
+export type AppData = {
+  [P in keyof typeof LOADERS]: Awaited<ReturnType<(typeof LOADERS)[P]>>;
+};
+
+export async function GET(req: Request) {
   const userId = await getSessionUserId();
   if (!userId) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  return NextResponse.json(await loadAppData(), {
+  const part = new URL(req.url).searchParams.get("part");
+  if (part !== "tasks" && part !== "finance" && part !== "rest") {
+    return NextResponse.json({ error: "BAD_PART" }, { status: 400 });
+  }
+  return NextResponse.json(await LOADERS[part](), {
     headers: { "Cache-Control": "no-store" },
   });
 }

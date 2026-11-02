@@ -61,7 +61,7 @@ async function loadAll(): Promise<Snapshot> {
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void appData()
+  void appData("finance")
     .then((d) => d?.finance ?? loadAll())
     .then((s) => { hydrated = true; if (pending === 0) snapshot = s; emit(); })
     .catch(() => { hydrated = true; emit(); })

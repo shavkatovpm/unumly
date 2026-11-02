@@ -37,7 +37,7 @@ function nextId() {
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void appData()
+  void appData("tasks")
     .then((d) => d?.plans ?? actions.listPlans())
     .then((rows) => {
       hydrated = true;

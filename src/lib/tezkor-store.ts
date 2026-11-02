@@ -25,7 +25,7 @@ function emit() {
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void appData()
+  void appData("tasks")
     .then((d) => d?.quickLists ?? actions.listLists())
     .then((rows) => {
       hydrated = true;

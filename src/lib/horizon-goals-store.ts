@@ -25,7 +25,7 @@ function newId() { return crypto.randomUUID(); }
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void appData()
+  void appData("rest")
     .then((d) => d?.horizonGoals ?? actions.listHorizonGoals())
     .then((rows) => { if (pending === 0) memoryState = rows; })
     .catch(() => {})

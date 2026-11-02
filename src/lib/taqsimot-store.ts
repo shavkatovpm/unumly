@@ -32,7 +32,7 @@ function withPending<T>(p: Promise<T>): Promise<T> {
 function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
-  void appData()
+  void appData("rest")
     .then((d) => d?.taqsimot ?? Promise.all([settingsActions.getTaqsimotSettings(), focusActions.getFocusCounts()]))
     .then(([settings, counts]) => {
       hydrated = true;

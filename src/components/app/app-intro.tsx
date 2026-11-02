@@ -6,9 +6,9 @@ import { IntroTrace } from "@/components/brand/logo-intros";
 import { appData } from "@/lib/app-data";
 
 // Tarmoq osilib qolsa ham foydalanuvchi logoda qamalib qolmasin.
-const MAX_WAIT_MS = 8000;
+const MAX_WAIT_MS = 4000;
 
-/** Ilovaga kirish: logo ma'lumot yuklanguncha turadi, keyin ilovaga eriydi. */
+/** Ilovaga kirish: logo tasklar kelguncha turadi, qolgan bo'limlar orqada yuklanaveradi. */
 export function AppIntro() {
   const [ready, setReady] = useState(false);
   const [done, setDone] = useState(false);
@@ -20,7 +20,7 @@ export function AppIntro() {
       return;
     }
     const timer = window.setTimeout(() => setReady(true), MAX_WAIT_MS);
-    void appData().then(() => setReady(true));
+    void appData("tasks").then(() => setReady(true));
     return () => window.clearTimeout(timer);
   }, []);
 
