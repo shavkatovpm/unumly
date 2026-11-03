@@ -25,6 +25,7 @@ import { TaskDetail } from "./widgets/task-detail";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
 import { playOnComplete } from "@/lib/sounds";
+import { AgendaMobile } from "./bugun/agenda-mobile";
 
 const UZ_WEEKDAYS = [
   "yakshanba", "dushanba", "seshanba", "chorshanba",
@@ -364,7 +365,8 @@ export function AgendaView() {
   // Drag-and-drop reorder for untimed tasks within each day group.
   // Uses a single hook scoped to the whole component; the move callback
   // figures out the day from the dragged task and reorders that day's set.
-  const dragUntimed = useDragReorder(upcoming, (draggedId, beforeId) => {
+  // Bir kun ichidagi vaqtsizlarni ko'chirish — desktop drag va mobil tutqich uchun umumiy.
+  function moveUntimed(draggedId: string, beforeId: string | null) {
     const dragged = plans.find((p) => p.id === draggedId);
     const target = beforeId ? plans.find((p) => p.id === beforeId) : null;
     if (!dragged || dragged.time) return;
@@ -387,7 +389,8 @@ export function AgendaView() {
       const next = max - idx;
       if (p.order !== next) update(p.id, { order: next });
     });
-  });
+  }
+  const dragUntimed = useDragReorder(upcoming, moveUntimed);
 
   const total = upcoming.length;
   const done = upcoming.filter((p) => p.status === "DONE").length;
@@ -397,10 +400,10 @@ export function AgendaView() {
     <div
       data-scroll-lock-on-focus
       className="flex flex-col overflow-y-auto"
-      style={{ height: "var(--tg-vh, 100vh)" }}
+      style={{ height: "calc(var(--tg-vh, 100vh) - var(--tg-safe-top, 0px))" }}
     >
       {/* Header */}
-      <header className="flex h-12 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
+      <header className="hidden h-12 items-center justify-between gap-2 border-b border-border px-4 md:flex md:px-6">
         <div className="flex min-w-0 items-center gap-2">
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Agenda</h1>
           <span className="truncate text-[13px] text-faint sm:text-[12px]">Yaqin kunlar</span>
@@ -412,8 +415,20 @@ export function AgendaView() {
         )}
       </header>
 
-      {/* Content */}
-      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:pb-8 lg:max-w-3xl xl:max-w-4xl">
+      {/* Mobil ko'rinish */}
+      <AgendaMobile
+        hydrated={hydrated}
+        upcoming={upcoming}
+        todayIso={todayIso}
+        rejaCatMap={rejaCatMap}
+        onToggle={toggleStatus}
+        onOpen={setDetailId}
+        onAdd={() => setMobileSheet(true)}
+        onMoveUntimed={moveUntimed}
+      />
+
+      {/* Content — desktop */}
+      <div className="mx-auto hidden w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:block md:pb-8 lg:max-w-3xl xl:max-w-4xl">
         {/* Add task form — desktop only (mobile uses FAB) */}
         <form
           onSubmit={submit}

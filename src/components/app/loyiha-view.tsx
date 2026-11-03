@@ -15,6 +15,7 @@ import { LoyihaBarchasi } from "./loyiha/loyiha-barchasi";
 import { LoyihaReja } from "./loyiha/loyiha-reja";
 import { LoyihaJadval } from "./loyiha/loyiha-jadval";
 import { LoyihaAnalitika } from "./loyiha/loyiha-analitika";
+import { LoyihaMobile } from "./loyiha/loyiha-mobile";
 
 type Tab = "barchasi" | "reja" | "jadval" | "analitika";
 
@@ -29,7 +30,10 @@ export function LoyihaView() {
   const [tab, setTab] = useState<Tab>("barchasi");
 
   return (
-    <div className="mx-auto flex h-full max-w-2xl flex-col px-4 pt-3 md:pb-6 lg:max-w-4xl xl:max-w-5xl">
+    <>
+    {/* Mobil — yangi Mono ko'rinish */}
+    <div className="md:hidden"><LoyihaMobile /></div>
+    <div className="mx-auto hidden h-full max-w-2xl flex-col px-4 pt-3 md:flex md:pb-6 lg:max-w-4xl xl:max-w-5xl">
       <header className="mb-4 shrink-0">
         <h1 className="text-[18px] font-semibold tracking-[-0.01em]">Loyiha</h1>
         <p className="mt-0.5 text-[12.5px] text-faint">
@@ -70,5 +74,6 @@ export function LoyihaView() {
         </AnimatePresence>
       </div>
     </div>
+    </>
   );
 }

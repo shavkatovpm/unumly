@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { cn, isEditableElement } from "@/lib/utils";
@@ -71,7 +71,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     [plans, todayIso, nowMinutes]
   );
 
-  const [open, setOpen] = useState(readInitialOpen);
+  // Server va birinchi render bir xil bo'lsin (hydration) — saqlangan holat
+  // brauzerda, chizilishdan oldin o'qiladi.
+  const [open, setOpen] = useState(false);
+  useLayoutEffect(() => {
+    setOpen(readInitialOpen());
+  }, []);
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => {
     setHasMounted(true);

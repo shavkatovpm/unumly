@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { CheckCircle2, ClipboardList, Clock, ListChecks, RotateCcw, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CheckCircle2, ClipboardList, Clock, ListChecks, RotateCcw, Trash2, X } from "lucide-react";
 import {
   togglePlanStatus,
   removePlan,
@@ -18,7 +18,9 @@ import type { Idea, Plan } from "@/lib/types";
 import type { QuickList } from "@/lib/tezkor-types";
 import { cn } from "@/lib/utils";
 import { formatUzDate } from "@/lib/dates";
-import { useConfirmRemove } from "./widgets/confirm-dialog";
+import { ConfirmDialog, useConfirmRemove } from "./widgets/confirm-dialog";
+import { MonoSheet } from "./widgets/mono-sheet";
+import { MONO_GROUP, MonoCount, MonoEmpty, MonoLabel, MonoTick, MonoTitle } from "./widgets/mono-bits";
 import { ListLoader } from "./widgets/list-loader";
 
 const PRIORITY_DOT: Record<NonNullable<Plan["priority"]>, string> = {
@@ -102,6 +104,9 @@ export function BajarilganView() {
       .sort((a, b) => b.key.localeCompare(a.key));
   }, [completedPlans, completedLists, completedIdeas]);
 
+  // Mobil: ro'yxatni o'chirish ham umumiy tasdiqlash oynasi orqali
+  const [askList, setAskList] = useState<QuickList | null>(null);
+
   const totalCount = completedPlans.length + completedLists.length + completedIdeas.length;
 
   function confirmRemoveList(id: string, name: string) {
@@ -110,7 +115,24 @@ export function BajarilganView() {
   }
 
   return (
-    <div data-scroll-lock-on-focus className="flex h-screen flex-col overflow-y-auto">
+    <>
+    <BajarilganMobile
+      groups={groups}
+      total={totalCount}
+      loading={totalCount === 0 && (!hydrated || !ideasHydrated)}
+      onRestore={(e) => (e.kind === "plan" ? togglePlanStatus(e.id) : e.kind === "list" ? restoreCompletedList(e.id) : restoreIdea(e.id))}
+      onRemove={(e) => (e.kind === "plan" ? askRemovePlan(e.id) : e.kind === "idea" ? askRemoveIdea(e.id) : setAskList(e.list))}
+    />
+    <ConfirmDialog
+      open={!!askList}
+      title="Ro'yxatni o'chirish"
+      description={askList ? `"${askList.name}" o'chiriladi va 30 kun davomida «O'chirilgan» bo'limida saqlanadi.` : undefined}
+      confirmLabel="O'chirish"
+      destructive
+      onConfirm={() => { if (askList) removeList(askList.id); setAskList(null); }}
+      onClose={() => setAskList(null)}
+    />
+    <div data-scroll-lock-on-focus className="hidden h-screen flex-col overflow-y-auto md:flex">
       <header className="flex h-12 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
         <div className="flex min-w-0 items-center gap-2">
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">
@@ -183,9 +205,10 @@ export function BajarilganView() {
         )}
       </div>
 
-      {confirmPlanEl}
-      {confirmIdeaEl}
     </div>
+    {confirmPlanEl}
+    {confirmIdeaEl}
+    </>
   );
 }
 
@@ -346,5 +369,132 @@ function CompletedListRow({
         </button>
       </div>
     </li>
+  );
+}
+
+/* ─── Mobil ko'rinish ─── */
+
+const MOBILE_PRIO: Record<string, { label: string; dot: string }> = {
+  HIGH: { label: "Muhim", dot: "bg-priority-high" },
+  MEDIUM: { label: "O'rta", dot: "bg-priority-medium" },
+  LOW: { label: "Past", dot: "bg-priority-low" },
+  none: { label: "Darajasiz", dot: "bg-faint/40" },
+};
+const KIND = {
+  plan: { label: "Reja", back: "Bugunga qaytadi", filter: "Rejalar" },
+  list: { label: "Tezkor ro'yxat", back: "Tezkor'ga qaytadi", filter: "Ro'yxatlar" },
+  idea: { label: "Reja g'oyasi", back: "Reja'ga qaytadi", filter: "G'oyalar" },
+} as const;
+type Filter = "all" | FeedEntry["kind"];
+
+function entryTitle(e: FeedEntry) {
+  return e.kind === "plan" ? e.plan.title : e.kind === "list" ? e.list.name : e.idea.title;
+}
+function entrySub(e: FeedEntry) {
+  if (e.kind === "plan") return `${e.plan.time ?? "Vaqtsiz"} · ${MOBILE_PRIO[e.plan.priority ?? "none"].label}`;
+  if (e.kind === "list") return `${e.list.items.filter((i) => i.done).length}/${e.list.items.length} band · Tezkor`;
+  return "Reja";
+}
+function dayLabel(date: Date) {
+  const t = new Date();
+  const k = (d: Date) => d.toDateString();
+  if (k(date) === k(t)) return "Bugun";
+  if (k(date) === k(new Date(t.getFullYear(), t.getMonth(), t.getDate() - 1))) return "Kecha";
+  return formatUzDate(date);
+}
+
+function BajarilganMobile({ groups, total, loading, onRestore, onRemove }: {
+  groups: { key: string; date: Date; entries: FeedEntry[] }[];
+  total: number;
+  loading: boolean;
+  onRestore: (e: FeedEntry) => void;
+  onRemove: (e: FeedEntry) => void;
+}) {
+  const [filter, setFilter] = useState<Filter>("all");
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const all = groups.flatMap((g) => g.entries);
+  const found = all.find((e) => `${e.kind}-${e.id}` === openKey) ?? null;
+  const [last, setLast] = useState<FeedEntry | null>(null);
+  if (found && found !== last) setLast(found);
+  const detail = found ?? last;
+  const count = (f: Filter) => all.filter((e) => f === "all" || e.kind === f).length;
+  const shown = groups
+    .map((g) => ({ ...g, entries: g.entries.filter((e) => filter === "all" || e.kind === filter) }))
+    .filter((g) => g.entries.length > 0);
+
+  return (
+    <div className="flex flex-col overflow-hidden md:hidden" style={{ height: "calc(var(--tg-vh, 100vh) - var(--tg-safe-top, 0px))" }}>
+      <header className="shrink-0 px-4 pb-2.5 pt-1">
+        <MonoTitle sub="Yakunlangan ishlar" aside={<MonoCount>{total}</MonoCount>}>Bajarilgan</MonoTitle>
+        <div className="-mx-4 mt-2 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]">
+          {(["all", "plan", "list", "idea"] as const).map((f) => (
+            <button key={f} type="button" onClick={() => setFilter(f)} className={cn("flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-semibold transition-colors", filter === f ? "border-accent bg-accent text-accent-ink" : "border-border bg-surface text-muted")}>
+              {f === "all" ? "Hammasi" : KIND[f].filter}
+              <span className={cn("tabular-nums", filter === f ? "opacity-70" : "text-faint")}>{count(f)}</span>
+            </button>
+          ))}
+        </div>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-32">
+        {loading ? (
+          <ListLoader />
+        ) : shown.length === 0 ? (
+          <MonoEmpty icon={CheckCircle2} title="Hozircha bajarilgan reja yo'q" text="Bajarilgan ishlar shu yerda saqlanadi va o'chmaydi." />
+        ) : (
+          shown.map((g) => (
+            <section key={g.key}>
+              <MonoLabel aside={g.entries.length} className="first:mt-1">{dayLabel(g.date)}</MonoLabel>
+              <div className={MONO_GROUP}>
+                {g.entries.map((e) => (
+                  <div key={`${e.kind}-${e.id}`} className="flex min-h-[64px] items-center gap-3 px-3.5">
+                    <button type="button" onClick={() => setOpenKey(`${e.kind}-${e.id}`)} className="flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left">
+                      <span className="relative grid size-10 shrink-0 place-items-center rounded-[12px] bg-subtle text-muted">
+                        {e.kind === "plan" ? <Clock className="size-[18px]" /> : e.kind === "list" ? <ListChecks className="size-[18px]" /> : <ClipboardList className="size-[18px]" />}
+                        {e.kind === "plan" && <span className={cn("absolute right-1 top-1 size-2 rounded-full ring-2 ring-subtle", MOBILE_PRIO[e.plan.priority ?? "none"].dot)} />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15.5px] text-muted line-through decoration-faint/60">{entryTitle(e)}</span>
+                        <span className="block truncate text-[12.5px] tabular-nums text-faint">{entrySub(e)}</span>
+                      </span>
+                    </button>
+                    <MonoTick on label="Qayta tiklash" onClick={() => onRestore(e)} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))
+        )}
+        {total > 0 && <p className="mt-4 px-1 text-center text-[12.5px] text-faint">Belgini bossangiz — ish joyiga qaytadi.</p>}
+      </div>
+
+      <MonoSheet open={!!found} onClose={() => setOpenKey(null)} label={detail ? entryTitle(detail) : "Bajarilgan"}>
+        {detail && (
+          <>
+            <div className="rounded-[24px] border border-border bg-surface p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[12.5px] font-semibold text-muted">{KIND[detail.kind].label}</p>
+                  <p className="mt-0.5 text-[21px] font-bold leading-tight tracking-[-0.02em] text-faint line-through decoration-faint/60">{entryTitle(detail)}</p>
+                </div>
+                <button type="button" onClick={() => setOpenKey(null)} aria-label="Yopish" className="grid size-9 shrink-0 place-items-center rounded-full bg-subtle"><X className="size-4" strokeWidth={2.4} /></button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <span className="flex h-8 items-center gap-1.5 rounded-full bg-subtle px-3 text-[13px] font-medium"><CheckCircle2 className="size-3.5" /> {dayLabel(new Date(detail.completedAt))}</span>
+                <span className="flex h-8 items-center gap-1.5 rounded-full bg-subtle px-3 text-[13px] font-medium tabular-nums">{entrySub(detail)}</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => { onRestore(detail); setOpenKey(null); }} className="flex h-[70px] flex-col items-center justify-center gap-1 rounded-[20px] bg-accent text-[12.5px] font-semibold text-accent-ink">
+                <RotateCcw className="size-5" /> Qayta tiklash
+              </button>
+              <button type="button" onClick={() => { setOpenKey(null); onRemove(detail); }} className="flex h-[70px] flex-col items-center justify-center gap-1 rounded-[20px] border border-border bg-surface text-[12.5px] font-semibold text-danger">
+                <Trash2 className="size-5" /> O&apos;chirish
+              </button>
+            </div>
+            <p className="px-2 pb-1 text-center text-[12.5px] text-faint">{KIND[detail.kind].back} · {detail.kind === "idea" ? "o'chirilsa qaytarib bo'lmaydi" : "o'chirilsa 30 kun saqlanadi"}</p>
+          </>
+        )}
+      </MonoSheet>
+    </div>
   );
 }

@@ -102,9 +102,9 @@ export function MaqsadView() {
         <div className="hidden h-12 items-center px-4 md:flex md:px-6">
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Maqsad</h1>
         </div>
-        <div className="px-4 pb-3 pt-3 md:hidden">
-          <h1 className="text-[28px] font-bold tracking-[-0.03em]">Maqsad</h1>
-          <div className="mt-3"><PeriodTiles value={horizon} onChange={selectHorizon} /></div>
+        <div className="px-4 pb-2 pt-1 md:hidden">
+          <h1 className="text-[22px] font-bold tracking-[-0.025em]">Maqsad</h1>
+          <div className="mt-2"><PeriodTiles value={horizon} onChange={selectHorizon} /></div>
         </div>
         <div className="mx-auto hidden w-full max-w-2xl px-4 pb-3 md:block md:px-6">
           <div role="tablist" aria-label="Maqsad davri" className="grid grid-cols-4 rounded-xl bg-subtle p-1">
@@ -242,7 +242,7 @@ function PeriodTiles({ value, onChange }: { value: GoalHorizon; onChange: (h: Go
             aria-checked={on}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onChange(h.id)}
-            className={cn("h-12 rounded-[18px] border text-[15px] font-semibold transition-colors", on ? "border-accent bg-accent text-accent-ink" : "border-border bg-surface text-muted")}
+            className={cn("h-10 rounded-[16px] border text-[14.5px] font-semibold transition-colors", on ? "border-accent bg-accent text-accent-ink" : "border-border bg-surface text-muted")}
           >
             {h.label}
           </button>

@@ -24,7 +24,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { dismissDoneIdeas, isIdeaDismissed, useIdeas } from "@/lib/ideas-store";
+import { dismissDoneIdeas, useIdeas } from "@/lib/ideas-store";
+import { SORT_KEY, isOnBoard, isRecentlyDone, reorderCategories, sortIdeas, type SortOrder } from "./reja/reja-logic";
 import { useCategories, useHydratedCategories } from "@/lib/categories-store";
 import { useDragReorder } from "@/lib/use-drag-reorder";
 import { CATEGORY_COLOR_KEYS, CATEGORY_PALETTE } from "@/lib/category-palette";
@@ -36,6 +37,8 @@ import { ConfirmDialog, useConfirmRemove } from "./widgets/confirm-dialog";
 import { IdeaDetail } from "./widgets/idea-detail";
 import { ListLoader } from "./widgets/list-loader";
 import { makeSubtaskId } from "./widgets/subtask-ui";
+import { useIsMobile } from "./widgets/mono-sheet";
+import { RejaMobile } from "./reja/reja-mobile";
 
 /* ─── Tanlash (select) konteksti — bir nechta vazifani belgilab birlashtirish.
    Prop threading o'rniga context bilan IdeaRowLinear'ga uzatiladi. ─── */
@@ -52,10 +55,8 @@ const RejaSelectCtx = createContext<RejaSelection>({
 
 const DONE_DELAY_MS = 700;
 const VIEW_KEY = "unumly:reja:view";
-const SORT_KEY = "unumly:reja:sort";
 const NEW_ITEM_MS = 500;
 
-type SortOrder = "new" | "old" | "priority";
 
 function colorAlpha(c: string, a: number) {
   return c.replace(")", ` / ${a})`);
@@ -121,6 +122,7 @@ function AutoGrowTextarea({
  *  bir xil. */
 export function RejaView({ projectId }: { projectId?: string } = {}) {
   const { ideas, create, update, toggleDone, remove } = useIdeas(projectId);
+  const mobile = useIsMobile();
   const {
     categories,
     create: createCategory,
@@ -237,7 +239,25 @@ export function RejaView({ projectId }: { projectId?: string } = {}) {
   const selection: RejaSelection = { active: selectMode, selected: selectedIds, toggle: toggleSelect };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <>
+    {/* Mobil — yangi ko'rinish; desktop pastda o'zgarmagan holda. */}
+    <div className="h-full md:hidden">
+      <RejaMobile
+        ideas={ideas}
+        categories={categories}
+        hydrated={catsHydrated}
+        create={create}
+        update={update}
+        toggleDone={toggleDone}
+        remove={remove}
+        createCategory={createCategory}
+        updateCategory={updateCategory}
+        removeCategory={removeCategory}
+        active={mobile}
+        inProject={!!projectId}
+      />
+    </div>
+    <div className="hidden h-full flex-col overflow-hidden md:flex">
       <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
         <div className="flex items-center gap-2 md:gap-3">
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Reja</h1>
@@ -366,33 +386,8 @@ export function RejaView({ projectId }: { projectId?: string } = {}) {
       {confirmEl}
       {confirmCatEl}
     </div>
+    </>
   );
-}
-
-/* ─── Reorder helper ───────────────────────────────────────────
-   Shared by TabView (MaterialTabBar) and KanbanView. Computes the new
-   order of categories after a drag-and-drop and pushes order updates
-   only for the rows whose position actually changed. */
-
-function reorderCategories(
-  current: Category[],
-  draggedId: string,
-  beforeId: string | null,
-  updateCategory: (id: string, patch: Partial<Category>) => void
-) {
-  const list = [...current];
-  const from = list.findIndex((c) => c.id === draggedId);
-  const to = beforeId
-    ? list.findIndex((c) => c.id === beforeId)
-    : list.length;
-  if (from < 0) return;
-  if (beforeId && to < 0) return;
-  if (from === to) return;
-  const [moved] = list.splice(from, 1);
-  list.splice(from < to ? to - 1 : to, 0, moved);
-  list.forEach((c, idx) => {
-    if (c.order !== idx) updateCategory(c.id, { order: idx });
-  });
 }
 
 /* ─── View switcher ─── */
@@ -589,37 +584,6 @@ type ViewProps = {
   onCategoryReorder?: (draggedId: string, beforeId: string | null) => void;
 };
 
-const PRIORITY_RANK: Record<string, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-
-function sortIdeas(arr: Idea[], order: SortOrder): Idea[] {
-  return [...arr].sort((a, b) => {
-    if (order === "priority") {
-      const pa = a.priority ? PRIORITY_RANK[a.priority] ?? 0 : 0;
-      const pb = b.priority ? PRIORITY_RANK[b.priority] ?? 0 : 0;
-      if (pb !== pa) return pb - pa; // muhimi tepada
-      return -a.createdAt.localeCompare(b.createdAt); // teng bo'lsa — yangisi tepada
-    }
-    const cmp = a.createdAt.localeCompare(b.createdAt);
-    return order === "new" ? -cmp : cmp;
-  });
-}
-
-// Sanali g'oyalar rejadan chiqadi (ular Plan sifatida Bugun/Agenda/Kalendarda).
-function isOnBoard(i: Idea): boolean {
-  return !i.scheduledFor;
-}
-
-// "Bajarilgan" dropdownda faqat yaqinda (oxirgi 7 kun) bajarilganlar ko'rinadi
-// va "Tozalash" bilan yashirilmaganlar. Ma'lumot o'chmaydi — Arxivda qoladi.
-const DONE_VISIBLE_DAYS = 7;
-function isRecentlyDone(i: Idea): boolean {
-  if (!i.done || i.scheduledFor) return false;
-  if (isIdeaDismissed(i.id)) return false;
-  const at = i.completedAt;
-  if (!at) return true; // eski (completedAt yo'q) — ko'rsatamiz
-  return Date.now() - new Date(at).getTime() <= DONE_VISIBLE_DAYS * 86_400_000;
-}
-
 /* Swipe (chap/o'ng) bilan toifalar orasida o'tish animatsiyasi. */
 const SWIPE_VARIANTS = {
   enter: (dir: number) => ({ x: dir > 0 ? "100%" : "-100%", opacity: 0 }),
@@ -671,7 +635,7 @@ function TabView(props: ViewProps) {
   // Mobil: tepadagi inline qator o'rniga pastki-o'ng burchakdagi FAB + markazdagi dialog.
   const [mobileAdd, setMobileAdd] = useState(false);
   // Glass nav'dagi "+" shu sahifaning qo'shish oynasini ochadi (FAB yashiriladi).
-  useMobileAdd(() => setMobileAdd(true));
+  useMobileAdd(() => setMobileAdd(true), !useIsMobile());
   const [mobileV, setMobileV] = useState("");
   const mobileAddRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { if (mobileAdd) mobileAddRef.current?.focus(); }, [mobileAdd]);

@@ -11,15 +11,8 @@ import { useMobileAdd } from "@/lib/mobile-add";
 import { MonoBlock, MonoHeader, MonoSave, MonoSheet, MonoTile, useIsMobile } from "./widgets/mono-sheet";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  Activity, Apple, Archive, Bath, Bed, Bike, BookOpen, Brain, Briefcase, Cake, Camera, Car, Cat, Check,
-  ChevronDown, ChevronLeft, ChevronRight, Clock, Code, Coffee, Dog, DollarSign, Droplet, Dumbbell,
-  Feather, Flame, Folder, Footprints, Gamepad2, Gift, Glasses, GraduationCap, Guitar, Hammer,
-  Headphones, Heart, Home, Languages, Laptop, Leaf, MapPin, Medal, Moon, Mountain, Music, Notebook,
-  Paintbrush, Palette, PawPrint, Pencil, Phone, PiggyBank, Pill, Plane, Plus, Puzzle, Repeat, Rocket, Salad,
-  ShoppingCart, ShowerHead, Smile, Sparkles, Sprout, Star, Sun, Target, Trash2, TreePine, Umbrella,
-  Users, Utensils, Wallet, Wind, Wrench, X, Zap,
-} from "lucide-react";
+import { Archive, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Folder, Pencil, Plus, Repeat, Trash2, X } from "lucide-react";
+import { CategoryIcon, ICON_CHOICES, randomIcon, type IconKey } from "./odat/habit-icons";
 import { cn } from "@/lib/utils";
 import { useHabits, useHydratedHabits, markHabitDay } from "@/lib/habits-store";
 import { useHabitCategories, useHydratedHabitCategories } from "@/lib/habit-categories-store";
@@ -31,26 +24,7 @@ import { ConfirmDialog } from "./widgets/confirm-dialog";
 import { TimePickerPopover } from "./widgets/time-picker-popover";
 import { ListLoader } from "./widgets/list-loader";
 import { fitInView } from "@/lib/fit-in-view";
-
-/* ─── Ikonalar ─── */
-const ICONS = {
-  heart: Heart, dumbbell: Dumbbell, book: BookOpen, sparkles: Sparkles, brain: Brain, coffee: Coffee,
-  moon: Moon, sun: Sun, target: Target, droplet: Droplet, leaf: Leaf, activity: Activity, folder: Folder,
-  bike: Bike, footprints: Footprints, apple: Apple, salad: Salad, pill: Pill, bed: Bed, music: Music,
-  headphones: Headphones, palette: Palette, pencil: Pencil, code: Code, languages: Languages,
-  grad: GraduationCap, briefcase: Briefcase, dollar: DollarSign, rocket: Rocket, wallet: Wallet,
-  cart: ShoppingCart, home: Home, users: Users, smile: Smile, flame: Flame, mountain: Mountain,
-  star: Star, zap: Zap, sprout: Sprout, hammer: Hammer,
-  bath: Bath, cake: Cake, camera: Camera, car: Car, cat: Cat, dog: Dog, feather: Feather,
-  gamepad: Gamepad2, gift: Gift, glasses: Glasses, guitar: Guitar, laptop: Laptop, mappin: MapPin,
-  medal: Medal, notebook: Notebook, paintbrush: Paintbrush, pawprint: PawPrint, phone: Phone,
-  piggybank: PiggyBank, plane: Plane, puzzle: Puzzle, shower: ShowerHead, tree: TreePine,
-  umbrella: Umbrella, utensils: Utensils, wind: Wind, wrench: Wrench,
-} as const;
-type IconKey = keyof typeof ICONS;
-const ICON_CHOICES = Object.keys(ICONS) as IconKey[];
-function randomIcon(): IconKey { return ICON_CHOICES[Math.floor(Math.random() * ICON_CHOICES.length)]; }
-function CategoryIcon({ k, className }: { k: string; className?: string }) { const Ic = ICONS[k as IconKey] ?? Folder; return <Ic className={className} strokeWidth={1.75} />; }
+import { OdatMobile } from "./odat/odat-mobile";
 
 const UZ_DAYS_SHORT = ["Ya", "Du", "Se", "Ch", "Pa", "Ju", "Sh"];
 const WEEK_FROM_MON = [1, 2, 3, 4, 5, 6, 0];
@@ -109,12 +83,13 @@ export function OdatView() {
   const catsHydrated = useHydratedHabitCategories();
   const hydrated = habitsHydrated && catsHydrated;
   const { plans, toggleStatus } = usePlans();
+  const mobile = useIsMobile();
   const [detailId, setDetailId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [addCat, setAddCat] = useState<string | null | undefined>(undefined); // odat qo'shishda oldindan tanlangan toifa (undefined = majburiy tanlov)
   const [addDaysPreset, setAddDaysPreset] = useState<number[] | undefined>(undefined); // kun ustiga bosib qo'shishda oldindan tanlangan hafta kuni
   // Glass nav'dagi "+" — yangi odat.
-  useMobileAdd(() => { setAddCat(undefined); setAddDaysPreset(undefined); setShowAdd(true); });
+  useMobileAdd(() => { setAddCat(undefined); setAddDaysPreset(undefined); setShowAdd(true); }, !mobile);
   const [showAddCat, setShowAddCat] = useState(false);
   const [editCatId, setEditCatId] = useState<string | null>(null);
   const [pending, setPending] = useState<{ kind: "habit" | "category"; id: string; name: string } | null>(null);
@@ -207,7 +182,29 @@ export function OdatView() {
   }, [hydrated]);
 
   return (
-    <div className="flex flex-col overflow-hidden" style={{ height: "var(--tg-vh, 100vh)" }}>
+    <>
+    {/* Mobil — yangi ko'rinish; main tepasidagi Telegram zonasini ayiramiz. */}
+    <div className="md:hidden" style={{ height: "calc(var(--tg-vh, 100vh) - var(--tg-safe-top, 0px))" }}>
+      <OdatMobile
+        active={mobile}
+        hydrated={hydrated}
+        cats={cats}
+        habits={habits}
+        archived={archived}
+        plans={plans}
+        logs={logs}
+        onToggleDay={toggleDay}
+        createHabit={create}
+        updateHabit={update}
+        archiveHabit={archive}
+        restoreHabit={restore}
+        removeHabit={remove}
+        createCat={createCat}
+        updateCat={updateCat}
+        removeCat={removeCat}
+      />
+    </div>
+    <div className="hidden flex-col overflow-hidden md:flex" style={{ height: "var(--tg-vh, 100vh)" }}>
       <header className="z-10 shrink-0 border-b border-border bg-background/85 backdrop-blur">
         <div className="flex h-12 items-center justify-between px-4 md:px-6">
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Odat</h1>
@@ -271,6 +268,7 @@ export function OdatView() {
         />
       )}
     </div>
+    </>
   );
 }
 

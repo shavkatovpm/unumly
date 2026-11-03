@@ -12,6 +12,7 @@ import { DatePickerButton } from "../widgets/date-picker-button";
 import { ListLoader } from "../widgets/list-loader";
 import { useConfirmRemove } from "../widgets/confirm-dialog";
 import { Dialog } from "../widgets/dialog";
+import { useIsMobile } from "../widgets/mono-sheet";
 import { playOnComplete } from "@/lib/sounds";
 
 const UZ_MONTHS_SHORT = ["yan", "fev", "mar", "apr", "may", "iyun", "iyul", "avg", "sen", "okt", "noy", "dek"];
@@ -42,7 +43,9 @@ export function JadvalPanel({ projectId }: { projectId: string }) {
   // dialog — Bugun/Reja bo'limlaridagi bilan bir xil naqsh.
   const [mobileAdd, setMobileAdd] = useState(false);
   // Glass nav'dagi "+" shu jadvalga task qo'shadi (FAB yashiriladi).
-  useMobileAdd(() => setMobileAdd(true));
+  // Mobil'da Tasklar yangi ko'rinishda (TasklarMobile) — "+" o'shanga tegishli
+  const isMobile = useIsMobile();
+  useMobileAdd(() => setMobileAdd(true), !isMobile);
   const [mobileDraft, setMobileDraft] = useState("");
   const mobileAddRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (mobileAdd) mobileAddRef.current?.focus(); }, [mobileAdd]);

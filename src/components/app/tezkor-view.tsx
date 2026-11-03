@@ -171,8 +171,8 @@ function MobileTitle({ lists }: { lists: QuickList[] }) {
   const total = lists.reduce((n, l) => n + l.items.length, 0);
   const done = lists.reduce((n, l) => n + l.items.filter((i) => i.done).length, 0);
   return (
-    <div className="flex items-center justify-between px-4 pt-3 md:hidden">
-      <h1 className="text-[28px] font-bold tracking-[-0.03em]">Tezkor</h1>
+    <div className="flex items-center justify-between px-4 pt-1 md:hidden">
+      <h1 className="text-[22px] font-bold tracking-[-0.025em]">Tezkor</h1>
       <span className="rounded-full bg-subtle px-3 py-1.5 text-[13px] font-semibold tabular-nums">{done}/{total}</span>
     </div>
   );
@@ -206,7 +206,7 @@ function MobileLists({ lists, onOpen }: { lists: QuickList[]; onOpen: (id: strin
   return (
     <>
       {groups.map((g) => (
-        <div key={g.label} className="mt-4">
+        <div key={g.label} className="mt-3">
           <p className="mb-1.5 px-1 text-[13px] font-semibold text-muted">{g.label}</p>
           <div className="overflow-hidden rounded-[22px] border border-border bg-surface">
             {g.rows.map((l, idx) => {

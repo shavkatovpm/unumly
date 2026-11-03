@@ -40,6 +40,7 @@ import { TaskDetail } from "./widgets/task-detail";
 import { TaskAddSheet } from "./widgets/task-add-sheet";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
+import { BugunMobile } from "./bugun/bugun-mobile";
 
 export function BugunView() {
   const { plans, create, update, toggleStatus, remove, deferToToday, setCancelled } = usePlans();
@@ -155,7 +156,8 @@ export function BugunView() {
     [active] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  const dragUntimed = useDragReorder(untimedItems, (draggedId, beforeId) => {
+  // Vaqtsiz tasklarni ko'chirish — desktop (HTML5 drag) va mobil (tutqich) uchun umumiy.
+  function moveUntimed(draggedId: string, beforeId: string | null) {
     const list = [...untimedItems];
     const fromIdx = list.findIndex((p) => p.id === draggedId);
     const toIdx = beforeId
@@ -170,7 +172,8 @@ export function BugunView() {
       const next = max - idx;
       if (p.order !== next) update(p.id, { order: next });
     });
-  });
+  }
+  const dragUntimed = useDragReorder(untimedItems, moveUntimed);
 
   // Add task form state
   const [title, setTitle] = useState("");
@@ -252,10 +255,10 @@ export function BugunView() {
     <div
       data-scroll-lock-on-focus
       className="flex flex-col overflow-y-auto [scrollbar-gutter:stable]"
-      style={{ height: "var(--tg-vh, 100vh)" }}
+      style={{ height: "calc(var(--tg-vh, 100vh) - var(--tg-safe-top, 0px))" }}
     >
       {/* Header */}
-      <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
+      <header className="hidden h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:flex md:px-6">
         <div className="flex min-w-0 items-center gap-2">
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Bugun</h1>
           <span className="truncate text-[13px] text-faint sm:text-[12px]">{formatUzDate(today)}</span>
@@ -267,8 +270,31 @@ export function BugunView() {
         </p>
       </header>
 
-      {/* Content */}
-      <div className="mx-auto w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:pb-8 lg:max-w-3xl xl:max-w-4xl">
+      {/* Mobil ko'rinish */}
+      <BugunMobile
+        hydrated={hydrated}
+        now={now}
+        today={today}
+        todayIso={todayIso}
+        plans={plans}
+        total={total}
+        doneList={todays.filter((p) => p.status === "DONE")}
+        blocks={blocks}
+        missed={missed}
+        debtReminders={debtReminders}
+        rejaCatMap={rejaCatMap}
+        onToggle={toggleStatus}
+        onOpen={setDetailId}
+        onAdd={() => setMobileSheet(true)}
+        onMoveUntimed={moveUntimed}
+        onDefer={deferToToday}
+        onCancel={(id) => setCancelled(id, true)}
+        onSettleDebt={(id) => settleDebt(id, true)}
+        onSnoozeDebt={snoozeDebt}
+      />
+
+      {/* Content — desktop */}
+      <div className="mx-auto hidden w-full max-w-2xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:py-8 md:block md:pb-8 lg:max-w-3xl xl:max-w-4xl">
         {/* Greeting block — foiz halqasi bosilganda analitika ochiladi */}
         <div className="rise-in overflow-hidden rounded-lg border border-border bg-surface">
           <div

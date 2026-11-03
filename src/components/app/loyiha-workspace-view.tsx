@@ -22,6 +22,9 @@ import { RejaView } from "./reja-view";
 import { ProjectIcon } from "./loyiha-icons";
 import { ProjectFormModal } from "./loyiha/project-form-modal";
 import { fitRef } from "@/lib/fit-in-view";
+import { MobileProjectForm } from "./loyiha/loyiha-mobile";
+import { HujjatlarMobile, TasklarMobile, WorkspaceMobileHeader } from "./loyiha/loyiha-workspace-mobile";
+import { useProjectTasks } from "@/lib/project-tasks-store";
 
 type Tab = "reja" | "hujjatlar" | "tasklar";
 
@@ -32,6 +35,8 @@ export function LoyihaWorkspaceView({ projectId }: { projectId: string }) {
   const [tab, setTab] = useState<Tab>("hujjatlar");
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [mobileEditing, setMobileEditing] = useState(false);
+  const { tasks } = useProjectTasks(projectId);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -69,8 +74,18 @@ export function LoyihaWorkspaceView({ projectId }: { projectId: string }) {
   const color = project.color ? CATEGORY_PALETTE[project.color].oklch : "var(--foreground)";
 
   return (
-    <div className="flex h-full flex-col" style={{ height: "var(--tg-vh, 100vh)" }}>
-      <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3 md:px-6">
+    <div className="flex h-full flex-col" style={{ height: "calc(var(--tg-vh, 100vh) - var(--tg-safe-top, 0px))" }}>
+      {/* Mobil sarlavha — ixcham, tablar bilan */}
+      <WorkspaceMobileHeader
+        project={project}
+        taskCount={tasks.filter((t) => !t.done).length}
+        tab={tab}
+        onTab={setTab}
+        onClose={() => router.push("/loyiha")}
+        onEdit={() => setMobileEditing(true)}
+        onRemove={() => askRemove(project.id)}
+      />
+      <header className="hidden shrink-0 items-center gap-3 border-b border-border px-4 py-3 md:flex md:px-6">
         <Link
           href="/loyiha"
           aria-label="Loyihalarga qaytish"
@@ -140,9 +155,15 @@ export function LoyihaWorkspaceView({ projectId }: { projectId: string }) {
         {tab === "reja" ? (
           <RejaView projectId={project.id} />
         ) : tab === "hujjatlar" ? (
-          <HujjatlarPanel projectId={project.id} />
+          <>
+            <div className="hidden md:block"><HujjatlarPanel projectId={project.id} /></div>
+            <div className="px-4 pb-32 md:hidden"><HujjatlarMobile projectId={project.id} projectTitle={project.title} /></div>
+          </>
         ) : (
-          <JadvalPanel projectId={project.id} />
+          <>
+            <div className="hidden md:block"><JadvalPanel projectId={project.id} /></div>
+            <div className="px-4 pb-32 md:hidden"><TasklarMobile projectId={project.id} /></div>
+          </>
         )}
       </div>
 
@@ -156,6 +177,7 @@ export function LoyihaWorkspaceView({ projectId }: { projectId: string }) {
           }}
         />
       )}
+      <MobileProjectForm open={mobileEditing} initial={project} onClose={() => setMobileEditing(false)} />
       {confirmEl}
     </div>
   );

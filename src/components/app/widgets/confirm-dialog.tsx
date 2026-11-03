@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { Trash2, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog } from "./dialog";
 
@@ -11,6 +12,7 @@ export function ConfirmDialog({
   confirmLabel = "Tasdiqlash",
   cancelLabel = "Bekor",
   destructive = false,
+  icon,
   onConfirm,
   onClose,
 }: {
@@ -20,6 +22,8 @@ export function ConfirmDialog({
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  /** Mobil oynadagi belgi (destructive bo'lsa standart — savatcha). */
+  icon?: LucideIcon;
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -27,9 +31,12 @@ export function ConfirmDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      className="max-w-sm"
+      className="max-w-sm max-md:rounded-[28px]"
       mobilePlacement="center"
     >
+      {/* Mobil — katta, markazlashgan Mono uslubi */}
+      <ConfirmMobile title={title} description={description} confirmLabel={confirmLabel} cancelLabel={cancelLabel} destructive={destructive} icon={icon ?? (destructive ? Trash2 : undefined)} onConfirm={onConfirm} onClose={onClose} />
+      <div className="hidden md:block">
       <div className="px-5 pb-4 pt-5">
         <p className="text-[14.5px] font-semibold tracking-[-0.01em] text-foreground">
           {title}
@@ -60,7 +67,39 @@ export function ConfirmDialog({
           {confirmLabel}
         </button>
       </div>
+      </div>
     </Dialog>
+  );
+}
+
+function ConfirmMobile({ title, description, confirmLabel, cancelLabel, destructive, icon: Icon, onConfirm, onClose }: {
+  title: string;
+  description?: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  destructive: boolean;
+  icon?: LucideIcon;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="p-5 text-center md:hidden">
+      {Icon && (
+        <span className={cn("mx-auto mb-3 grid size-12 place-items-center rounded-full", destructive ? "bg-danger-soft text-danger" : "bg-subtle text-foreground")}>
+          <Icon className="size-5" />
+        </span>
+      )}
+      <p className="text-[18px] font-bold tracking-[-0.01em] text-foreground">{title}</p>
+      {description && <p className="mt-1.5 text-[14px] leading-relaxed text-muted">{description}</p>}
+      <div className="mt-5 grid grid-cols-2 gap-2">
+        <button type="button" onClick={onClose} className="h-12 rounded-[18px] bg-subtle text-[15px] font-semibold text-foreground">
+          {cancelLabel === "Bekor" ? "Bekor qilish" : cancelLabel}
+        </button>
+        <button type="button" onClick={onConfirm} className={cn("h-12 rounded-[18px] text-[15px] font-semibold", destructive ? "bg-danger text-white" : "bg-accent text-accent-ink")}>
+          {confirmLabel}
+        </button>
+      </div>
+    </div>
   );
 }
 

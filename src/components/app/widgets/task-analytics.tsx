@@ -15,6 +15,7 @@ import {
 import type { Plan } from "@/lib/types";
 import { toDateInputValue } from "@/lib/dates";
 import { cn } from "@/lib/utils";
+import { PickerModal } from "./picker-modal";
 
 /* ════════════════════════════════════════════════════════════
    Task bajarish analitikasi — "Bajarildi / Qoldi" diagrammasi.
@@ -80,15 +81,8 @@ const TOGGLE: { key: RangeType; label: string }[] = [
   { key: "3month", label: "3 oy" },
 ];
 
-export function TaskAnalytics({
-  plans,
-  today,
-  onRangeLabelChange,
-}: {
-  plans: Plan[];
-  today: Date;
-  onRangeLabelChange?: (label: string) => void;
-}) {
+/** Analitika hisob-kitobi — desktop va mobil ko'rinishlar uchun umumiy. */
+function useTaskAnalytics(plans: Plan[], today: Date, onRangeLabelChange?: (label: string) => void) {
   const [rangeType, setRangeType] = useState<RangeType>("week");
   const [specificYM, setSpecificYM] = useState(
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`
@@ -128,15 +122,6 @@ export function TaskAnalytics({
   useEffect(() => {
     onRangeLabelChange?.(headerLabel);
   }, [headerLabel, onRangeLabelChange]);
-
-  // "3 oy" qulfi bosilganda chiqadigan sabab tooltip'i.
-  const [lockTip, setLockTip] = useState(false);
-  const lockTimer = useRef<number | null>(null);
-  function showLockTip() {
-    setLockTip(true);
-    if (lockTimer.current) window.clearTimeout(lockTimer.current);
-    lockTimer.current = window.setTimeout(() => setLockTip(false), 3000);
-  }
 
   const { bars, axis, overall, prev, rangeLabel, perDay, maxTotal } = useMemo(() => {
     let start: Date;
@@ -241,8 +226,36 @@ export function TaskAnalytics({
     };
   }, [plans, today, effectiveRange, specificYM]);
 
-  const delta = overall.pct - prev.pct;
-  const hasData = overall.total > 0;
+  return {
+    rangeType, setRangeType, specificYM, setSpecificYM, threeMonthAvailable, minYear, maxYear, effectiveRange,
+    bars, axis, overall, prev, rangeLabel, perDay, maxTotal,
+    delta: overall.pct - prev.pct,
+    hasData: overall.total > 0,
+  };
+}
+
+export function TaskAnalytics({
+  plans,
+  today,
+  onRangeLabelChange,
+}: {
+  plans: Plan[];
+  today: Date;
+  onRangeLabelChange?: (label: string) => void;
+}) {
+  const {
+    rangeType, setRangeType, specificYM, setSpecificYM, threeMonthAvailable, minYear, maxYear, effectiveRange,
+    bars, axis, overall, prev, rangeLabel, perDay, maxTotal, delta, hasData,
+  } = useTaskAnalytics(plans, today, onRangeLabelChange);
+
+  // "3 oy" qulfi bosilganda chiqadigan sabab tooltip'i.
+  const [lockTip, setLockTip] = useState(false);
+  const lockTimer = useRef<number | null>(null);
+  function showLockTip() {
+    setLockTip(true);
+    if (lockTimer.current) window.clearTimeout(lockTimer.current);
+    lockTimer.current = window.setTimeout(() => setLockTip(false), 3000);
+  }
 
   return (
     <div className="space-y-4 px-4 py-5 sm:px-5">
@@ -613,6 +626,192 @@ function StatChip({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg border border-border bg-surface px-2.5 py-2 text-center">
       <p className="font-mono text-[17px] font-semibold tabular-nums leading-none">{value}</p>
       <p className="mt-1 text-[10.5px] leading-tight text-faint">{label}</p>
+    </div>
+  );
+}
+
+/* ════════════ Mobil ko'rinish (Bugun kartasi ichida) ════════════ */
+export function TaskAnalyticsMobile({
+  plans,
+  today,
+  onRangeLabelChange,
+}: {
+  plans: Plan[];
+  today: Date;
+  onRangeLabelChange?: (label: string) => void;
+}) {
+  const {
+    rangeType, setRangeType, specificYM, setSpecificYM, threeMonthAvailable, minYear, maxYear, effectiveRange,
+    bars, axis, overall, prev, rangeLabel, perDay, maxTotal, delta, hasData,
+  } = useTaskAnalytics(plans, today, onRangeLabelChange);
+  const [monthOpen, setMonthOpen] = useState(false);
+  // Mobilda hover yo'q — ustun bosilganda tafsilot chiqadi.
+  const [tip, setTip] = useState<number | null>(null);
+  const [lockTip, setLockTip] = useState(false);
+  const lockTimer = useRef<number | null>(null);
+  useEffect(() => () => { if (lockTimer.current) window.clearTimeout(lockTimer.current); }, []);
+  function showLockTip() {
+    setLockTip(true);
+    if (lockTimer.current) window.clearTimeout(lockTimer.current);
+    lockTimer.current = window.setTimeout(() => setLockTip(false), 3000);
+  }
+  const tipBar = tip !== null ? bars[tip] : null;
+  const tile = "flex h-11 items-center justify-center gap-1 rounded-[16px] border text-[14px] font-semibold transition-colors";
+
+  return (
+    <div className="space-y-4 p-4">
+      <div className="grid grid-cols-4 gap-2">
+        {TOGGLE.map((t) => {
+          const locked = t.key === "3month" && !threeMonthAvailable;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => (locked ? showLockTip() : (setRangeType(t.key), setTip(null)))}
+              className={cn(tile, rangeType === t.key && !locked ? "border-accent bg-accent text-accent-ink" : "border-border bg-surface text-muted", locked && "border-dashed text-faint")}
+            >
+              {locked && <Lock className="size-3.5" />}
+              {t.label}
+            </button>
+          );
+        })}
+        <button type="button" onClick={() => setMonthOpen(true)} className={cn(tile, rangeType === "specific" ? "border-accent bg-accent text-accent-ink" : "border-border bg-surface text-muted")}>
+          <CalendarDays className="size-4" />
+          {rangeType === "specific" ? MONTHS_SHORT[Number(specificYM.split("-")[1]) - 1] : "Tanlash"}
+        </button>
+      </div>
+      <AnimatePresence initial={false}>
+        {lockTip && (
+          <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden px-1 text-[12.5px] leading-snug text-faint">
+            Hali 3 oylik ma&apos;lumot yo&apos;q — bir muncha vaqt foydalanganingizdan so&apos;ng ochiladi.
+          </motion.p>
+        )}
+      </AnimatePresence>
+
+      <div className="flex items-end justify-between">
+        <div>
+          <p className="text-[12.5px] font-semibold text-muted">{rangeLabel}</p>
+          <div className="mt-1 flex items-baseline gap-2">
+            <p className={cn("text-[34px] font-bold leading-none tracking-[-0.03em] tabular-nums", !hasData && "text-faint")}>
+              {overall.pct}<span className="text-[18px]">%</span>
+            </p>
+            {hasData && prev.total > 0 && (
+              <span className={cn("flex items-center gap-0.5 text-[12.5px] font-semibold tabular-nums", delta < 0 ? "text-danger" : delta > 0 ? "text-foreground" : "text-faint")}>
+                {delta > 0 ? <TrendingUp className="size-3.5" /> : delta < 0 ? <TrendingDown className="size-3.5" /> : <Minus className="size-3.5" />}
+                {delta > 0 ? "+" : ""}{delta}%
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-[16px] font-bold tabular-nums">{overall.done}/{overall.total}</p>
+          <p className="text-[12px] text-faint">bajarildi</p>
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={`${effectiveRange}:${specificYM}`}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {!hasData ? (
+            <div className="grid h-36 place-items-center rounded-[20px] border border-border text-[13px] text-faint">Bu davrda ma&apos;lumot yo&apos;q</div>
+          ) : (
+            <div className="rounded-[20px] border border-border bg-background p-3">
+              <div className="mb-2 h-9 text-center">
+                {tipBar ? (
+                  <>
+                    <p className="text-[12.5px] font-semibold">{tipBar.tipDate}</p>
+                    <p className="text-[11.5px] tabular-nums text-muted">
+                      {tipBar.total === 0 ? "vazifa yo'q" : `${tipBar.done}/${tipBar.total} bajarildi · ${tipBar.pct}%${tipBar.late ? ` · kech: ${tipBar.late}` : ""}`}
+                    </p>
+                  </>
+                ) : (
+                  <p className="pt-2.5 text-[12px] text-faint">Ustunni bosing — kun tafsiloti chiqadi</p>
+                )}
+              </div>
+              <div className="relative h-32">
+                <div className="absolute inset-x-0 top-1/2 h-px bg-border" />
+                <div className="absolute inset-0 flex gap-[3px]">
+                  {bars.map((b, i) => (
+                    <button key={b.key} type="button" aria-label={b.tipDate} onClick={() => setTip(tip === i ? null : i)} className={cn("relative flex-1 rounded-[4px] transition-colors", tip === i && "bg-subtle")}>
+                      <span className="absolute bottom-1/2 left-0 right-0 rounded-t-[3px] bg-foreground transition-[height] duration-500 ease-out" style={{ height: `${(b.onTime / maxTotal) * 50}%` }} />
+                      <span className="absolute left-0 right-0 top-1/2 bg-muted/60 transition-[height] duration-500 ease-out" style={{ height: `${(b.late / maxTotal) * 50}%` }} />
+                      <span className="absolute left-0 right-0 rounded-b-[3px] bg-danger/55 transition-[height] duration-500 ease-out" style={{ top: `calc(50% + ${(b.late / maxTotal) * 50}%)`, height: `${((b.total - b.done) / maxTotal) * 50}%` }} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {axis ? (
+                <div className="mt-1.5 flex justify-between text-[10.5px] text-faint">{axis.map((a, i) => <span key={i}>{a}</span>)}</div>
+              ) : (
+                <div className="mt-1.5 flex gap-[3px]">{bars.map((b) => <span key={b.key} className="flex-1 text-center text-[10.5px] text-faint">{b.label}</span>)}</div>
+              )}
+              <div className="mt-2.5 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[11.5px] text-muted">
+                <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-[3px] bg-foreground" />O&apos;z vaqtida ↑</span>
+                <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-[3px] bg-muted/60" />Kech ↓</span>
+                <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-[3px] bg-danger/55" />Qolgan ↓</span>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { v: `${perDay.best}%`, l: "Eng yaxshi kun" },
+          { v: String(perDay.full), l: "To'liq kunlar" },
+          { v: String(overall.late), l: "Kech bajarildi" },
+        ].map((x) => (
+          <div key={x.l} className="rounded-[18px] border border-border bg-background px-2 py-3 text-center">
+            <p className="text-[18px] font-bold tabular-nums leading-none">{x.v}</p>
+            <p className="mt-1.5 text-[11.5px] leading-tight text-faint">{x.l}</p>
+          </div>
+        ))}
+      </div>
+
+      <PickerModal open={monthOpen} onClose={() => setMonthOpen(false)} label="Oy tanlash">
+        <MonthGrid
+          today={today}
+          activeYM={rangeType === "specific" ? specificYM : null}
+          minYear={minYear}
+          maxYear={maxYear}
+          onPick={(ym) => {
+            setSpecificYM(ym);
+            setRangeType("specific");
+            setTip(null);
+            setMonthOpen(false);
+          }}
+        />
+      </PickerModal>
+    </div>
+  );
+}
+
+function MonthGrid({ today, activeYM, minYear, maxYear, onPick }: { today: Date; activeYM: string | null; minYear: number; maxYear: number; onPick: (ym: string) => void }) {
+  const [year, setYear] = useState(activeYM ? Number(activeYM.split("-")[0]) : maxYear);
+  const step = "grid size-10 place-items-center rounded-full bg-subtle disabled:opacity-30";
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between">
+        <button type="button" disabled={year <= minYear} onClick={() => setYear(year - 1)} aria-label="Oldingi yil" className={step}><ChevronLeft className="size-5" /></button>
+        <span className="text-[17px] font-bold tabular-nums">{year}</span>
+        <button type="button" disabled={year >= maxYear} onClick={() => setYear(year + 1)} aria-label="Keyingi yil" className={step}><ChevronRight className="size-5" /></button>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {MONTHS.map((m, i) => {
+          const ym = `${year}-${String(i + 1).padStart(2, "0")}`;
+          const future = year === today.getFullYear() && i > today.getMonth();
+          return (
+            <button key={m} type="button" disabled={future} onClick={() => onPick(ym)} className={cn("h-12 rounded-[16px] text-[14.5px] font-semibold transition-colors", activeYM === ym ? "bg-accent text-accent-ink" : future ? "text-faint/40" : "bg-subtle/70")}>
+              {m}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

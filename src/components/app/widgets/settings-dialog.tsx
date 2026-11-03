@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Check, GripVertical, LogOut, RotateCcw, Volume2, VolumeX, X } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { BellRing, Check, ChevronRight, GripVertical, LogOut, Menu, Moon, Palette, RotateCcw, Rows3, Sun, Volume2, VolumeX, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { AnimatePresence } from "framer-motion";
+import { useProfile } from "@/lib/profile-store";
+import { useScrollLock } from "@/lib/use-scroll-lock";
+import { useIsMobile } from "./mono-sheet";
+import { PickerModal } from "./picker-modal";
+import { Avatar } from "./avatar";
+import { MONO_GROUP, MonoIconButton, MonoLabel, MonoSwitch, MonoTick } from "./mono-bits";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -73,6 +81,7 @@ export function SettingsDialog({
   const { family, isDark, setFamily, setMode } = useTheme();
   const bugunTaskStyle = useBugunTaskStyle();
   const router = useRouter();
+  const isMobile = useIsMobile();
 
   // Doim PRIMARY_COUNT ta: yangi bo'lim yoqilsa — ro'yxatdagi oxirgisi
   // uning o'rniga chiqadi (o'chirish yo'q, faqat almashtirish).
@@ -151,6 +160,34 @@ export function SettingsDialog({
     setVolume(v);
     setMasterVolume(v);
     saveVolume(v);
+  }
+
+  // Mobil: dialog o'rniga to'liq ekranli "Sozlamalar" sahifasi
+  if (isMobile) {
+    return (
+      <SettingsMobile
+        open={open}
+        onClose={onClose}
+        s={{
+          enabled, toggleEnabled, volume, changeVolume, notifs, toggleNotif, setLeadMin,
+          primaryIds, enablePrimary, handleReorderPrimary, resetPrimary, isDefaultPrimary,
+          family, isDark, setFamily, setMode, bugunTaskStyle,
+          signingOut, askSignOut: () => setConfirmSignOut(true),
+        }}
+        confirmEl={
+          <ConfirmDialog
+            open={confirmSignOut}
+            title="Akkauntdan chiqasizmi?"
+            description="Sessiya yopiladi va kirish sahifasiga qaytasiz."
+            confirmLabel="Chiqish"
+            destructive
+            icon={LogOut}
+            onConfirm={() => { setConfirmSignOut(false); signOut(); }}
+            onClose={() => setConfirmSignOut(false)}
+          />
+        }
+      />
+    );
   }
 
   return (
@@ -604,6 +641,237 @@ function NavReorderRow({ item }: { item: (typeof NAV_ITEMS)[number] }) {
           <span className="absolute left-[18px] top-0.5 size-4 rounded-full bg-background shadow" />
         </span>
       </div>
+    </Reorder.Item>
+  );
+}
+
+/* ─── Mobil: guruhlangan qatorlar bilan to'liq ekranli sahifa ─── */
+
+type MobileState = {
+  enabled: boolean;
+  toggleEnabled: () => void;
+  volume: number;
+  changeVolume: (v: number) => void;
+  notifs: NotificationPrefs | null;
+  toggleNotif: (key: "notifyHigh" | "notifyMedium" | "notifyLow" | "notifyUnprioritized") => void;
+  setLeadMin: (m: LeadMin) => void;
+  primaryIds: NavItemId[];
+  enablePrimary: (id: NavItemId) => void;
+  handleReorderPrimary: (next: NavItemId[]) => void;
+  resetPrimary: () => void;
+  isDefaultPrimary: boolean;
+  family: string;
+  isDark: boolean;
+  setFamily: (f: (typeof THEME_FAMILIES)[number]["id"]) => void;
+  setMode: (m: "light" | "dark") => void;
+  bugunTaskStyle: "classic" | "wide";
+  signingOut: boolean;
+  askSignOut: () => void;
+};
+
+const noopSubscribe = () => () => {};
+
+const FAMILY_DESC: Record<string, string> = {
+  mono: "Qora-oq, toza",
+  ocean: "Sokin ko'k",
+  graphite: "Yumshoq kulrang",
+  raspberry: "Yorqin malina",
+  honey: "Iliq asal",
+};
+
+function SettingsMobile({ open, onClose, s, confirmEl }: { open: boolean; onClose: () => void; s: MobileState; confirmEl: React.ReactNode }) {
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  if (!mounted) return null;
+  return createPortal(
+    <AnimatePresence>
+      {open && <SettingsMobilePanel key="settings" onClose={onClose} s={s} confirmEl={confirmEl} />}
+    </AnimatePresence>,
+    document.body
+  );
+}
+
+function Row({ icon: Icon, label, sub, value, onClick, right, danger, disabled }: { icon: React.ComponentType<{ className?: string }>; label: string; sub?: string; value?: string; onClick?: () => void; right?: React.ReactNode; danger?: boolean; disabled?: boolean }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} className={cn("flex min-h-[60px] w-full items-center gap-3 px-3.5 py-2.5 text-left active:bg-hover disabled:opacity-50", danger && "text-danger")}>
+      <span className={cn("grid size-9 shrink-0 place-items-center rounded-[12px]", danger ? "bg-danger-soft" : "bg-subtle")}><Icon className="size-[18px]" /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15.5px] font-semibold">{label}</span>
+        {sub && <span className="block text-[12.5px] leading-snug text-faint">{sub}</span>}
+      </span>
+      {value && <span className="shrink-0 text-[14px] text-muted">{value}</span>}
+      {right ?? (onClick && !danger && <ChevronRight className="size-4 shrink-0 text-faint" />)}
+    </button>
+  );
+}
+
+function SettingsMobilePanel({ onClose, s, confirmEl }: { onClose: () => void; s: MobileState; confirmEl: React.ReactNode }) {
+  useScrollLock(true);
+  const profile = useProfile();
+  const [pick, setPick] = useState<null | "palette" | "nav" | "lead">(null);
+  const fam = THEME_FAMILIES.find((t) => t.id === s.family) ?? THEME_FAMILIES[0];
+  const primaryLabels = s.primaryIds.map((id) => NAV_ITEMS.find((i) => i.id === id)?.label).filter(Boolean).join(" · ");
+  const lead = (s.notifs?.notifyLeadMin ?? 5) as LeadMin;
+  const NOTIFS = [
+    { key: "notifyHigh", label: "Muhim", dot: "bg-priority-high" },
+    { key: "notifyMedium", label: "O'rta", dot: "bg-priority-medium" },
+    { key: "notifyLow", label: "Past", dot: "bg-priority-low" },
+    { key: "notifyUnprioritized", label: "Darajasiz", dot: "bg-faint/40" },
+  ] as const;
+  const onCount = NOTIFS.filter((n) => s.notifs?.[n.key] ?? true).length;
+
+  return (
+    <motion.div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Sozlamalar"
+      initial={{ opacity: 0, y: 28 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 28, transition: { duration: 0.16, ease: "easeIn" } }}
+      transition={{ type: "spring", stiffness: 460, damping: 40 }}
+      className="fixed inset-x-0 top-0 z-[60] flex flex-col bg-background"
+      style={{ height: "var(--tg-vh, 100dvh)", paddingTop: "var(--modal-safe-top)" }}
+    >
+      <header className="flex shrink-0 items-center justify-between px-4 pb-2">
+        <h1 className="text-[22px] font-bold tracking-[-0.025em]">Sozlamalar</h1>
+        <MonoIconButton icon={X} label="Yopish" onClick={onClose} />
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-10">
+        {/* Profil */}
+        <div className={cn(MONO_GROUP, "mt-1")}>
+          <div className="flex min-h-[60px] items-center gap-3 px-3.5 py-2.5">
+            <Avatar name={profile?.name} photoUrl={profile?.photoUrl} className="size-10 rounded-full text-[14px] font-bold" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[15.5px] font-semibold">{profile?.name ?? "Foydalanuvchi"}</span>
+              <span className="block text-[12.5px] text-faint">Telegram orqali</span>
+            </span>
+          </div>
+        </div>
+
+        <MonoLabel>Ko&apos;rinish</MonoLabel>
+        <div className={MONO_GROUP}>
+          <div className="flex min-h-[60px] items-center gap-3 px-3.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-[12px] bg-subtle">{s.isDark ? <Moon className="size-[18px]" /> : <Sun className="size-[18px]" />}</span>
+            <span className="flex-1 text-[15.5px] font-semibold">Rejim</span>
+            <div className="flex rounded-full bg-subtle p-1">
+              {([["light", "Yorug'"], ["dark", "Qorong'i"]] as const).map(([m, l]) => (
+                <button key={m} type="button" onClick={() => s.setMode(m)} className={cn("h-9 rounded-full px-3.5 text-[13.5px] font-semibold transition-colors", (m === "dark") === s.isDark ? "bg-accent text-accent-ink shadow-sm" : "text-muted")}>{l}</button>
+              ))}
+            </div>
+          </div>
+          <Row icon={Palette} label="Palitra" value={fam.name} onClick={() => setPick("palette")} />
+          <Row icon={Rows3} label="Kengaytirilgan tasklar" sub="Bugun'da har bir task alohida kattaroq kartada" onClick={() => setBugunTaskStyle(s.bugunTaskStyle === "wide" ? "classic" : "wide")} right={<MonoSwitch on={s.bugunTaskStyle === "wide"} />} />
+        </div>
+
+        <MonoLabel>Pastki menyu</MonoLabel>
+        <div className={MONO_GROUP}>
+          <Row icon={Menu} label="Menyu bo'limlari" sub={`${primaryLabels} · Boshqaruv`} onClick={() => setPick("nav")} />
+        </div>
+
+        <MonoLabel>Ovoz</MonoLabel>
+        <div className={MONO_GROUP}>
+          <Row icon={s.enabled ? Volume2 : VolumeX} label="Ovoz effektlari" sub="Bajarildi va yangi reja uchun ovoz" onClick={s.toggleEnabled} right={<MonoSwitch on={s.enabled} />} />
+          <div className={cn("px-3.5 pb-4 pt-3 transition-opacity", !s.enabled && "opacity-40")}>
+            <div className="flex items-baseline justify-between">
+              <span className="text-[14px] font-semibold">Balandlik</span>
+              <span className="text-[14px] font-semibold tabular-nums text-muted">{Math.round(s.volume * 100)}%</span>
+            </div>
+            <input
+              type="range" min={0} max={1} step={0.05} value={s.volume} disabled={!s.enabled}
+              onChange={(e) => s.changeVolume(parseFloat(e.target.value))}
+              aria-label="Ovoz balandligi"
+              className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full [&::-webkit-slider-thumb]:size-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-surface [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:shadow"
+              style={{ background: `linear-gradient(to right, var(--accent) ${s.volume * 100}%, var(--subtle) ${s.volume * 100}%)` }}
+            />
+          </div>
+        </div>
+
+        <MonoLabel aside={`${onCount}/4 yoqilgan`}>Bot eslatmalari</MonoLabel>
+        <div className={MONO_GROUP}>
+          <Row icon={BellRing} label="Necha daqiqa oldin" sub="Tayyorlanishga ulgurish uchun" value={formatLeadOptionLabel(lead)} onClick={() => setPick("lead")} disabled={!s.notifs} />
+          {NOTIFS.map((n) => (
+            <button key={n.key} type="button" disabled={!s.notifs} onClick={() => s.toggleNotif(n.key)} className="flex min-h-[56px] w-full items-center gap-3 px-3.5 text-left active:bg-hover disabled:opacity-60">
+              <span className="grid size-9 shrink-0 place-items-center"><span className={cn("size-2.5 rounded-full", n.dot)} /></span>
+              <span className="flex-1 text-[15.5px] font-semibold">{n.label}</span>
+              <MonoSwitch on={s.notifs?.[n.key] ?? true} />
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 px-1 text-[12.5px] leading-relaxed text-faint">Muhimlik bo&apos;yicha eslatmalarni alohida yoqib-o&apos;chiring. Vaqtsiz rejalar eslatma yubormaydi.</p>
+
+        <MonoLabel>Akkaunt</MonoLabel>
+        <div className={MONO_GROUP}>
+          <Row icon={LogOut} label="Chiqish" sub="Sessiya yopiladi, kirish sahifasiga qaytasiz" danger disabled={s.signingOut} onClick={s.askSignOut} />
+        </div>
+      </div>
+
+      {/* Palitra */}
+      <PickerModal open={pick === "palette"} onClose={() => setPick(null)} label="Palitra">
+        <div className={cn(MONO_GROUP, "bg-background")}>
+          {THEME_FAMILIES.map((t) => (
+            <button key={t.id} type="button" onClick={() => s.setFamily(t.id)} className="flex min-h-[58px] w-full items-center gap-3 px-3.5 text-left active:bg-hover">
+              <span className="size-7 shrink-0 rounded-full ring-1 ring-border" style={{ background: THEME_SWATCH[t.id] }} />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15.5px] font-semibold">{t.name}</span>
+                <span className="block text-[12.5px] text-faint">{FAMILY_DESC[t.id]}</span>
+              </span>
+              <MonoTick on={s.family === t.id} size={24} />
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 px-1 text-[12.5px] text-faint">Har biri yorug&apos; va qorong&apos;i rejimda ishlaydi.</p>
+      </PickerModal>
+
+      {/* Eslatma vaqti */}
+      <PickerModal open={pick === "lead"} onClose={() => setPick(null)} label="Necha daqiqa oldin">
+        <p className="mb-3 px-1 text-[13.5px] leading-relaxed text-muted">Bot eslatmasi vazifa vaqtidan shuncha oldin yuboriladi. Standart: 5 daqiqa.</p>
+        <div className="grid grid-cols-2 gap-2">
+          {LEAD_MIN_OPTIONS.map((m) => (
+            <button key={m} type="button" onClick={() => { s.setLeadMin(m); setPick(null); }} className={cn("flex h-[60px] flex-col items-center justify-center rounded-[18px] border", lead === m ? "border-accent bg-accent text-accent-ink" : "border-border bg-background")}>
+              <span className="text-[18px] font-bold leading-none tabular-nums">{m === 0 ? "0" : m}</span>
+              <span className={cn("mt-1 text-[12px] font-semibold", lead === m ? "opacity-75" : "text-muted")}>{m === 0 ? "O'z vaqtida" : "daqiqa avval"}</span>
+            </button>
+          ))}
+        </div>
+      </PickerModal>
+
+      {/* Menyu bo'limlari */}
+      <PickerModal open={pick === "nav"} onClose={() => setPick(null)} label="Menyu bo'limlari">
+        <p className="mb-2 px-1 text-[12.5px] leading-relaxed text-faint">Doim {PRIMARY_COUNT} ta bo&apos;lim + Boshqaruv. ⠿ dan ushlab tartiblang; pastdagini yoqsangiz, oxirgisi o&apos;rniga chiqadi.</p>
+        <Reorder.Group axis="y" values={s.primaryIds} onReorder={s.handleReorderPrimary} className={cn(MONO_GROUP, "bg-background")}>
+          {s.primaryIds.map((id, i) => <MobileNavRow key={id} id={id} index={i} />)}
+        </Reorder.Group>
+        <div className={cn(MONO_GROUP, "mt-2 bg-background")}>
+          {NAV_ITEMS.filter((it) => !s.primaryIds.includes(it.id)).map((it) => (
+            <button key={it.id} type="button" onClick={() => s.enablePrimary(it.id)} className="flex min-h-[54px] w-full items-center gap-3 pl-12 pr-3.5 text-left active:bg-hover">
+              <it.icon className="size-5 text-faint" />
+              <span className="flex-1 text-[15px] font-semibold text-muted">{it.label}</span>
+              <MonoSwitch on={false} />
+            </button>
+          ))}
+        </div>
+        <button type="button" onClick={s.resetPrimary} disabled={s.isDefaultPrimary} className="mt-2 flex h-11 w-full items-center justify-center gap-1.5 rounded-[16px] text-[14px] font-semibold text-muted disabled:opacity-35">
+          <RotateCcw className="size-4" /> Asl holatga qaytarish
+        </button>
+      </PickerModal>
+
+      {confirmEl}
+    </motion.div>
+  );
+}
+
+function MobileNavRow({ id, index }: { id: NavItemId; index: number }) {
+  const controls = useDragControls();
+  const it = NAV_ITEMS.find((i) => i.id === id);
+  if (!it) return null;
+  return (
+    <Reorder.Item value={id} dragListener={false} dragControls={controls} whileDrag={{ scale: 1.02, boxShadow: "0 12px 28px -10px rgba(0,0,0,0.3)", zIndex: 2, position: "relative" }} className="flex min-h-[54px] items-center bg-background pr-3.5">
+      <button type="button" aria-label="Tartibini o'zgartirish" onPointerDown={(e) => controls.start(e)} className="grid h-[54px] w-12 shrink-0 cursor-grab touch-none place-items-center text-faint">
+        <GripVertical className="size-4" />
+      </button>
+      <it.icon className="size-5" />
+      <span className="ml-3 flex-1 text-[15px] font-semibold">{it.label}</span>
+      <span className="mr-3 text-[12px] tabular-nums text-faint">{index + 1}</span>
+      <MonoSwitch on />
     </Reorder.Item>
   );
 }
