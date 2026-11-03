@@ -73,12 +73,14 @@ export function IntroTrace({ ready, onDone }: IntroProps) {
           <feGaussianBlur stdDeviation={9} />
         </filter>
         <mask id={maskId} maskUnits="userSpaceOnUse" {...region}>
-          <g filter={`url(#${softId})`}>
+          {/* Xira emas va qalamdan atigi bir oz keng: harf faqat qalam o'tgan joydan
+              ochiladi, qo'shni qismlar oldindan ko'rinmaydi. */}
+          <g>
             <motion.path
               d={LOGO_STROKE_PATH}
               fill="none"
               stroke="#fff"
-              strokeWidth={LOGO_STROKE_WIDTH + 30}
+              strokeWidth={LOGO_STROKE_WIDTH + 6}
               strokeLinecap="round"
               strokeLinejoin="round"
               initial={{ pathLength: 0, opacity: 0 }}
@@ -100,9 +102,9 @@ export function IntroTrace({ ready, onDone }: IntroProps) {
         fillRule="evenodd"
         mask={`url(#${maskId})`}
       />
-      {/* Qalam uchidagi nur, harf chetidan chiqmaydi. CSS blur iOS WebKit'da SVG
+      {/* Qalam uchidagi nur: harf chetidan va yozilgan qismdan oldinga chiqmaydi. CSS blur iOS WebKit'da SVG
           ichida ishlamaydi — faqat SVG filtri bilan xira bo'ladi */}
-      <g clipPath={`url(#${clipId})`}>
+      <g clipPath={`url(#${clipId})`} mask={`url(#${maskId})`}>
         <g filter={`url(#${softId})`}>
           <motion.path
             d={LOGO_STROKE_PATH}
