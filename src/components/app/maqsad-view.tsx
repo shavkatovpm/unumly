@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronLeft, ChevronRight, ChevronsDown, ListChecks, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronsDown, ListChecks, Pencil, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMobileAdd } from "@/lib/mobile-add";
 import { ensureVisibleOnFocus } from "@/lib/ensure-visible";
@@ -74,7 +74,9 @@ export function MaqsadView() {
   const period = periods[horizon];
   const openGoal = goals.find((g) => g.id === openId);
   const list = usePeriodGoals(goals, horizon, period);
-  const doneCount = list.filter((g) => g.done).length;
+  const active = list.filter((g) => !g.done);
+  const completed = list.filter((g) => g.done);
+  const doneCount = completed.length;
 
   useMobileAdd(() => setForm({}));
 
@@ -93,7 +95,9 @@ export function MaqsadView() {
   }
 
   return (
-    <div className="flex flex-col overflow-hidden" style={{ height: "var(--tg-vh, 100vh)" }}>
+    // main tepasida Telegram zonasi uchun bo'shliq bor — sahifa shuni ayirmasa,
+    // pastki qismi ekrandan chiqib nav ostida qoladi.
+    <div className="flex flex-col overflow-hidden" style={{ height: "calc(var(--tg-vh, 100vh) - var(--tg-safe-top, 0px))" }}>
       <header className="z-10 shrink-0 bg-background">
         <div className="hidden h-12 items-center px-4 md:flex md:px-6">
           <h1 className="text-[15px] font-semibold tracking-[-0.01em] sm:text-[13px]">Maqsad</h1>
@@ -161,7 +165,7 @@ export function MaqsadView() {
 
           {!ready && list.length === 0 ? (
             <ListLoader label="Maqsadlar yuklanmoqda…" />
-          ) : list.length === 0 ? (
+          ) : active.length === 0 ? (
             <EmptyState horizon={horizon} onAdd={() => setForm({})} />
           ) : (
             <>
@@ -170,12 +174,12 @@ export function MaqsadView() {
                 <p className="text-[12.5px] tabular-nums text-faint">{doneCount}/{list.length} bajarildi</p>
               </div>
               <div className="hidden space-y-2 md:block">
-                {list.map((g) => (
+                {active.map((g) => (
                   <GoalCard key={g.id} goal={g} goals={goals} today={today} onOpen={() => setOpenId(g.id)} />
                 ))}
               </div>
               <div className="overflow-hidden rounded-[22px] border border-border bg-surface md:hidden">
-                {list.map((g) => (
+                {active.map((g) => (
                   <GoalRow key={g.id} goal={g} goals={goals} today={today} onOpen={() => setOpenId(g.id)} />
                 ))}
               </div>
@@ -184,6 +188,7 @@ export function MaqsadView() {
               </button>
             </>
           )}
+          <DoneGoals goals={completed} all={goals} today={today} onOpen={setOpenId} />
         </div>
           </motion.div>
         </AnimatePresence>
@@ -331,6 +336,46 @@ function GoalRow({ goal, goals, today, onOpen }: { goal: HorizonGoal; goals: Hor
       </span>
       <ChevronRight className="size-4 shrink-0 text-faint" />
     </button>
+  );
+}
+
+/* Bugun'dagi "Bajarilmagan" bo'limi kabi: bajarilgan maqsadlar yopiq holda pastda. */
+function DoneGoals({ goals, all, today, onOpen }: { goals: HorizonGoal[]; all: HorizonGoal[]; today: string; onOpen: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  if (goals.length === 0) return null;
+  return (
+    <section className="mt-4">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between rounded-[18px] border border-border bg-subtle/30 px-4 py-3 text-left transition-colors hover:bg-subtle/60 md:rounded-lg md:px-3 md:py-2"
+      >
+        <span className="flex items-center gap-2">
+          <span className="text-[12px] font-semibold uppercase tracking-[0.12em] text-faint md:text-[10.5px] md:font-medium">Bajarilgan</span>
+          <span className="font-mono text-[12px] tabular-nums text-faint md:text-[10.5px]">{goals.length}</span>
+        </span>
+        <ChevronDown className={cn("size-4 text-faint transition-transform duration-200", open && "rotate-180")} />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            <div className="mt-2 hidden space-y-2 md:block">
+              {goals.map((g) => <GoalCard key={g.id} goal={g} goals={all} today={today} onOpen={() => onOpen(g.id)} />)}
+            </div>
+            <div className="mt-2 overflow-hidden rounded-[22px] border border-border bg-surface md:hidden">
+              {goals.map((g) => <GoalRow key={g.id} goal={g} goals={all} today={today} onOpen={() => onOpen(g.id)} />)}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </section>
   );
 }
 
