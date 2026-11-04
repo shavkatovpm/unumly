@@ -5,6 +5,7 @@ import * as focusActions from "@/lib/taqsimot-actions";
 import * as settingsActions from "@/lib/user-settings-actions";
 import { DEFAULT_WEEKLY_CAPACITY } from "@/lib/kategoriya";
 import { appData } from "@/lib/app-data";
+import { read } from "@/lib/read";
 
 /* Loyihalar taqsimoti — sig'im/foiz sozlamalari + joriy haftalik tally
    (ProjectFocusLog). projects-store.ts bilan bir xil naqsh: xotiradagi
@@ -33,7 +34,7 @@ function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
   void appData("rest")
-    .then((d) => d?.taqsimot ?? Promise.all([settingsActions.getTaqsimotSettings(), focusActions.getFocusCounts()]))
+    .then((d) => d?.taqsimot ?? Promise.all([read("getTaqsimotSettings"), read("getFocusCounts")]))
     .then(([settings, counts]) => {
       hydrated = true;
       // Shu birinchi fetch davomida optimistik mutatsiya (masalan, sig'im

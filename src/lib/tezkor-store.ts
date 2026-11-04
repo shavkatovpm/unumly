@@ -4,6 +4,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { QuickList } from "@/lib/tezkor-types";
 import * as actions from "@/lib/tezkor-actions";
 import { appData } from "@/lib/app-data";
+import { read } from "@/lib/read";
 
 /* ════════════════════════════════════════════════════════════
    Tezkor store — in-memory cache backed by server actions.
@@ -26,7 +27,7 @@ function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
   void appData("tasks")
-    .then((d) => d?.quickLists ?? actions.listLists())
+    .then((d) => d?.quickLists ?? read("listLists"))
     .then((rows) => {
       hydrated = true;
       // Shu birinchi fetch davomida optimistik mutatsiya (masalan, sahifa
@@ -46,7 +47,7 @@ function hydrateOnce() {
 
 export async function refreshLists(): Promise<void> {
   try {
-    const rows = await actions.listLists();
+    const rows = await read("listLists");
     memoryState = rows;
     hydrated = true;
     emit();
@@ -102,8 +103,7 @@ function startPolling() {
   pollTimer = window.setInterval(() => {
     if (document.visibilityState !== "visible") return;
     if (pendingMutations > 0) return;
-    void actions
-      .listLists()
+    void read("listLists")
       .then((rows) => {
         if (pendingMutations > 0) return;
         if (listsEqual(rows, memoryState)) return;
@@ -126,8 +126,7 @@ export function preloadQuickLists() { hydrateOnce(); }
 function maybeRefreshOnVisible() {
   if (document.visibilityState !== "visible") return;
   if (pendingMutations > 0) return;
-  void actions
-    .listLists()
+  void read("listLists")
     .then((rows) => {
       if (pendingMutations > 0) return;
       if (!listsEqual(rows, memoryState)) {

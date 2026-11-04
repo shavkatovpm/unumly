@@ -5,6 +5,7 @@ import type { Habit } from "@/lib/types";
 import * as actions from "@/lib/habits-actions";
 import { appData } from "@/lib/app-data";
 import { refreshPlans, markHabitDay as markHabitDayPlan } from "@/lib/plans-store";
+import { read } from "@/lib/read";
 
 /* Habits — in-memory cache backed by server actions. Each mutation also
    regenerates the rolling 1-week occurrence window (as Plan rows) and
@@ -38,7 +39,7 @@ function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
   void appData("rest")
-    .then((d) => d?.habits ?? actions.listHabits())
+    .then((d) => d?.habits ?? read("listHabits"))
     .then((rows) => { hydrated = true; if (pending === 0) memoryState = rows; emit(); })
     .catch(() => { hydrated = true; emit(); })
     .finally(() => { hydrating = false; });
@@ -47,7 +48,7 @@ function hydrateOnce() {
 export function preloadHabits() { hydrateOnce(); }
 
 export async function refreshHabits(): Promise<void> {
-  try { memoryState = await actions.listHabits(); hydrated = true; emit(); } catch { /* */ }
+  try { memoryState = await read("listHabits"); hydrated = true; emit(); } catch { /* */ }
 }
 
 const POLL_MS = 20 * 1000;
@@ -63,7 +64,7 @@ function rowsEqual(a: State, b: State) {
   }
   return true;
 }
-function fetchReconcile() { if (pending > 0) return; void actions.listHabits().then((rows) => { if (pending > 0) return; if (!rowsEqual(rows, memoryState)) { memoryState = rows; emit(); } }).catch(() => {}); }
+function fetchReconcile() { if (pending > 0) return; void read("listHabits").then((rows) => { if (pending > 0) return; if (!rowsEqual(rows, memoryState)) { memoryState = rows; emit(); } }).catch(() => {}); }
 function startPoll() { if (pollTimer !== null || typeof window === "undefined") return; pollTimer = window.setInterval(() => { if (document.visibilityState !== "visible") return; fetchReconcile(); }, POLL_MS); }
 function stopPoll() { if (pollTimer !== null) { window.clearInterval(pollTimer); pollTimer = null; } }
 function onVisible() { if (document.visibilityState === "visible") fetchReconcile(); }

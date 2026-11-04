@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import type { Currency, Debt, DebtType } from "@/lib/types";
 import * as actions from "@/lib/finance-debts-actions";
 import { appData } from "@/lib/app-data";
+import { read } from "@/lib/read";
 
 /* Qarzdorlik — in-memory cache backed by server actions (goals-store pattern).
    Optimistik mutatsiyalar, server javobi bilan almashtirish, xatoda tiklash. */
@@ -24,7 +25,7 @@ function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
   void appData("finance")
-    .then((d) => d?.debts ?? actions.listDebts())
+    .then((d) => d?.debts ?? read("listDebts"))
     .then((rows) => { hydrated = true; if (pending === 0) memoryState = rows; emit(); })
     .catch(() => { hydrated = true; emit(); })
     .finally(() => { hydrating = false; });
@@ -33,7 +34,7 @@ function hydrateOnce() {
 export function preloadDebts() { hydrateOnce(); }
 
 export async function refreshDebts(): Promise<void> {
-  try { memoryState = await actions.listDebts(); hydrated = true; emit(); } catch { /* */ }
+  try { memoryState = await read("listDebts"); hydrated = true; emit(); } catch { /* */ }
 }
 
 const POLL_MS = 30 * 1000;
@@ -43,7 +44,7 @@ let pending = 0;
 function withPending<T>(p: Promise<T>): Promise<T> { pending++; return p.finally(() => { pending = Math.max(0, pending - 1); }); }
 function fetchReconcile() {
   if (pending > 0) return;
-  void actions.listDebts().then((rows) => {
+  void read("listDebts").then((rows) => {
     if (pending > 0) return;
     if (JSON.stringify(rows) !== JSON.stringify(memoryState)) { memoryState = rows; emit(); }
   }).catch(() => {});

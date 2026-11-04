@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Category, CategoryColor } from "@/lib/types";
 import * as actions from "@/lib/categories-actions";
 import { appData } from "@/lib/app-data";
+import { read } from "@/lib/read";
 
 /* ════════════════════════════════════════════════════════════
    Categories store — in-memory cache backed by server actions.
@@ -66,7 +67,7 @@ function hydrateOnce(key: string, projectId?: string) {
   const s = getScope(key);
   if (s.hydrated || s.hydrating || typeof window === "undefined") return;
   s.hydrating = true;
-  void (projectId ? actions.listCategories(projectId) : appData("tasks").then((d) => d?.categories ?? actions.listCategories()))
+  void (projectId ? read("listCategories", projectId) : appData("tasks").then((d) => d?.categories ?? read("listCategories")))
     .then((rows) => {
       s.hydrated = true;
       // Shu birinchi fetch davomida optimistik mutatsiya boshlangan
@@ -90,7 +91,7 @@ export function preloadCategories(projectId?: string) { hydrateOnce(scopeKey(pro
 export async function refreshCategories(): Promise<void> {
   const s = getScope(PERSONAL);
   try {
-    s.categories = await actions.listCategories();
+    s.categories = await read("listCategories");
     s.hydrated = true;
     emit(PERSONAL);
   } catch {
@@ -123,8 +124,7 @@ function rowsEqual(a: Category[], b: Category[]): boolean {
 function fetchAndReconcile(key: string, projectId?: string) {
   const s = getScope(key);
   if (s.pendingMutations > 0) return;
-  void actions
-    .listCategories(projectId)
+  void read("listCategories", projectId)
     .then((rows) => {
       if (s.pendingMutations > 0) return;
       if (rowsEqual(rows, s.categories)) return;

@@ -14,6 +14,7 @@ import * as catActions from "@/lib/finance-categories-actions";
 import * as budgetActions from "@/lib/finance-budgets-actions";
 import * as goalActions from "@/lib/finance-goals-actions";
 import { appData } from "@/lib/app-data";
+import { read } from "@/lib/read";
 
 /* Moliya — in-memory cache backed by server actions (goals-store pattern).
    Transaction, FinanceCategory va Budget bir snapshot ostida saqlanadi;
@@ -50,10 +51,10 @@ async function loadAll(): Promise<Snapshot> {
   const [txns, cats, budgets, goals] = await Promise.all([
     // Limitsiz: Joriy balans va oylik xulosalar butun tarixdan hisoblanadi.
     // Limit bo'lsa eng eski yozuvlar oynadan tushib, balans "sakrab" ketadi.
-    txnActions.listTransactions(),
-    catActions.listFinanceCategories(),
-    budgetActions.listBudgets(),
-    goalActions.listFinancialGoals(),
+    read("listTransactions"),
+    read("listFinanceCategories"),
+    read("listBudgets"),
+    read("listFinancialGoals"),
   ]);
   return { txns, cats, budgets, goals };
 }

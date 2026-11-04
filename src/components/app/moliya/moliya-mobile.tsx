@@ -120,25 +120,23 @@ export function MoliyaMobile() {
     <MoliyaContext.Provider value={ctx}>
       <div className="flex flex-col overflow-hidden md:hidden" style={{ height: "calc(var(--tg-vh, 100vh) - var(--tg-safe-top, 0px))" }}>
         <header className="shrink-0 px-4 pt-1">
+          {/* Balans sarlavha o'rnida, oy o'ngda */}
           <div className="flex items-center justify-between gap-3">
-            <h1 className="text-[22px] font-bold tracking-[-0.025em]">Moliya</h1>
-            <MonthSwitch month={month} onChange={setMonth} />
-          </div>
-          <div className="mt-2.5 rounded-[20px] bg-accent px-4 py-3 text-accent-ink">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="shrink-0 text-[13px] font-medium opacity-70">Joriy balans</span>
-              <span className="truncate text-[22px] font-bold tabular-nums tracking-[-0.02em]">
-                {formatSom(balance)}<span className="ml-1 text-[13px] font-medium opacity-60">so&apos;m</span>
-              </span>
-            </div>
-            {(debtNet !== 0 || savings !== 0) && (
-              <p className="mt-0.5 truncate text-right text-[12px] opacity-60">
-                {[
-                  debtNet < 0 ? `${short(-debtNet)} qarzga berilgan` : debtNet > 0 ? `${short(debtNet)} qarz olingan` : null,
-                  savings !== 0 ? `${short(savings)} yig'imda` : null,
-                ].filter(Boolean).join(" · ")}
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-muted">Moliya · joriy balans</p>
+              <p className="mt-0.5 truncate text-[26px] font-bold leading-tight tracking-[-0.03em] tabular-nums">
+                {formatSom(balance)}<span className="ml-1 text-[13px] font-medium text-faint">so&apos;m</span>
               </p>
-            )}
+              {(debtNet !== 0 || savings !== 0) && (
+                <p className="truncate text-[12px] text-faint">
+                  {[
+                    debtNet < 0 ? `${short(-debtNet)} qarzga berilgan` : debtNet > 0 ? `${short(debtNet)} qarz olingan` : null,
+                    savings !== 0 ? `${short(savings)} yig'imda` : null,
+                  ].filter(Boolean).join(" · ")}
+                </p>
+              )}
+            </div>
+            <MonthSwitch month={month} onChange={setMonth} />
           </div>
           <TabsPill tab={tab} onChange={selectTab} />
         </header>
@@ -239,6 +237,7 @@ function MonthSwitch({ month, onChange }: { month: string; onChange: (m: string)
   );
 }
 
+/** Tablar bitta kapsulada; faol tab ostidagi oq "tabletka" suriladi. */
 function TabsPill({ tab, onChange }: { tab: MoliyaTab; onChange: (t: MoliyaTab) => void }) {
   const refs = useRef(new Map<MoliyaTab, HTMLButtonElement>());
   // Faol tab har doim ko'rinib tursin (surib almashtirilganda ham).
@@ -246,16 +245,17 @@ function TabsPill({ tab, onChange }: { tab: MoliyaTab; onChange: (t: MoliyaTab) 
     refs.current.get(tab)?.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
   }, [tab]);
   return (
-    <div className="-mx-4 mt-3 flex gap-1.5 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none]">
+    <div className="mt-2.5 flex gap-0.5 overflow-x-auto rounded-full bg-subtle p-1 [scrollbar-width:none]">
       {TABS.map((t) => (
         <button
           key={t.id}
           ref={(el) => { if (el) refs.current.set(t.id, el); else refs.current.delete(t.id); }}
           type="button"
           onClick={() => onChange(t.id)}
-          className={cn("h-9 shrink-0 rounded-full px-3.5 text-[13.5px] font-semibold transition-colors", tab === t.id ? "bg-accent text-accent-ink" : "bg-subtle text-muted")}
+          className="relative h-8 shrink-0 grow rounded-full px-3 text-[13px] font-semibold"
         >
-          {t.label}
+          {tab === t.id && <motion.span layoutId="moliya-tab" transition={{ type: "spring", stiffness: 460, damping: 38 }} className="absolute inset-0 rounded-full bg-surface shadow-sm" />}
+          <span className={cn("relative transition-colors", tab === t.id ? "text-foreground" : "text-muted")}>{t.label}</span>
         </button>
       ))}
     </div>

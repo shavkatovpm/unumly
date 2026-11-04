@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PlanPriority, ProjectTask } from "@/lib/types";
 import * as actions from "@/lib/project-tasks-actions";
+import { read } from "@/lib/read";
 
 /* Loyiha tasklari (Jadval) — pages-store bilan bir xil naqsh: har bir loyiha
    o'z tasklar ro'yxatini alohida, talab bo'yicha yuklanadigan keshda saqlaydi. */
@@ -32,7 +33,7 @@ function nextId() { return typeof crypto !== "undefined" && "randomUUID" in cryp
 
 function loadTasks(projectId: string) {
   if (cache.has(projectId) || inFlight.has(projectId)) return;
-  const req = actions.listProjectTasks(projectId)
+  const req = read("listProjectTasks", projectId)
     .then((rows) => { cache.set(projectId, rows); emit(projectId); return rows; })
     .catch(() => { cache.set(projectId, cache.get(projectId) ?? []); emit(projectId); return []; })
     .finally(() => { inFlight.delete(projectId); });

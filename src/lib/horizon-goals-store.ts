@@ -6,6 +6,7 @@ import * as actions from "@/lib/horizon-goals-actions";
 import { appData } from "@/lib/app-data";
 import { dropPlanLocally, refreshPlans } from "@/lib/plans-store";
 import { lowerHorizon, moveTargetPeriod } from "@/lib/horizon-goals";
+import { read } from "@/lib/read";
 
 /* Davriy maqsadlar — in-memory cache backed by server actions. O'zgarish darhol
    ko'rinadi (optimistik), keyin serverdan qaytgan maqsad bilan almashtiriladi;
@@ -26,7 +27,7 @@ function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
   void appData("rest")
-    .then((d) => d?.horizonGoals ?? actions.listHorizonGoals())
+    .then((d) => d?.horizonGoals ?? read("listHorizonGoals"))
     .then((rows) => { if (pending === 0) memoryState = rows; })
     .catch(() => {})
     .finally(() => { hydrated = true; hydrating = false; emit(); });
@@ -36,7 +37,7 @@ export function preloadHorizonGoals() { hydrateOnce(); }
 
 function reconcile() {
   if (pending > 0) return;
-  void actions.listHorizonGoals().then((rows) => {
+  void read("listHorizonGoals").then((rows) => {
     if (pending > 0) return;
     if (JSON.stringify(rows) !== JSON.stringify(memoryState)) { memoryState = rows; emit(); }
   }).catch(() => {});

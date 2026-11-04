@@ -10,6 +10,7 @@ import {
 } from "@/lib/plans-store";
 import * as actions from "@/lib/ideas-actions";
 import { appData } from "@/lib/app-data";
+import { read } from "@/lib/read";
 
 /* ════════════════════════════════════════════════════════════
    Ideas store (Reja board) — in-memory cache backed by server
@@ -134,7 +135,7 @@ function hydrateOnce(key: string, projectId?: string) {
   const s = getScope(key);
   if (s.hydrated || s.hydrating || typeof window === "undefined") return;
   s.hydrating = true;
-  void (projectId ? actions.listIdeas(projectId) : appData("tasks").then((d) => d?.ideas ?? actions.listIdeas()))
+  void (projectId ? read("listIdeas", projectId) : appData("tasks").then((d) => d?.ideas ?? read("listIdeas")))
     .then((rows) => {
       s.hydrated = true;
       // Shu birinchi fetch davomida optimistik mutatsiya boshlangan
@@ -158,7 +159,7 @@ export function preloadIdeas(projectId?: string) { hydrateOnce(scopeKey(projectI
 export async function refreshIdeas(): Promise<void> {
   const s = getScope(PERSONAL);
   try {
-    s.ideas = await actions.listIdeas();
+    s.ideas = await read("listIdeas");
     s.hydrated = true;
     emit(PERSONAL);
   } catch {
@@ -203,8 +204,7 @@ function rowsEqual(a: Idea[], b: Idea[]): boolean {
 function fetchAndReconcile(key: string, projectId?: string) {
   const s = getScope(key);
   if (s.pendingMutations > 0) return;
-  void actions
-    .listIdeas(projectId)
+  void read("listIdeas", projectId)
     .then((rows) => {
       if (s.pendingMutations > 0) return;
       if (rowsEqual(rows, s.ideas)) return;

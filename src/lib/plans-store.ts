@@ -7,6 +7,7 @@ import { playOnCreate } from "@/lib/sounds";
 import * as actions from "@/lib/plans-actions";
 import { appData } from "@/lib/app-data";
 import { markHabitDay as markHabitDayAction } from "@/lib/habits-actions";
+import { read } from "@/lib/read";
 
 /* ════════════════════════════════════════════════════════════
    Plans store — in-memory cache backed by server actions.
@@ -38,7 +39,7 @@ function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
   void appData("tasks")
-    .then((d) => d?.plans ?? actions.listPlans())
+    .then((d) => d?.plans ?? read("listPlans"))
     .then((rows) => {
       hydrated = true;
       // Agar shu birinchi fetch davomida optimistik mutatsiya (masalan,
@@ -63,7 +64,7 @@ export function preloadPlans() { hydrateOnce(); }
 /** Force a re-fetch from the server (used after first-login import). */
 export async function refreshPlans(): Promise<void> {
   try {
-    const rows = await actions.listPlans();
+    const rows = await read("listPlans");
     memoryState = rows;
     hydrated = true;
     emit();
@@ -94,8 +95,7 @@ function startPolling() {
   pollTimer = window.setInterval(() => {
     if (document.visibilityState !== "visible") return;
     if (pendingMutations > 0) return; // mutation in-flight — skip
-    void actions
-      .listPlans()
+    void read("listPlans")
       .then((rows) => {
         // Mutation fetch davomida boshlanmagan ekanini ham tekshiramiz
         if (pendingMutations > 0) return;
@@ -140,8 +140,7 @@ function maybeRefreshOnVisible() {
   if (document.visibilityState !== "visible") return;
   if (pendingMutations > 0) return; // mutation in-flight — skip
   // On tab focus, fetch immediately rather than waiting for the next tick
-  void actions
-    .listPlans()
+  void read("listPlans")
     .then((rows) => {
       if (pendingMutations > 0) return;
       if (!rowsEqual(rows, memoryState)) {
@@ -246,7 +245,7 @@ export function markHabitDay(habitId: string, date: string, title: string): void
 
   void withPending(
     markHabitDayAction(habitId, date)
-      .then(() => actions.listPlans())
+      .then(() => read("listPlans"))
       .then((rows) => { memoryState = rows; emit(); })
       .catch(() => { memoryState = memoryState.filter((p) => p.id !== id); emit(); })
   );

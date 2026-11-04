@@ -11,7 +11,6 @@ import { Check, ChevronRight, Flag, Minus, Pencil, Plus, Settings2, Shapes, Spar
 import { cn } from "@/lib/utils";
 import { useProjects, useHydratedProjects } from "@/lib/projects-store";
 import { useFocusCounts, useTaqsimotSettings } from "@/lib/taqsimot-store";
-import { getFocusHistory } from "@/lib/taqsimot-actions";
 import { CATEGORY_COLOR_KEYS, CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
 import { KATEGORIYALAR } from "@/lib/kategoriya";
 import { useMobileAdd } from "@/lib/mobile-add";
@@ -21,6 +20,7 @@ import { MonoSheet, MonoSave } from "../widgets/mono-sheet";
 import { PickerModal } from "../widgets/picker-modal";
 import { ListLoader } from "../widgets/list-loader";
 import { MONO_GROUP, MonoEmpty, MonoIconButton, MonoLabel, MonoSeg, MonoStepper, MonoTitle } from "../widgets/mono-bits";
+import { read } from "@/lib/read";
 
 /* ─── Umumiy yordamchilar (workspace ham ishlatadi) ─── */
 
@@ -337,7 +337,7 @@ function AnalitikaTab() {
   const [history, setHistory] = useState<Record<string, number[]>>({});
   useEffect(() => {
     let alive = true;
-    void getFocusHistory(6).then((h) => { if (alive) setHistory(h); });
+    void read("getFocusHistory", 6).then((h) => { if (alive) setHistory(h); });
     return () => { alive = false; };
   }, []);
 

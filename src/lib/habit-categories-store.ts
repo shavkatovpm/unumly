@@ -4,6 +4,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { HabitCategory } from "@/lib/types";
 import * as actions from "@/lib/habit-categories-actions";
 import { appData } from "@/lib/app-data";
+import { read } from "@/lib/read";
 
 /* Habit categories — in-memory cache backed by server actions (mirrors
    categories-store). Optimistic mutations + cross-device polling. */
@@ -20,7 +21,7 @@ function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
   void appData("rest")
-    .then((d) => d?.habitCategories ?? actions.listHabitCategories())
+    .then((d) => d?.habitCategories ?? read("listHabitCategories"))
     .then((rows) => { hydrated = true; if (pending === 0) memoryState = rows; emit(); })
     .catch(() => { hydrated = true; emit(); })
     .finally(() => { hydrating = false; });
@@ -29,7 +30,7 @@ function hydrateOnce() {
 export function preloadHabitCategories() { hydrateOnce(); }
 
 export async function refreshHabitCategories(): Promise<void> {
-  try { memoryState = await actions.listHabitCategories(); hydrated = true; emit(); } catch { /* */ }
+  try { memoryState = await read("listHabitCategories"); hydrated = true; emit(); } catch { /* */ }
 }
 
 const POLL_MS = 20 * 1000;
@@ -38,7 +39,7 @@ let subs = 0;
 let pending = 0;
 function withPending<T>(p: Promise<T>): Promise<T> { pending++; return p.finally(() => { pending = Math.max(0, pending - 1); }); }
 function rowsEqual(a: State, b: State) { if (a.length !== b.length) return false; for (let i = 0; i < a.length; i++) { const x = a[i], y = b[i]; if (x.id !== y.id || x.label !== y.label || x.icon !== y.icon || x.order !== y.order) return false; } return true; }
-function fetchReconcile() { if (pending > 0) return; void actions.listHabitCategories().then((rows) => { if (pending > 0) return; if (!rowsEqual(rows, memoryState)) { memoryState = rows; emit(); } }).catch(() => {}); }
+function fetchReconcile() { if (pending > 0) return; void read("listHabitCategories").then((rows) => { if (pending > 0) return; if (!rowsEqual(rows, memoryState)) { memoryState = rows; emit(); } }).catch(() => {}); }
 function startPoll() { if (pollTimer !== null || typeof window === "undefined") return; pollTimer = window.setInterval(() => { if (document.visibilityState !== "visible") return; fetchReconcile(); }, POLL_MS); }
 function stopPoll() { if (pollTimer !== null) { window.clearInterval(pollTimer); pollTimer = null; } }
 function onVisible() { if (document.visibilityState === "visible") fetchReconcile(); }

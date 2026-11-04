@@ -23,13 +23,13 @@ import {
   sanitizeLeadMin,
   type LeadMin,
 } from "@/lib/notify-time";
-import { getNotificationPrefs } from "@/lib/user-settings-actions";
 import { Dialog } from "./dialog";
 import { MonoActions, MonoBlock, MonoExpand, MonoSave, MonoSheet, MonoTile, useIsMobile } from "./mono-sheet";
 import { CollapseSection, SubtaskEditor, SubtaskViewList, makeSubtaskId } from "./subtask-ui";
 import { TimePickerPopover } from "./time-picker-popover";
 import { DatePickerPopover } from "./date-picker-popover";
 import { DurationPicker } from "./duration-picker";
+import { read } from "@/lib/read";
 
 const PRIORITIES: { value: PlanPriority; label: string; dot: string; ring: string }[] = [
   { value: "HIGH",   label: "Yuqori", dot: "bg-priority-high",   ring: "ring-priority-high" },
@@ -202,7 +202,7 @@ export function TaskDetail({
   // displayed value stays in sync with Settings.
   useEffect(() => {
     if (!open) return;
-    void getNotificationPrefs().then((prefs) => {
+    void read("getNotificationPrefs").then((prefs) => {
       if (!prefs) return;
       setAccountLead(sanitizeLeadMin(prefs.notifyLeadMin));
     });

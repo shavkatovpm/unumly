@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -85,9 +85,21 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   }, []);
   const primary = resolvePrimaryItems(primaryIds);
 
+  // Bosilgan, lekin hali yuklanayotgan bo'lim. Shu payt "+" bosilsa — eski
+  // sahifaning oynasi ochilmasin: yangi sahifa ochilgach o'shaning "+"i ishlaydi.
+  const [pending, setPending] = useState<string | null>(null);
+  const plusQueued = useRef(false);
+
   // Route o'zgarsa Boshqaruv sheet'ini yopamiz (dropdownlar ham reset bo'ladi).
   useEffect(() => {
     setSheetOpen(false);
+    setPending(null);
+    if (plusQueued.current) {
+      plusQueued.current = false;
+      // Yangi sahifa o'z "+" amalini effektida ulaydi — bir kadr kutamiz.
+      const t = window.setTimeout(() => triggerMobileAdd(), 60);
+      return () => window.clearTimeout(t);
+    }
   }, [pathname]);
 
   const isActive = (href: string) =>
@@ -95,7 +107,7 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   // Boshqaruv highlights for any route not surfaced in the primary slots.
   const primaryHrefs = new Set(primary.map((p) => p.href));
   const isBoshqaruvActive =
-    !sheetOpen &&
+    !sheetOpen && !pending &&
     [...BOSHQARUV_ROUTES, "/agenda", "/reja", "/kalendar", "/odat", "/maqsad"].some(
       (href) => !primaryHrefs.has(href) && isActive(href)
     );
@@ -122,8 +134,9 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
       label: t.label,
       icon: t.icon,
       href: t.href,
-      active: isActive(t.href),
+      active: pending ? pending === t.href : isActive(t.href),
       badge: t.showTodayCount ? todayCount : 0,
+      onClick: () => { if (!isActive(t.href)) setPending(t.href); },
     })),
     {
       key: "boshqaruv",
@@ -136,6 +149,7 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   ];
   const onPlus = () => {
     if (sheetClose) return sheetClose();
+    if (pending && !isActive(pending)) { plusQueued.current = true; return; }
     triggerMobileAdd();
   };
   return (
@@ -210,7 +224,7 @@ function GlassTab({
     e.active ? "text-foreground" : "text-muted"
   );
   return e.href ? (
-    <Link href={e.href} aria-label={e.label} className={cls}>
+    <Link href={e.href} onClick={e.onClick} aria-label={e.label} className={cls}>
       {inner}
     </Link>
   ) : (

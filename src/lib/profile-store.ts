@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getMyProfile, type MyProfile } from "@/lib/user-settings-actions";
+import type { MyProfile } from "@/lib/user-settings-actions";
+import { read } from "@/lib/read";
 
 /* Joriy foydalanuvchi profilini bir marta yuklab, ilova bo'ylab ulashadi
    (sidebar + mobil Boshqaruv paneli avatari uchun). */
@@ -16,7 +17,7 @@ export function useProfile(): MyProfile | null {
     listeners.add(rerender);
     if (!fetched) {
       fetched = true;
-      void getMyProfile()
+      void read("getMyProfile")
         .then((res) => { cache = res; for (const l of listeners) l(); })
         .catch(() => {});
     }

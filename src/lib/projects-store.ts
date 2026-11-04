@@ -4,6 +4,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { CategoryColor, Project } from "@/lib/types";
 import * as actions from "@/lib/projects-actions";
 import { appData } from "@/lib/app-data";
+import { read } from "@/lib/read";
 
 /* Loyihalar (Project workspaces) — habits-store bilan bir xil naqsh:
    in-memory cache, optimistik yangilash, server actions bilan orqa fonda
@@ -21,7 +22,7 @@ function hydrateOnce() {
   if (hydrated || hydrating || typeof window === "undefined") return;
   hydrating = true;
   void appData("tasks")
-    .then((d) => d?.projects ?? actions.listProjects())
+    .then((d) => d?.projects ?? read("listProjects"))
     .then((rows) => { hydrated = true; if (pending === 0) memoryState = rows; emit(); })
     .catch(() => { hydrated = true; emit(); })
     .finally(() => { hydrating = false; });
@@ -30,7 +31,7 @@ function hydrateOnce() {
 export function preloadProjects() { hydrateOnce(); }
 
 export async function refreshProjects(): Promise<void> {
-  try { memoryState = await actions.listProjects(); hydrated = true; emit(); } catch { /* */ }
+  try { memoryState = await read("listProjects"); hydrated = true; emit(); } catch { /* */ }
 }
 
 const POLL_MS = 20 * 1000;
@@ -46,7 +47,7 @@ function rowsEqual(a: State, b: State) {
   }
   return true;
 }
-function fetchReconcile() { if (pending > 0) return; void actions.listProjects().then((rows) => { if (pending > 0) return; if (!rowsEqual(rows, memoryState)) { memoryState = rows; emit(); } }).catch(() => {}); }
+function fetchReconcile() { if (pending > 0) return; void read("listProjects").then((rows) => { if (pending > 0) return; if (!rowsEqual(rows, memoryState)) { memoryState = rows; emit(); } }).catch(() => {}); }
 function startPoll() { if (pollTimer !== null || typeof window === "undefined") return; pollTimer = window.setInterval(() => { if (document.visibilityState !== "visible") return; fetchReconcile(); }, POLL_MS); }
 function stopPoll() { if (pollTimer !== null) { window.clearInterval(pollTimer); pollTimer = null; } }
 function onVisible() { if (document.visibilityState === "visible") fetchReconcile(); }

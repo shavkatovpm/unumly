@@ -7,11 +7,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { useProjects } from "@/lib/projects-store";
 import { useFocusCounts } from "@/lib/taqsimot-store";
-import { getFocusHistory } from "@/lib/taqsimot-actions";
 import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
 import { KATEGORIYALAR } from "@/lib/kategoriya";
 import type { Project } from "@/lib/types";
 import { ProjectIcon } from "../loyiha-icons";
+import { read } from "@/lib/read";
 
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
@@ -24,7 +24,7 @@ export function LoyihaAnalitika() {
 
   useEffect(() => {
     let alive = true;
-    void getFocusHistory(6).then((h) => {
+    void read("getFocusHistory", 6).then((h) => {
       if (alive) setHistory(h);
     });
     return () => {

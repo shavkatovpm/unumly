@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Page } from "@/lib/types";
 import * as actions from "@/lib/pages-actions";
+import { read } from "@/lib/read";
 
 /* Loyiha sahifalari (Hujjatlar) — har bir loyiha o'zining sahifalar
    ro'yxatini alohida keshda saqlaydi (talab bo'yicha yuklanadi), chunki
@@ -40,7 +41,7 @@ function collectSubtreeIds(list: Page[], rootId: string): Set<string> {
 function loadPages(projectId: string) {
   if (cache.has(projectId) || inFlight.has(projectId)) return;
   inFlight.add(projectId);
-  void actions.listPages(projectId)
+  void read("listPages", projectId)
     .then((rows) => { cache.set(projectId, rows); emit(projectId); })
     .catch(() => { cache.set(projectId, cache.get(projectId) ?? []); emit(projectId); })
     .finally(() => { inFlight.delete(projectId); });
@@ -111,7 +112,7 @@ export function usePages(projectId: string | null) {
     cache.set(projectId, list.filter((p) => !idsToRemove.has(p.id)));
     emit(projectId);
     void actions.removePage(id).catch(() => {
-      void actions.listPages(projectId).then((rows) => { cache.set(projectId, rows); emit(projectId); });
+      void read("listPages", projectId).then((rows) => { cache.set(projectId, rows); emit(projectId); });
     });
   }, [projectId]);
 
@@ -125,7 +126,7 @@ export function usePages(projectId: string | null) {
     cache.set(projectId, list.map((p) => (indexById.has(p.id) ? { ...p, order: indexById.get(p.id)! } : p)));
     emit(projectId);
     void actions.reorderPages(projectId, orderedIds).catch(() => {
-      void actions.listPages(projectId).then((rows) => { cache.set(projectId, rows); emit(projectId); });
+      void read("listPages", projectId).then((rows) => { cache.set(projectId, rows); emit(projectId); });
     });
   }, [projectId]);
 
