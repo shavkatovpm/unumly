@@ -114,7 +114,7 @@ export function KalendarMobile({ plans, onCreate, onUpdate, onToggle, onRemove, 
               onDragEnd={(_, i) => { if (i.offset.x < -50) shift(1); else if (i.offset.x > 50) shift(-1); }}
               className="mt-2 rounded-[22px] border border-border bg-surface p-2"
             >
-              <MonthGrid view={view} selected={selected} today={today} counts={(iso) => ofDay(iso).length} onPick={pickDay} />
+              <MonthGrid view={view} selected={selected} today={today} openOf={(iso) => ofDay(iso).filter((p) => p.status !== "DONE")} onPick={pickDay} />
             </motion.div>
             <DayList date={selected} today={today} list={ofDay(selIso)} onOpen={setDetailId} onToggle={onToggle} onAdd={() => setAdding(true)} onClear={() => setClearDay(selIso)} />
           </>
@@ -207,8 +207,8 @@ export function KalendarMobile({ plans, onCreate, onUpdate, onToggle, onRemove, 
   );
 }
 
-/* Oy panjarasi: kun raqami, ostida rejalar nuqtalari (3 tagacha). */
-function MonthGrid({ view, selected, today, counts, onPick }: { view: Date; selected: Date; today: Date; counts: (iso: string) => number; onPick: (d: Date) => void }) {
+/* Oy panjarasi: kun raqami, atrofida bajarilmagan rejalar halqasi. */
+function MonthGrid({ view, selected, today, openOf, onPick }: { view: Date; selected: Date; today: Date; openOf: (iso: string) => Plan[]; onPick: (d: Date) => void }) {
   return (
     <div className="grid grid-cols-7">
       {WD.map((w) => <span key={w} className="grid h-7 place-items-center text-[12px] font-medium text-faint">{w}</span>)}
@@ -217,12 +217,12 @@ function MonthGrid({ view, selected, today, counts, onPick }: { view: Date; sele
         const inMonth = d.getMonth() === view.getMonth();
         const sel = isSameDay(d, selected);
         const isToday = isSameDay(d, today);
-        const n = counts(iso);
+        const open = openOf(iso);
         return (
-          <button key={iso} type="button" onClick={() => onPick(startOfDay(d))} className="grid h-[54px] place-items-center">
-            <span className={cn("relative grid size-10 place-items-center rounded-full text-[15px] tabular-nums transition-colors", sel ? "bg-accent font-semibold text-accent-ink" : isToday ? "font-semibold ring-1 ring-inset ring-foreground/35" : inMonth ? "text-foreground" : "text-faint/50")}>
+          <button key={iso} type="button" onClick={() => onPick(startOfDay(d))} className="grid h-12 place-items-center">
+            <span className={cn("relative grid size-11 place-items-center rounded-full text-[15px] tabular-nums transition-colors", sel ? "bg-accent font-semibold text-accent-ink" : isToday ? "font-semibold ring-1 ring-inset ring-foreground/35" : inMonth ? "text-foreground" : "text-faint/50")}>
               {d.getDate()}
-              {n > 0 && <DayDots n={n} />}
+              {open.length > 0 && <DayRing plans={open} on={sel} />}
             </span>
           </button>
         );
@@ -231,26 +231,36 @@ function MonthGrid({ view, selected, today, counts, onPick }: { view: Date; sele
   );
 }
 
-/* Rejalar soni — nuqtalar doira bo'ylab: pastki o'rtadan boshlab ikki tomonga
-   navbatma-navbat yoyiladi (1, 2-o'ng, 3-chap, ...). 16 tadan keyin doira to'ladi. */
-const DOT_STEP = 22.5;
-const DOT_RADIUS = 23;
-function DayDots({ n }: { n: number }) {
-  const count = Math.min(n, 16);
+/* Bajarilmagan rejalar halqasi: har bir reja — sana doirasi atrofida bitta bo'lak,
+   o'z muhimlik rangida. Muhimlari pastki o'rtada, qolganlari ikki tomonga teng
+   yoyiladi; 12 tada halqa to'ladi. */
+const RING_R = 20;
+const RING_C = 2 * Math.PI * RING_R;
+const RING_STEP = RING_C / 12;
+const RING_LEN = RING_STEP - 3.2;
+const PRIORITY_RANK = { HIGH: 0, MEDIUM: 1, LOW: 2 } as const;
+function DayRing({ plans, on }: { plans: Plan[]; on: boolean }) {
+  const items = [...plans].sort((a, b) => (a.priority ? PRIORITY_RANK[a.priority] : 3) - (b.priority ? PRIORITY_RANK[b.priority] : 3)).slice(0, 12);
+  const n = items.length;
+  // O'rinlar markazdan uzoqlashish tartibida: 1-chi o'rtada, keyin o'ng/chap.
+  const slots = Array.from({ length: n }, (_, j) => j - (n - 1) / 2).sort((x, y) => Math.abs(x) - Math.abs(y) || x - y);
   return (
-    <span aria-label={`${n} ta reja`} className="pointer-events-none absolute inset-0">
-      {Array.from({ length: count }, (_, i) => {
-        const k = i === 0 ? 0 : Math.ceil(i / 2) * (i % 2 ? -1 : 1);
-        const a = ((90 + k * DOT_STEP) * Math.PI) / 180;
-        return (
-          <span
-            key={i}
-            className="absolute size-[5px] rounded-full bg-muted"
-            style={{ left: `calc(50% + ${Math.cos(a) * DOT_RADIUS}px - 2.5px)`, top: `calc(50% + ${Math.sin(a) * DOT_RADIUS}px - 2.5px)` }}
-          />
-        );
-      })}
-    </span>
+    <svg viewBox="0 0 44 44" aria-label={`${plans.length} ta reja`} className="pointer-events-none absolute inset-0 rotate-90">
+      {items.map((p, i) => (
+        <circle
+          key={p.id}
+          cx="22"
+          cy="22"
+          r={RING_R}
+          fill="none"
+          strokeWidth={2.75}
+          strokeLinecap="round"
+          style={{ stroke: p.priority ? PRIORITY_COLOR[p.priority] : on ? "var(--accent-ink)" : "var(--border-strong)" }}
+          strokeDasharray={`${RING_LEN} ${RING_C - RING_LEN}`}
+          strokeDashoffset={-(slots[i] * RING_STEP - RING_LEN / 2)}
+        />
+      ))}
+    </svg>
   );
 }
 
