@@ -16,6 +16,7 @@ import { startOfDay, toDateInputValue, parseTimeToMinutes } from "@/lib/dates";
 import { AppIntro } from "./app-intro";
 import { Sidebar } from "./sidebar";
 import { MobileBottomNav } from "./mobile-bottom-nav";
+import { MobileNewTask } from "./mobile-new-task";
 import { OPEN_NEW_TASK_EVENT } from "@/lib/mobile-add";
 
 const STORAGE_OPEN = "unumly:sidebar:open";
@@ -205,9 +206,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("unumly:open-command", onOpen);
   }, [setPalette]);
 
-  // Mobil glass nav'dagi "+" — sahifa o'zi ushlamasa, "Yangi task" oynasi.
+  // "Yangi task" hodisasi — desktop'da buyruqlar oynasi (mobilda MobileNewTask).
   useEffect(() => {
-    const onOpen = () => setPalette(true, "newTask");
+    const onOpen = () => {
+      if (window.matchMedia("(max-width: 767px)").matches) return;
+      setPalette(true, "newTask");
+    };
     window.addEventListener(OPEN_NEW_TASK_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_NEW_TASK_EVENT, onOpen);
   }, [setPalette]);
@@ -331,6 +335,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom navigation */}
       <MobileBottomNav todayCount={todayCount} />
+      <MobileNewTask />
 
       {/* Buyruqlar oynasi (⌘K) + klaviatura shortcut'lari — desktop */}
       <CommandPalette

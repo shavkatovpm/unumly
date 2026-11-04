@@ -5,9 +5,14 @@ import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FolderKanban,
   LayoutGrid,
+  Timer,
   Menu,
   Moon,
   Plus,
@@ -34,12 +39,12 @@ import {
 } from "@/lib/mobile-add";
 import { useProfile } from "@/lib/profile-store";
 import { useProjects, useHydratedProjects } from "@/lib/projects-store";
-import { CATEGORY_PALETTE, colorWithAlpha } from "@/lib/category-palette";
-import type { Project } from "@/lib/types";
-import { ProjectIcon } from "./loyiha-icons";
+import { CATEGORY_PALETTE } from "@/lib/category-palette";
 import { ProjectFormModal } from "./loyiha/project-form-modal";
 import { SettingsDialog } from "./widgets/settings-dialog";
 import { Avatar } from "./widgets/avatar";
+import { TodayPanelSettings } from "./bugun/today-panel";
+import { PANEL_TABS, useTodayPanel } from "@/lib/today-panel";
 
 const STORAGE_HIDDEN = "unumly:sidebar:hidden";
 
@@ -281,6 +286,10 @@ function BoshqaruvSheet({
   // Loyihalar/Arxiv — accordion: bir vaqtda faqat bittasi ochiq. Sheet har
   // ochilganda yopiq holatda boshlanadi — navigatsiyadan keyin ochiq qolmaydi.
   const [openSection, setOpenSection] = useState<"loyiha" | "arxiv" | null>(null);
+  // "Bugun paneli" sozlamasi shu panel ichida alohida sahifa bo'lib ochiladi.
+  const [view, setView] = useState<"main" | "panel">("main");
+  const todayPanel = useTodayPanel();
+  const panelLabels = todayPanel.visible.map((id) => PANEL_TABS.find((t) => t.id === id)!.label);
   const toggleSection = (s: "loyiha" | "arxiv") => setOpenSection((cur) => (cur === s ? null : s));
 
   // Lock background scroll while sheet is open — also locks any
@@ -302,25 +311,15 @@ function BoshqaruvSheet({
         !!item && !primaryHrefs.has(item.href) && !hidden.includes(item.id)
     );
 
-  const itemBase = (active: boolean) =>
-    active
-      ? "border-foreground/30 bg-subtle text-foreground"
-      : "border-border bg-surface text-muted hover:bg-hover hover:text-foreground";
-
-  // 2 ustun katak — ikona tepada, label pastda.
-  function renderItems() {
-    return (
-      <div className="grid grid-cols-2 gap-2.5">
-        {visibleItems.map((item) => (
-          <Link key={item.id} href={item.href} onClick={onClose}
-            className={cn("flex flex-col items-center justify-center gap-2 rounded-2xl border px-3 py-5 transition-colors", itemBase(isActive(item.href)))}>
-            <item.icon className="size-7 shrink-0" strokeWidth={1.9} />
-            <span className="text-[14px] font-medium">{item.label}</span>
-          </Link>
-        ))}
-      </div>
+  // Bo'limlar — 3 ustunli bir xil katakchalar; Pomodoro doim shu yerda.
+  const tiles = [...visibleItems, { id: "pomodoro", href: "/pomodoro", label: "Pomodoro", icon: Timer }];
+  const tileCls = (active: boolean) =>
+    cn(
+      "flex h-[86px] flex-col items-center justify-center gap-2 rounded-[20px] border transition-colors active:bg-hover",
+      active ? "border-foreground/30 bg-subtle text-foreground" : "border-border bg-surface text-foreground"
     );
-  }
+  const rowCls = (active: boolean) =>
+    cn("flex min-h-[52px] w-full items-center gap-3 px-3.5 text-left text-[15px] font-medium transition-colors active:bg-hover", active && "bg-subtle");
 
   return (
     <>
@@ -349,7 +348,7 @@ function BoshqaruvSheet({
             onClose();
           }
         }}
-        className="fixed inset-x-0 bottom-0 z-50 flex max-h-[min(92vh,calc(var(--tg-vh,100dvh)-var(--modal-safe-top)))] flex-col rounded-t-2xl border-t border-border bg-surface shadow-2xl md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 flex max-h-[min(92vh,calc(var(--tg-vh,100dvh)-var(--modal-safe-top)))] flex-col rounded-t-[30px] bg-background shadow-2xl md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         {/* Drag handle — swipe-close (drag faqat shu yerdan boshlanadi) yoki tap-to-close */}
@@ -362,107 +361,101 @@ function BoshqaruvSheet({
           <span className="h-1 w-10 rounded-full bg-faint/60" />
         </button>
 
-        <header className="flex shrink-0 items-center justify-between border-b border-border px-4 pb-2.5">
-          <p className="text-[16px] font-semibold tracking-[-0.01em]">Boshqaruv</p>
-          <button
-            onClick={onClose}
-            aria-label="Yopish"
-            className="grid size-9 place-items-center rounded-md text-faint hover:bg-hover hover:text-foreground"
-          >
-            <X className="size-4" />
-          </button>
-        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
+          <AnimatePresence mode="wait" initial={false}>
+            {view === "panel" ? (
+              <motion.div key="panel" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
+                <div className="mb-3 flex items-center gap-2">
+                  <button type="button" onClick={() => setView("main")} aria-label="Orqaga" className="grid size-10 place-items-center rounded-full bg-subtle"><ChevronLeft className="size-5" /></button>
+                  <p className="text-[18px] font-bold tracking-[-0.01em]">Bugun paneli</p>
+                </div>
+                <TodayPanelSettings />
+              </motion.div>
+            ) : (
+              <motion.div key="main" initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
+                <div className="flex items-center justify-between px-1">
+                  <p className="text-[20px] font-bold tracking-[-0.02em]">Boshqaruv</p>
+                  <button onClick={onClose} aria-label="Yopish" className="grid size-10 place-items-center rounded-full bg-subtle text-foreground">
+                    <X className="size-5" />
+                  </button>
+                </div>
 
-        {/* Tana — 2 ustun katak, scroll bilan */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-          <div className="px-3 py-2.5">{renderItems()}</div>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {tiles.map((item) => (
+                    <Link key={item.id} href={item.href} onClick={onClose} className={tileCls(isActive(item.href))}>
+                      <item.icon className="size-[22px] shrink-0" strokeWidth={1.9} />
+                      <span className="text-[13.5px] font-semibold">{item.label}</span>
+                    </Link>
+                  ))}
+                </div>
 
-        {/* Loyihalar — dropdown (loyihalar ro'yxati + tezkor yaratish) */}
-        <SheetCollapsible label="Loyihalar" open={openSection === "loyiha"} onToggle={() => toggleSection("loyiha")}>
-          <Link
-            href="/loyiha"
-            onClick={onClose}
-            className={cn(
-              "flex items-center gap-3 rounded-lg border px-3.5 py-3 text-[15px] transition-colors",
-              pathname === "/loyiha"
-                ? "border-foreground/30 bg-subtle text-foreground"
-                : "border-border bg-surface text-muted hover:bg-hover hover:text-foreground"
+                <div className="mt-3 space-y-2">
+                  <SheetFold label="Loyihalar" icon={FolderKanban} count={hydratedProjects ? projects.length : undefined} open={openSection === "loyiha"} onToggle={() => toggleSection("loyiha")}>
+                    <Link href="/loyiha" onClick={onClose} className={rowCls(pathname === "/loyiha")}>
+                      <LayoutGrid className="size-[18px] shrink-0 text-muted" />
+                      <span className="flex-1 truncate">Barchasi</span>
+                      <ChevronRight className="size-4 shrink-0 text-faint" />
+                    </Link>
+                    {hydratedProjects && projects.map((p) => (
+                      <Link key={p.id} href={`/loyiha/${p.id}`} onClick={onClose} className={rowCls(isActive(`/loyiha/${p.id}`))}>
+                        <span className="size-2.5 shrink-0 rounded-full" style={{ background: p.color ? CATEGORY_PALETTE[p.color].oklch : "var(--faint)" }} />
+                        <span className="flex-1 truncate">{p.title}</span>
+                        <ChevronRight className="size-4 shrink-0 text-faint" />
+                      </Link>
+                    ))}
+                    <button type="button" onClick={() => setShowCreateProject(true)} className={cn(rowCls(false), "text-muted")}>
+                      <Plus className="size-[18px] shrink-0" /> Yangi loyiha
+                    </button>
+                  </SheetFold>
+                  <SheetFold label="Tarix" icon={Archive} open={openSection === "arxiv"} onToggle={() => toggleSection("arxiv")}>
+                    {[
+                      { href: "/bajarilgan", label: "Bajarilgan", icon: CheckCircle2 },
+                      { href: "/arxiv", label: "Arxiv", icon: Archive },
+                      { href: "/ochirilgan", label: "O'chirilgan", icon: Trash2 },
+                    ].map((it) => (
+                      <Link key={it.href} href={it.href} onClick={onClose} className={rowCls(isActive(it.href))}>
+                        <it.icon className="size-[18px] shrink-0 text-muted" />
+                        <span className="flex-1">{it.label}</span>
+                        <ChevronRight className="size-4 shrink-0 text-faint" />
+                      </Link>
+                    ))}
+                  </SheetFold>
+                  <button type="button" onClick={() => setView("panel")} className="flex min-h-[58px] w-full items-center gap-3 rounded-[20px] border border-border bg-surface px-3.5 text-left active:bg-hover">
+                    <BarChart3 className="size-5 shrink-0 text-muted" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15.5px] font-semibold">Bugun paneli</span>
+                      <span className="block truncate text-[12.5px] text-faint">{panelLabels.length ? panelLabels.join(" · ") : "O'chiq"}</span>
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-faint" />
+                  </button>
+                </div>
+              </motion.div>
             )}
-          >
-            <span className="grid size-7 shrink-0 place-items-center rounded-md bg-subtle text-faint">
-              <LayoutGrid className="size-3.5" />
-            </span>
-            <span className="flex-1 truncate text-left font-medium">Barchasi</span>
-          </Link>
-          {hydratedProjects && projects.map((p) => (
-            <ProjectSheetLink
-              key={p.id}
-              project={p}
-              active={isActive(`/loyiha/${p.id}`)}
-              onNavigate={onClose}
-            />
-          ))}
-          <button
-            type="button"
-            onClick={() => setShowCreateProject(true)}
-            className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border px-3.5 py-3 text-[15px] text-faint transition-colors hover:bg-hover hover:text-foreground"
-          >
-            <Plus className="size-[19px] shrink-0" strokeWidth={2} />
-            <span className="flex-1 text-left font-medium">Yangi loyiha</span>
-          </button>
-        </SheetCollapsible>
-
-        {/* Tarix — dropdown */}
-        <SheetCollapsible label="Tarix" open={openSection === "arxiv"} onToggle={() => toggleSection("arxiv")}>
-          <SheetLink
-            href="/bajarilgan"
-            label="Bajarilgan"
-            icon={CheckCircle2}
-            active={isActive("/bajarilgan")}
-            onNavigate={onClose}
-            secondary
-          />
-          <SheetLink
-            href="/arxiv"
-            label="Arxiv"
-            icon={Archive}
-            active={isActive("/arxiv")}
-            onNavigate={onClose}
-            secondary
-          />
-          <SheetLink
-            href="/ochirilgan"
-            label="O'chirilgan"
-            icon={Trash2}
-            active={isActive("/ochirilgan")}
-            onNavigate={onClose}
-            secondary
-          />
-        </SheetCollapsible>
+          </AnimatePresence>
         </div>
 
-        {/* Profile + theme + settings — doim ko'rinadi (scrollsiz) */}
-        <div className="shrink-0 border-t border-border bg-subtle/30 p-3">
-          <div className="flex items-center gap-3 rounded-lg bg-background p-3">
+        {/* Profil + mavzu + sozlamalar — doim pastda */}
+        <div className="shrink-0 px-4 pb-3 pt-1">
+          <div className="flex items-center gap-3 rounded-[20px] bg-subtle/70 p-2.5 pl-3">
             <Avatar name={profile?.name} photoUrl={profile?.photoUrl} className="size-10 text-[14px]" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-medium">{profile?.name ?? "Ish stoli"}</p>
-              <p className="text-[11px] text-faint">Telegram</p>
+              <p className="truncate text-[15px] font-semibold">{profile?.name ?? "Ish stoli"}</p>
+              <p className="text-[12px] text-faint">Telegram</p>
             </div>
             <button
               onClick={toggleMode}
               aria-label={isDark ? "Yorug' rejim" : "Qorong'u rejim"}
-              className="grid size-11 place-items-center rounded-md text-muted hover:bg-hover hover:text-foreground"
+              className="grid size-10 place-items-center rounded-full bg-surface text-foreground"
             >
-              {isDark ? <Sun className="size-[22px]" /> : <Moon className="size-[22px]" />}
+              {isDark ? <Sun className="size-5" /> : <Moon className="size-5" />}
             </button>
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}
               aria-label="Sozlamalar"
-              className="grid size-11 place-items-center rounded-md text-muted hover:bg-hover hover:text-foreground"
+              className="grid size-10 place-items-center rounded-full bg-surface text-foreground"
             >
-              <Settings className="size-[22px]" />
+              <Settings className="size-5" />
             </button>
           </div>
         </div>
@@ -481,125 +474,27 @@ function BoshqaruvSheet({
   );
 }
 
-function SheetLink({
-  href,
-  label,
-  icon: Icon,
-  active,
-  onNavigate,
-  secondary = false,
-  fit = false,
-}: {
-  href: string;
+/* Boshqaruv'dagi ochiladigan guruh (Loyihalar, Tarix). */
+function SheetFold({ label, icon: Icon, count, open, onToggle, children }: {
   label: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  active: boolean;
-  onNavigate?: () => void;
-  /** Ikkinchi darajali (Arxiv) — ixchamroq, kartasiz, xira. */
-  secondary?: boolean;
-  /** Joyga moslashuvchi — ekranga sig'ish uchun kichrayadi (max = joriy o'lcham). */
-  fit?: boolean;
-}) {
-  if (secondary) {
-    // Tepadagi asosiy kartaga o'xshash, ammo kichikroq.
-    return (
-      <Link
-        href={href}
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-3 rounded-lg border px-3.5 py-3 text-[15px] transition-colors",
-          active
-            ? "border-foreground/30 bg-subtle text-foreground"
-            : "border-border bg-surface text-muted hover:bg-hover hover:text-foreground"
-        )}
-      >
-        <span className="flex-1 text-left font-medium">{label}</span>
-        <Icon className="size-[19px] shrink-0 text-faint" strokeWidth={2} />
-      </Link>
-    );
-  }
-  return (
-    <Link
-      href={href}
-      onClick={onNavigate}
-      className={cn(
-        "flex items-center gap-3.5 rounded-xl border px-[18px] text-[19px] transition-colors",
-        fit ? "min-h-[40px] max-h-[60px] flex-1" : "py-[18px]",
-        active
-          ? "border-foreground/30 bg-subtle text-foreground"
-          : "border-border bg-surface text-muted hover:bg-hover hover:text-foreground"
-      )}
-    >
-      <span className="flex-1 text-left font-medium">{label}</span>
-      <Icon className="size-[25px] shrink-0 text-faint" strokeWidth={2} />
-    </Link>
-  );
-}
-
-function ProjectSheetLink({
-  project,
-  active,
-  onNavigate,
-}: {
-  project: Project;
-  active: boolean;
-  onNavigate?: () => void;
-}) {
-  const color = project.color ? CATEGORY_PALETTE[project.color].oklch : "var(--faint)";
-  return (
-    <Link
-      href={`/loyiha/${project.id}`}
-      onClick={onNavigate}
-      className={cn(
-        "flex items-center gap-3 rounded-lg border px-3.5 py-3 text-[15px] transition-colors",
-        active
-          ? "border-foreground/30 bg-subtle text-foreground"
-          : "border-border bg-surface text-muted hover:bg-hover hover:text-foreground"
-      )}
-    >
-      <span
-        className="grid size-7 shrink-0 place-items-center rounded-md"
-        style={{ background: project.color ? colorWithAlpha(project.color, 0.16) : "var(--subtle)", color }}
-      >
-        <ProjectIcon k={project.icon} className="size-3.5" />
-      </span>
-      <span className="flex-1 truncate text-left font-medium">{project.title}</span>
-    </Link>
-  );
-}
-
-/* Yopiladigan bo'lim (dropdown) — Arxiv/Maxsus uchun. */
-function SheetCollapsible({
-  label,
-  open,
-  onToggle,
-  children,
-}: {
-  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  count?: number;
   open: boolean;
   onToggle: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-t border-border px-3 py-2">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-faint transition-colors hover:text-foreground"
-      >
-        <span className="text-[10.5px] font-medium uppercase tracking-[0.15em]">{label}</span>
-        <ChevronDown className={cn("size-4 transition-transform duration-200", open && "rotate-180")} />
+    <div className="overflow-hidden rounded-[20px] border border-border bg-surface">
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-h-[54px] w-full items-center gap-3 px-3.5 text-left">
+        <Icon className="size-5 shrink-0 text-muted" />
+        <span className="flex-1 text-[15.5px] font-semibold">{label}</span>
+        {count !== undefined && <span className="text-[13px] tabular-nums text-faint">{count}</span>}
+        <ChevronDown className={cn("size-4 shrink-0 text-faint transition-transform duration-200", open && "rotate-180")} />
       </button>
       <AnimatePresence initial={false}>
         {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden"
-          >
-            <div className="mt-1 space-y-1.5">{children}</div>
+          <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+            <div className="border-t border-border [&>*+*]:border-t [&>*+*]:border-border/70">{children}</div>
           </motion.div>
         )}
       </AnimatePresence>

@@ -18,7 +18,7 @@ import { formatDateLong, formatUzDate, fromDateInputValue, parseTimeToMinutes } 
 import { formatMoney } from "@/lib/money";
 import { useLongPressReorder } from "@/lib/use-long-press-reorder";
 import { cn } from "@/lib/utils";
-import { TaskAnalyticsMobile } from "../widgets/task-analytics";
+import { TodayPanel } from "./today-panel";
 import { MonoSheet } from "../widgets/mono-sheet";
 import { ListLoader } from "../widgets/list-loader";
 import {
@@ -56,48 +56,30 @@ export function BugunMobile({
   onSettleDebt: (id: string) => void;
   onSnoozeDebt: (id: string, untilIso: string) => void;
 }) {
-  const [analyticsOpen, setAnalyticsOpen] = useState(false);
-  const [rangeLabel, setRangeLabel] = useState("Haftalik analitika");
   const [debtId, setDebtId] = useState<string | null>(null);
   const nowMin = now ? now.getHours() * 60 + now.getMinutes() : null;
   const done = doneList.length;
   const pct = total ? Math.round((done / total) * 100) : 0;
   const active = blocks.reduce((n, b) => n + b.items.length, 0);
-  const cardTitle = total === 0 ? "Birinchi rejangizni + orqali yozing" : analyticsOpen ? rangeLabel : "Bugungi rejalar";
 
   return (
     <div className="pb-32 md:hidden">
       <MobileHeader
         title="Bugun"
         sub={formatUzDate(today)}
-        aside={now ? now.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" }) : null}
+        aside={
+          total > 0 ? (
+            <span className="flex items-center gap-1.5 text-[13px] font-semibold tabular-nums text-muted">
+              <Ring value={pct / 100} size={22} stroke={3}>{pct === 100 && <Check className="size-3" strokeWidth={3} />}</Ring>
+              {done}/{total}
+            </span>
+          ) : null
+        }
       />
 
       <div className="px-4">
-        {/* Kun natijasi — ixcham qator, bosilsa analitika ochiladi */}
-        <div className="mt-2.5 overflow-hidden rounded-[18px] border border-border bg-surface">
-          <button type="button" disabled={total === 0} onClick={() => setAnalyticsOpen((v) => !v)} aria-expanded={analyticsOpen} className="flex h-12 w-full items-center gap-2.5 px-3 text-left">
-            <Ring value={pct / 100}>{pct === 100 && <Check className="size-3.5" strokeWidth={3} />}</Ring>
-            <span className="relative h-5 min-w-0 flex-1 overflow-hidden">
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span key={cardTitle} initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -7 }} transition={{ duration: 0.2 }} className="block truncate text-[14.5px] font-semibold leading-5">
-                  {cardTitle}
-                </motion.span>
-              </AnimatePresence>
-            </span>
-            {total > 0 && (
-              <>
-                <span className="shrink-0 text-[13px] tabular-nums text-muted">{done}/{total} · {pct}%</span>
-                <ChevronDown className={cn("size-4 shrink-0 text-faint transition-transform duration-300", analyticsOpen && "rotate-180")} />
-              </>
-            )}
-          </button>
-          <Expand open={analyticsOpen && total > 0}>
-            <div className="border-t border-border">
-              <TaskAnalyticsMobile plans={plans} today={today} onRangeLabelChange={setRangeLabel} />
-            </div>
-          </Expand>
-        </div>
+        {/* Bugun paneli: Analitika · Maqsad · Reja · Agenda (Boshqaruv'da sozlanadi) */}
+        <TodayPanel plans={plans} today={today} todayIso={todayIso} onToggle={onToggle} onOpen={onOpen} />
 
         {/* Qarz muddati eslatmalari */}
         {debtReminders.length > 0 && (
