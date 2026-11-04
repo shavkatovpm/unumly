@@ -18,6 +18,7 @@ import { HaftaView } from "./kalendar/hafta-view";
 import { OyView } from "./kalendar/oy-view";
 import { YilView } from "./kalendar/yil-view";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
+import { KalendarMobile } from "./kalendar/kalendar-mobile";
 
 const UZ_MONTHS = [
   "yanvar", "fevral", "mart", "aprel", "may", "iyun",
@@ -91,7 +92,12 @@ export function KalendarView() {
   const isToday = isSameDay(selected, today);
 
   return (
-    <div className="flex flex-col overflow-hidden" style={{ height: "var(--tg-vh, 100vh)" }}>
+    <>
+    {/* Mobil — yangi ko'rinish; desktop pastda o'zgarmagan. */}
+    <div className="md:hidden" style={{ height: "calc(var(--tg-vh, 100vh) - var(--tg-safe-top, 0px))" }}>
+      <KalendarMobile plans={plans} onCreate={create} onUpdate={update} onToggle={toggleStatus} onRemove={askRemove} onRemoveMany={removeMany} />
+    </div>
+    <div className="hidden flex-col overflow-hidden md:flex" style={{ height: "var(--tg-vh, 100vh)" }}>
       {/* Header */}
       <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
         <div className="flex min-w-0 items-center gap-1.5 md:gap-3">
@@ -201,7 +207,8 @@ export function KalendarView() {
           )}
         </div>
       </div>
-      {confirmEl}
     </div>
+    {confirmEl}
+    </>
   );
 }
