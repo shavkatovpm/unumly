@@ -44,6 +44,8 @@ import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
 import { QarzPanel } from "./qarz-view";
 import { MoliyaQuickAdd, MoliyaTypeCapsule } from "./moliya-quick-add";
+import { useIsMobile } from "./widgets/mono-sheet";
+import { MoliyaMobile } from "./moliya/moliya-mobile";
 
 const INCOME_COLOR = "oklch(0.62 0.13 158)"; // yashil
 const EXPENSE_COLOR = "oklch(0.62 0.17 22)"; // qizil
@@ -68,7 +70,18 @@ function catColor(c: FinanceCategory | undefined): CategoryColor {
    Main view
    ════════════════════════════════════════════════════════════ */
 
+/** Mobil — yangi ko'rinish (moliya/moliya-mobile), md+ — avvalgi desktop ko'rinishi. */
 export function MoliyaView() {
+  return (
+    <>
+      <MoliyaMobile />
+      <MoliyaDesktop />
+    </>
+  );
+}
+
+function MoliyaDesktop() {
+  const mobile = useIsMobile();
   const {
     transactions, categories, budgets, goals,
     addTransaction, updateTransaction, removeTransaction,
@@ -98,7 +111,7 @@ export function MoliyaView() {
   // Glass nav'dagi "+" — Umumiy/Tranzaksiyalar'da Kirim/Chiqim kapsulasi
   // (boshqa tablar o'zi ushlaydi).
   const [typeChoiceOpen, setTypeChoiceOpen] = useState(false);
-  useMobileAdd(() => setTypeChoiceOpen(true), tab === "umumiy" || tab === "tranzaksiyalar");
+  useMobileAdd(() => setTypeChoiceOpen(true), !mobile && (tab === "umumiy" || tab === "tranzaksiyalar"));
   // "Kirim-chiqim" tabidagi faol tur (Umumiy'dagi taqsimotdan o'tishda boshqariladi)
   const [catType, setCatType] = useState<TransactionType>("EXPENSE");
 
@@ -248,7 +261,7 @@ export function MoliyaView() {
   }
 
   return (
-    <div className="mx-auto flex h-full max-w-2xl flex-col px-4 pb-24 pt-3 md:pb-6 lg:max-w-3xl xl:max-w-4xl">
+    <div className="mx-auto hidden h-full max-w-2xl flex-col px-4 pb-24 pt-3 md:flex md:pb-6 lg:max-w-3xl xl:max-w-4xl">
       {/* Header — oy navigatsiyasi */}
       <header className="mb-3 flex items-center justify-between">
         <h1 className="text-[18px] font-semibold tracking-[-0.01em]">Moliya</h1>
@@ -847,7 +860,8 @@ function CategoriesTab({
   onRemoveBudget: (categoryId: string) => void;
 }) {
   const [creating, setCreating] = useState(false);
-  useMobileAdd(() => setCreating(true));
+  const mobile = useIsMobile();
+  useMobileAdd(() => setCreating(true), !mobile);
   const [editingCat, setEditingCat] = useState<FinanceCategory | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailCat, setDetailCat] = useState<FinanceCategory | null>(null);
@@ -1248,7 +1262,8 @@ function YigimTab({
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
-  useMobileAdd(() => { setEditingGoal(null); setDialogOpen(true); });
+  const mobile = useIsMobile();
+  useMobileAdd(() => { setEditingGoal(null); setDialogOpen(true); }, !mobile);
   const [historyGoal, setHistoryGoal] = useState<FinancialGoal | null>(null);
 
   const confirmItems = useMemo(() => goals.map((g) => ({ id: g.id, title: g.title })), [goals]);

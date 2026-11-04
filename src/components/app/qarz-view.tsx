@@ -24,6 +24,7 @@ import { Dialog } from "./widgets/dialog";
 import { DatePickerButton } from "./widgets/date-picker-button";
 import { useConfirmRemove } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
+import { useIsMobile } from "./widgets/mono-sheet";
 
 const LENT_COLOR = "oklch(0.62 0.13 158)"; // yashil — menga qarzdor (keladi)
 const BORROWED_COLOR = "oklch(0.62 0.17 22)"; // qizil — men qarzdorman
@@ -48,8 +49,9 @@ export function QarzPanel() {
   const [filter, setFilter] = useState<Filter>("lent");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Debt | null>(null);
-  // Glass nav'dagi "+" — yangi qarz (FAB yashiriladi).
-  useMobileAdd(() => { setEditing(null); setDialogOpen(true); });
+  // Glass nav'dagi "+" — yangi qarz (mobilda moliya/moliya-mobile o'zi ushlaydi).
+  const mobile = useIsMobile();
+  useMobileAdd(() => { setEditing(null); setDialogOpen(true); }, !mobile);
 
   // Jami — har valyuta alohida (kurs o'zgaruvchan, aralashtirilmaydi).
   const totalsByCurrency = useMemo(() => {
