@@ -5,10 +5,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, ListChecks, Repeat, Tag, Target } from "lucide-react";
+import { ChevronDown, ListChecks, Repeat, Tag, Target } from "lucide-react";
 import type { Plan } from "@/lib/types";
 import { playOnComplete } from "@/lib/sounds";
 import { cn } from "@/lib/utils";
+import { DoneMark } from "../widgets/done-mark";
 
 export const PRIORITY_COLOR: Record<NonNullable<Plan["priority"]>, string> = {
   HIGH: "var(--priority-high)",
@@ -38,12 +39,7 @@ export function Tick({ on, onClick, size = 26, label }: { on: boolean; onClick: 
       aria-label={label ?? (on ? "Bekor qilish" : "Bajarildi")}
       className="-m-2 grid shrink-0 place-items-center p-2"
     >
-      <span
-        className={cn("grid place-items-center rounded-full border-2 transition-colors", on ? "border-accent bg-accent text-accent-ink" : "border-border-strong")}
-        style={{ width: size, height: size }}
-      >
-        {on && <Check className="size-3.5" strokeWidth={3.5} />}
-      </span>
+      <DoneMark on={on} size={size} />
     </button>
   );
 }
@@ -111,7 +107,8 @@ export const ROW_MOTION = {
   layout: true,
   initial: { opacity: 0, height: 0 },
   animate: { opacity: 1, height: "auto" },
-  exit: { opacity: 0, height: 0, transition: { duration: 0.22 } },
+  // Bajarilgan qator o'ngga chiqib ketadi, keyin joyi yig'iladi.
+  exit: { opacity: 0, x: 80, height: 0, transition: { x: { duration: 0.22 }, opacity: { duration: 0.2 }, height: { duration: 0.22, delay: 0.16 } } },
   transition: { type: "spring", stiffness: 460, damping: 38, opacity: { duration: 0.18 } },
 } as const;
 

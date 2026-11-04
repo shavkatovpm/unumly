@@ -30,6 +30,7 @@ import { Dialog } from "./widgets/dialog";
 import { MonoActions, MonoBlock, MonoExpand, MonoHeader, MonoSave, MonoSheet, useIsMobile } from "./widgets/mono-sheet";
 import { ConfirmDialog } from "./widgets/confirm-dialog";
 import { ListLoader } from "./widgets/list-loader";
+import { DoneMark } from "./widgets/done-mark";
 
 const SPRING = { type: "spring", stiffness: 420, damping: 36 } as const;
 
@@ -554,9 +555,9 @@ function StepRowMobile({ step, goal, goals, today }: { step: HorizonGoalStep; go
         type="button"
         onClick={() => api.setStepDone(step.id, !step.done)}
         aria-label={step.done ? "Bajarilmagan deb belgilash" : "Bajarildi"}
-        className={cn("grid size-6 shrink-0 place-items-center rounded-full border-2 transition-colors", step.done ? "border-accent bg-accent text-accent-ink" : "border-border-strong")}
+        className="-m-2 grid shrink-0 place-items-center p-2"
       >
-        {step.done && <Check className="size-3.5" strokeWidth={3.5} />}
+        <DoneMark on={step.done} size={24} />
       </button>
     </div>
   );

@@ -5,7 +5,7 @@
    foizlar mavjud bajarilish ma'lumotidan (occurrence plan'lar) hisoblanadi.
    Desktop ko'rinishi odat-view.tsx'da o'zgarmagan holda qoladi. */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity, Archive, Check, ChevronLeft, ChevronRight, ChevronDown, Clock, Flame, Folder, Medal, Pencil, Plus,
@@ -44,9 +44,6 @@ function scheduleLabel(days: number[]) {
   if (days.length === 0) return "Hech qachon";
   if (days.length === 5 && [1, 2, 3, 4, 5].every((x) => days.includes(x))) return "Ish kunlari";
   return WEEK_FROM_MON.filter((d) => days.includes(d)).map((d) => UZ_DAYS_SHORT[d]).join(" ");
-}
-function rangeLabel(a: Date, b: Date) {
-  return a.getMonth() === b.getMonth() ? `${a.getDate()}–${b.getDate()} ${MONTHS[b.getMonth()]}` : `${a.getDate()} ${MONTHS[a.getMonth()].slice(0, 3)} – ${b.getDate()} ${MONTHS[b.getMonth()].slice(0, 3)}`;
 }
 function weekOf(offset: number) {
   const monday = addDays(TODAY, -((TODAY.getDay() + 6) % 7) + offset * 7);
@@ -176,7 +173,7 @@ export function OdatMobile(p: OdatMobileProps) {
       {/* Bitta ixcham qator: bo'lim tablari + (Kalendarda) Hafta/Oy */}
       <div className="mt-2.5 flex items-center gap-2 px-4">
         <Segment value={tab} options={[{ id: "calendar", label: "Kalendar" }, { id: "habits", label: "Odatlar" }]} onChange={selectTab} id="odat-m-tab" solid className="flex-1" />
-        {tab === "calendar" && <Segment value={mode} options={[{ id: "week", label: "Hafta" }, { id: "month", label: "Oy" }]} onChange={setMode} id="odat-m-mode" className="w-[124px]" />}
+        {tab === "calendar" && <Segment value={mode} options={[{ id: "week", label: "Kun" }, { id: "month", label: "Oy" }]} onChange={setMode} id="odat-m-mode" className="w-[124px]" />}
       </div>
 
       {!p.hydrated && habits.length === 0 ? (
@@ -204,7 +201,7 @@ export function OdatMobile(p: OdatMobileProps) {
             {tab === "calendar" ? (
               <div className="pt-1">
                 {mode === "week"
-                  ? <WeekMode cats={cats} habits={habits} logs={logs} onToggle={toggleDay} onOpen={setDetailId} onAddExisting={addWeekday} onNewHabit={(wd) => setAdd({ days: [wd] })} />
+                  ? <DayMode cats={cats} habits={habits} logs={logs} onToggle={toggleDay} onOpen={setDetailId} onAddExisting={addWeekday} onNewHabit={(wd) => setAdd({ days: [wd] })} />
                   : <MonthMode cats={cats} habits={habits} logs={logs} onToggle={toggleDay} onOpen={setDetailId} onAddExisting={addWeekday} onNewHabit={(wd) => setAdd({ days: [wd] })} />}
               </div>
             ) : (
@@ -320,58 +317,106 @@ function MiniRing({ ratio, size = 40, children, className }: { ratio: number; si
   );
 }
 
-function WeekMode({ cats, habits, logs, onToggle, onOpen, onAddExisting, onNewHabit }: CalProps) {
-  const [offset, setOffset] = useState(0);
+/* Kunlar: sanalar lentasi (o'tgan 7 kun, bugun, keyingi 2 kun) + tanlangan kun ro'yxati. */
+function DayMode({ cats, habits, logs, onToggle, onOpen, onAddExisting, onNewHabit }: CalProps) {
   const [sel, setSel] = useState(TODAY_ISO);
   const [addOpen, setAddOpen] = useState(false);
-  const week = useMemo(() => weekOf(offset), [offset]);
-  const selDate = week.find((d) => iso(d) === sel) ?? week[0];
+  const stripRef = useRef<HTMLDivElement>(null);
+  const days = useMemo(() => Array.from({ length: 10 }, (_, i) => addDays(TODAY, i - 7)), []);
+  const selDate = fromIso(sel);
+  const week = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(selDate, i - ((selDate.getDay() + 6) % 7))), [sel]); // eslint-disable-line react-hooks/exhaustive-deps
   const due = habits.filter((h) => isScheduled(h, selDate));
+  const rest = habits.filter((h) => !isScheduled(h, selDate));
   const future = selDate.getTime() > TODAY.getTime();
   const doneN = due.filter((h) => doneOn(logs, h, selDate)).length;
-  const stats = ratioFor(habits, logs, week);
-  const range = rangeLabel(week[0], week[6]);
-  function go(delta: number) {
-    const n = offset + delta;
-    setOffset(n);
-    setSel(n === 0 ? TODAY_ISO : iso(weekOf(n)[0]));
-  }
+  const stats = ratioFor(habits, logs, weekOf(0));
+  // Ochilganda bugungi kun ko'rinsin — lenta o'tgan kunlardan boshlanadi.
+  useEffect(() => {
+    stripRef.current?.querySelector("[data-today]")?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, []);
+
   return (
     <>
-      <PeriodNav title={offset === 0 ? "Shu hafta" : offset === -1 ? "O'tgan hafta" : offset === 1 ? "Keyingi hafta" : range} sub={Math.abs(offset) <= 1 ? range : undefined} onPrev={() => go(-1)} onNext={() => go(1)} />
-      <div className="mt-1 grid grid-cols-7 gap-1 rounded-[22px] border border-border bg-surface p-1">
-        {week.map((d) => {
-          const on = iso(d) === sel;
-          const isToday = iso(d) === TODAY_ISO;
-          const fut = d.getTime() > TODAY.getTime();
+      <div ref={stripRef} className="-mx-4 mt-2 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]">
+        {days.map((d) => {
+          const k = iso(d);
+          const on = k === sel;
           const dueN = habits.filter((h) => isScheduled(h, d)).length;
           const dn = habits.filter((h) => isScheduled(h, d) && doneOn(logs, h, d)).length;
+          const fut = d.getTime() > TODAY.getTime();
           return (
-            <button key={iso(d)} type="button" onClick={() => setSel(iso(d))} className={cn("flex flex-col items-center gap-0.5 rounded-[18px] py-1.5 transition-colors", on ? "bg-accent text-accent-ink" : "active:bg-hover", fut && !on && "opacity-55")}>
-              <span className={cn("text-[11px] font-semibold", on ? "opacity-75" : "text-faint")}>{UZ_DAYS_SHORT[d.getDay()]}</span>
-              <span className={cn("grid size-8 place-items-center rounded-full text-[16px] font-semibold tabular-nums", !on && isToday && "ring-1 ring-inset ring-foreground/40")}>{d.getDate()}</span>
-              <span className="flex h-1.5 items-center">
-                {dueN > 0 && !fut ? (
-                  <span className={cn("h-1.5 rounded-full", on ? "bg-accent-ink" : "bg-foreground")} style={{ width: 4 + Math.round((dn / dueN) * 14), opacity: dn ? 1 : 0.25 }} />
-                ) : dueN > 0 ? (
-                  <span className={cn("size-1.5 rounded-full", on ? "bg-accent-ink/50" : "bg-border-strong")} />
-                ) : null}
-              </span>
+            <button key={k} type="button" data-today={k === TODAY_ISO ? "" : undefined} onClick={() => setSel(k)} className={cn("flex w-[52px] shrink-0 flex-col items-center gap-1 rounded-[18px] py-2 transition-colors", on ? "bg-accent text-accent-ink" : "border border-border bg-surface", fut && !on && "opacity-60")}>
+              <span className={cn("text-[11.5px] font-medium", on ? "opacity-70" : "text-faint")}>{k === TODAY_ISO ? "Bugun" : UZ_DAYS_SHORT[d.getDay()]}</span>
+              <span className="text-[17px] font-bold tabular-nums">{d.getDate()}</span>
+              <Ring value={fut || !dueN ? 0 : dn / dueN} size={18} stroke={2.5} />
             </button>
           );
         })}
       </div>
 
-      <div className="mb-1.5 mt-3.5 flex items-baseline justify-between px-1">
+      <div className="mb-1.5 mt-4 flex items-baseline justify-between px-1">
         <p className="text-[13px] font-semibold text-muted">{dayTitle(selDate)}{future && " · kelajak"}</p>
         {due.length > 0 && <span className="text-[12.5px] tabular-nums text-faint">{doneN}/{due.length}</span>}
       </div>
-      <DayList cats={cats} habits={due} logs={logs} date={selDate} onToggle={onToggle} onOpen={onOpen} />
+      {due.length === 0 ? (
+        <div className="rounded-[22px] border border-dashed border-border py-8 text-center text-[14px] text-faint">Bu kun uchun odat yo&apos;q</div>
+      ) : (
+        <div className={groupCls}>
+          {due.map((h) => {
+            const done = doneOn(logs, h, selDate);
+            const cat = cats.find((c) => c.id === h.categoryId);
+            const st = streakOf(h, logs).cur;
+            return (
+              <div key={h.id} className="flex min-h-[72px] items-center gap-3 px-3.5">
+                <button type="button" onClick={() => onOpen(h.id)} className="flex min-w-0 flex-1 items-center gap-3 self-stretch py-2.5 text-left">
+                  <span className={cn("grid size-10 shrink-0 place-items-center rounded-[13px] transition-colors", done ? "bg-accent text-accent-ink" : "bg-subtle text-muted")}><CategoryIcon k={cat?.icon ?? "folder"} className="size-[18px]" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className={cn("truncate text-[15.5px] font-semibold tracking-[-0.01em]", done && "text-faint line-through decoration-faint/60")}>{h.title}</span>
+                      {st > 0 && <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-subtle px-2 py-0.5 text-[12px] font-semibold tabular-nums"><Flame className="size-3.5 text-[oklch(0.68_0.17_45)]" />{st}</span>}
+                    </span>
+                    {/* Tanlangan kun haftasi: bajarilgan — to'q, qolgan — xira, odat yo'q kun — bo'sh */}
+                    <span className="mt-1.5 flex gap-1">
+                      {week.map((d) => {
+                        const sch = isScheduled(h, d);
+                        const ok = doneOn(logs, h, d);
+                        const fut = d.getTime() > TODAY.getTime();
+                        return <span key={iso(d)} className={cn("h-1.5 w-5 rounded-full", !sch ? "bg-transparent" : ok ? "bg-foreground" : fut ? "bg-subtle" : "bg-border-strong", iso(d) === sel && "outline outline-1 outline-offset-1 outline-foreground/40")} />;
+                      })}
+                    </span>
+                  </span>
+                  {h.time && <span className="shrink-0 text-[12.5px] tabular-nums text-faint">{h.time}</span>}
+                </button>
+                {future ? <span className="shrink-0 text-[12px] text-faint">kutilmoqda</span> : <Tick on={done} onClick={() => onToggle(h, selDate)} />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {rest.length > 0 && (
+        <>
+          <p className="mb-1.5 mt-4 px-1 text-[13px] font-semibold text-muted">{sel === TODAY_ISO ? "Bugun dam" : "Shu kuni dam"}</p>
+          <div className={groupCls}>
+            {rest.map((h) => {
+              const cat = cats.find((c) => c.id === h.categoryId);
+              return (
+                <button key={h.id} type="button" onClick={() => onOpen(h.id)} className="flex min-h-[58px] w-full items-center gap-3 px-3.5 text-left">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-subtle text-faint"><CategoryIcon k={cat?.icon ?? "folder"} className="size-[18px]" /></span>
+                  <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-muted">{h.title}</span>
+                  <span className="shrink-0 text-[12px] text-faint">{scheduleLabel(h.days)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       <button type="button" onClick={() => setAddOpen(true)} className="mt-3 flex h-[52px] w-full items-center justify-center gap-1.5 rounded-[22px] border border-dashed border-border text-[14px] font-semibold text-muted active:bg-hover">
         <Plus className="size-4" /> <span>{`${UZ_DAYS_LONG[selDate.getDay()]} kuniga odat qo'shish`}</span>
       </button>
 
-      <StatCard pct={stats.pct} title={offset === 0 ? "Shu hafta" : range} line={`${stats.dn} / ${stats.sc} marta bajarildi`} habits={habits} logs={logs} />
+      <StatCard pct={stats.pct} title="Shu hafta" line={`${stats.dn} / ${stats.sc} marta bajarildi`} habits={habits} logs={logs} />
       <DayAddModal open={addOpen} date={selDate} habits={habits} cats={cats} onClose={() => setAddOpen(false)} onAddExisting={onAddExisting} onNewHabit={onNewHabit} />
     </>
   );

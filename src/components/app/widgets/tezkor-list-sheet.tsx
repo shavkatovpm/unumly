@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, Bot, Check, MoreHorizontal, X } from "lucide-react";
+import { ArrowUp, Bot, MoreHorizontal, X } from "lucide-react";
 import type { QuickList } from "@/lib/tezkor-types";
 import { parseListLines } from "@/lib/tezkor-utils";
 import { playOnComplete } from "@/lib/sounds";
@@ -12,6 +12,7 @@ import { useLongPressReorder } from "@/lib/use-long-press-reorder";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "./confirm-dialog";
+import { DoneMark } from "./done-mark";
 
 type Props = {
   list: QuickList | null;
@@ -66,9 +67,9 @@ function ItemRow({ text, done, onToggle, onUpdate, onRemove }: { text: string; d
         type="button"
         onClick={onToggle}
         aria-label={done ? "Bekor qilish" : "Bajarildi"}
-        className={cn("grid size-[26px] shrink-0 place-items-center rounded-full border-2 transition-colors", done ? "border-accent bg-accent text-accent-ink" : "border-border-strong")}
+        className="-m-2 grid shrink-0 place-items-center p-2"
       >
-        {done && <Check className="size-3.5" strokeWidth={3.5} />}
+        <DoneMark on={done} size={26} />
       </button>
     </div>
   );

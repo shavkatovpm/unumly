@@ -359,7 +359,7 @@ function TaskRow({ task, onOpen, onToggle, dragControls }: { task: ProjectTask; 
           )}
         </span>
       </button>
-      <MonoTick on={task.done} onClick={onToggle} />
+      <MonoTick on={task.done} onClick={onToggle} wave />
     </>
   );
 }

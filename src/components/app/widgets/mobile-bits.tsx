@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DoneMark } from "./done-mark";
 
 /** Ro'yxat kartasi: ichidagi qatorlar orasida chiziq. */
 export const groupCls = "overflow-hidden rounded-[22px] border border-border bg-surface [&>*+*]:border-t [&>*+*]:border-border";
@@ -30,6 +31,7 @@ export function Tick({ on, onClick, size = 26, disabled }: { on: boolean; onClic
   const cls = cn("grid shrink-0 place-items-center rounded-full border-2 transition-colors", on ? "border-accent bg-accent text-accent-ink" : "border-border-strong", disabled && "opacity-30");
   const inner = on && <Check className="size-3.5" strokeWidth={3.5} />;
   if (!onClick || disabled) return <span className={cls} style={{ width: size, height: size }}>{inner}</span>;
+  const mark = <DoneMark on={on} size={size} />;
   return (
     <button
       type="button"
@@ -37,7 +39,7 @@ export function Tick({ on, onClick, size = 26, disabled }: { on: boolean; onClic
       aria-label={on ? "Bajarilmagan deb belgilash" : "Bajarildi"}
       className="-m-2 grid shrink-0 place-items-center p-2"
     >
-      <span className={cls} style={{ width: size, height: size }}>{inner}</span>
+      {mark}
     </button>
   );
 }

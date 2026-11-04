@@ -5,13 +5,13 @@
    Desktop ko'rinishi KalendarView'da o'zgarmagan. */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Eraser, Plus } from "lucide-react";
 import type { Plan, PlanPriority, PlanScope } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useMobileAdd } from "@/lib/mobile-add";
 import { getCalendarGrid, isSameDay, parseTimeToMinutes, startOfDay, startOfMonth, startOfWeek, toDateInputValue } from "@/lib/dates";
-import { PRIORITY_COLOR, Tick } from "../bugun/mobile-ui";
+import { Collapsed, PRIORITY_COLOR, ROW_MOTION, Tick, usePendingDone } from "../bugun/mobile-ui";
 import { TaskAddSheet } from "../widgets/task-add-sheet";
 import { TaskDetail } from "../widgets/task-detail";
 import { ConfirmDialog } from "../widgets/confirm-dialog";
@@ -219,14 +219,10 @@ function MonthGrid({ view, selected, today, counts, onPick }: { view: Date; sele
         const isToday = isSameDay(d, today);
         const n = counts(iso);
         return (
-          <button key={iso} type="button" onClick={() => onPick(startOfDay(d))} className="grid h-[46px] place-items-center">
+          <button key={iso} type="button" onClick={() => onPick(startOfDay(d))} className="grid h-[54px] place-items-center">
             <span className={cn("relative grid size-10 place-items-center rounded-full text-[15px] tabular-nums transition-colors", sel ? "bg-accent font-semibold text-accent-ink" : isToday ? "font-semibold ring-1 ring-inset ring-foreground/35" : inMonth ? "text-foreground" : "text-faint/50")}>
               {d.getDate()}
-              {n > 0 && (
-                <span className="absolute bottom-1 flex gap-0.5">
-                  {Array.from({ length: Math.min(3, n) }).map((_, i) => <span key={i} className={cn("size-1 rounded-full", sel ? "bg-accent-ink" : "bg-muted")} />)}
-                </span>
-              )}
+              {n > 0 && <DayDots n={n} />}
             </span>
           </button>
         );
@@ -235,8 +231,32 @@ function MonthGrid({ view, selected, today, counts, onPick }: { view: Date; sele
   );
 }
 
+/* Rejalar soni — nuqtalar doira bo'ylab: pastki o'rtadan boshlab ikki tomonga
+   navbatma-navbat yoyiladi (1, 2-o'ng, 3-chap, ...). 16 tadan keyin doira to'ladi. */
+const DOT_STEP = 22.5;
+const DOT_RADIUS = 23;
+function DayDots({ n }: { n: number }) {
+  const count = Math.min(n, 16);
+  return (
+    <span aria-label={`${n} ta reja`} className="pointer-events-none absolute inset-0">
+      {Array.from({ length: count }, (_, i) => {
+        const k = i === 0 ? 0 : Math.ceil(i / 2) * (i % 2 ? -1 : 1);
+        const a = ((90 + k * DOT_STEP) * Math.PI) / 180;
+        return (
+          <span
+            key={i}
+            className="absolute size-[5px] rounded-full bg-muted"
+            style={{ left: `calc(50% + ${Math.cos(a) * DOT_RADIUS}px - 2.5px)`, top: `calc(50% + ${Math.sin(a) * DOT_RADIUS}px - 2.5px)` }}
+          />
+        );
+      })}
+    </span>
+  );
+}
+
 function PlanLine({ p, onOpen, onToggle }: { p: Plan; onOpen: (id: string) => void; onToggle: (id: string) => void }) {
-  const done = p.status === "DONE";
+  // Belgilangach biroz ko'rinib turadi (to'lqin), keyin "Bajarilgan"ga o'tadi.
+  const { visual: done, toggle } = usePendingDone(p.status === "DONE", () => onToggle(p.id));
   return (
     <div role="button" tabIndex={0} onClick={() => onOpen(p.id)} className="flex min-h-[58px] cursor-pointer items-center gap-3 px-3.5 py-2 active:bg-hover">
       <span className="w-12 shrink-0 text-[13px] font-semibold tabular-nums text-muted">{p.time ?? "—"}</span>
@@ -245,12 +265,14 @@ function PlanLine({ p, onOpen, onToggle }: { p: Plan; onOpen: (id: string) => vo
         <span className={cn("block truncate text-[15px] font-semibold", done && "text-faint line-through decoration-faint/60")}>{p.title}</span>
         {p.time && p.duration && <span className="block text-[12px] text-faint">{p.duration} daq.</span>}
       </span>
-      <Tick on={done} onClick={() => onToggle(p.id)} size={24} />
+      <Tick on={done} onClick={toggle} size={24} />
     </div>
   );
 }
 
 function DayList({ date, today, list, onOpen, onToggle, onAdd, onClear }: { date: Date; today: Date; list: Plan[]; onOpen: (id: string) => void; onToggle: (id: string) => void; onAdd: () => void; onClear: () => void }) {
+  const active = list.filter((p) => p.status !== "DONE");
+  const done = list.filter((p) => p.status === "DONE");
   return (
     <>
       <div className="mb-1.5 mt-4 flex items-center justify-between px-1">
@@ -260,10 +282,27 @@ function DayList({ date, today, list, onOpen, onToggle, onAdd, onClear }: { date
           {list.length > 0 && <button type="button" onClick={onClear} aria-label="Kunni tozalash" className="ml-1 grid size-8 place-items-center rounded-full text-faint active:bg-hover"><Eraser className="size-4" /></button>}
         </span>
       </div>
-      {list.length > 0 && (
+      {active.length > 0 && (
         <div className="overflow-hidden rounded-[22px] border border-border bg-surface [&>*+*]:border-t [&>*+*]:border-border">
-          {list.map((p) => <PlanLine key={p.id} p={p} onOpen={onOpen} onToggle={onToggle} />)}
+          <AnimatePresence initial={false}>
+            {active.map((p) => (
+              <motion.div key={p.id} {...ROW_MOTION}>
+                <PlanLine p={p} onOpen={onOpen} onToggle={onToggle} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
+      )}
+      {list.length > 0 && active.length === 0 && (
+        <p className="rounded-[18px] border border-dashed border-border px-4 py-4 text-center text-[13.5px] text-faint">Bu kunning hamma rejalari bajarildi</p>
+      )}
+      {/* Bajarilganlar — pastda yopiq, belgini olib tashlasa ro'yxatga qaytadi */}
+      {done.length > 0 && (
+        <Collapsed label="Bajarilgan" count={done.length} className="mt-2">
+          <div className="overflow-hidden rounded-[22px] border border-border bg-surface [&>*+*]:border-t [&>*+*]:border-border">
+            {done.map((p) => <PlanLine key={p.id} p={p} onOpen={onOpen} onToggle={onToggle} />)}
+          </div>
+        </Collapsed>
       )}
       <button type="button" onClick={onAdd} className="mt-2 flex h-11 w-full items-center justify-center gap-1.5 rounded-[18px] border border-dashed border-border text-[14px] font-medium text-muted">
         <Plus className="size-4" /> {list.length ? "Shu kunga qo'shish" : "Bu kun bo'sh — reja qo'shish"}

@@ -10,6 +10,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown, Minus, Plus, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PickerModal } from "./picker-modal";
+import { DoneMark } from "./done-mark";
 
 /** Ixcham tablar qatori (h-9, bitta "tabletka" ichida). */
 export function MonoSeg<T extends string>({ value, options, onChange }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void }) {
@@ -41,7 +42,7 @@ export function MonoIconButton({ icon: Icon, label, onClick, solid, className }:
 }
 
 /** Dumaloq belgilash — qatorning o'ng tomonida. */
-export function MonoTick({ on, onClick, size = 26, label }: { on: boolean; onClick?: () => void; size?: number; label?: string }) {
+export function MonoTick({ on, onClick, size = 26, label, wave }: { on: boolean; onClick?: () => void; size?: number; label?: string; /** Vazifa belgilash — to'lqin bilan */ wave?: boolean }) {
   const cls = cn("grid shrink-0 place-items-center rounded-full border-2 transition-colors", on ? "border-accent bg-accent text-accent-ink" : "border-border-strong");
   const inner = on && <Check className="size-3.5" strokeWidth={3.5} />;
   if (!onClick) return <span className={cls} style={{ width: size, height: size }}>{inner}</span>;
@@ -53,7 +54,7 @@ export function MonoTick({ on, onClick, size = 26, label }: { on: boolean; onCli
       // Tegish maydoni 40px, ko'rinadigan doira kichikroq
       className="-m-2 grid shrink-0 place-items-center p-2"
     >
-      <span className={cls} style={{ width: size, height: size }}>{inner}</span>
+      {wave ? <DoneMark on={on} size={size} /> : <span className={cls} style={{ width: size, height: size }}>{inner}</span>}
     </button>
   );
 }
