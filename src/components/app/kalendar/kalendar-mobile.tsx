@@ -50,6 +50,7 @@ export function KalendarMobile({ plans, onCreate, onUpdate, onToggle, onRemove, 
   const daily = useMemo(() => plans.filter((p) => p.scope === "DAILY"), [plans]);
   const ofDay = (iso: string) => daily.filter((p) => p.scheduledFor === iso).sort(byTime);
   const selIso = toDateInputValue(selected);
+  const todayIso = toDateInputValue(today);
 
   useMobileAdd(() => setAdding(true));
 
@@ -114,7 +115,7 @@ export function KalendarMobile({ plans, onCreate, onUpdate, onToggle, onRemove, 
               onDragEnd={(_, i) => { if (i.offset.x < -50) shift(1); else if (i.offset.x > 50) shift(-1); }}
               className="mt-2 rounded-[22px] border border-border bg-surface p-2"
             >
-              <MonthGrid view={view} selected={selected} today={today} openOf={(iso) => ofDay(iso).filter((p) => p.status !== "DONE")} onPick={pickDay} />
+              <MonthGrid view={view} selected={selected} today={today} openOf={(iso) => (iso < todayIso ? ofDay(iso) : ofDay(iso).filter((p) => p.status !== "DONE"))} onPick={pickDay} />
             </motion.div>
             <DayList date={selected} today={today} list={ofDay(selIso)} onOpen={setDetailId} onToggle={onToggle} onAdd={() => setAdding(true)} onClear={() => setClearDay(selIso)} />
           </>
@@ -207,7 +208,8 @@ export function KalendarMobile({ plans, onCreate, onUpdate, onToggle, onRemove, 
   );
 }
 
-/* Oy panjarasi: kun raqami, atrofida bajarilmagan rejalar halqasi. */
+/* Oy panjarasi: kun raqami, atrofida bajarilmagan rejalar halqasi. O'tgan kunlarda —
+   o'sha kunning barcha rejalari, xira (50%). */
 function MonthGrid({ view, selected, today, openOf, onPick }: { view: Date; selected: Date; today: Date; openOf: (iso: string) => Plan[]; onPick: (d: Date) => void }) {
   return (
     <div className="grid grid-cols-7">
@@ -218,11 +220,12 @@ function MonthGrid({ view, selected, today, openOf, onPick }: { view: Date; sele
         const sel = isSameDay(d, selected);
         const isToday = isSameDay(d, today);
         const open = openOf(iso);
+        const past = d < today;
         return (
           <button key={iso} type="button" onClick={() => onPick(startOfDay(d))} className="grid h-12 place-items-center">
             <span className={cn("relative grid size-11 place-items-center rounded-full text-[15px] tabular-nums transition-colors", sel ? "bg-accent font-semibold text-accent-ink" : isToday ? "font-semibold ring-1 ring-inset ring-foreground/35" : inMonth ? "text-foreground" : "text-faint/50")}>
               {d.getDate()}
-              {open.length > 0 && <DayRing plans={open} on={sel} />}
+              {open.length > 0 && <DayRing plans={open} on={sel} dim={past} />}
             </span>
           </button>
         );
@@ -239,13 +242,13 @@ const RING_C = 2 * Math.PI * RING_R;
 const RING_STEP = RING_C / 12;
 const RING_LEN = RING_STEP - 3.2;
 const PRIORITY_RANK = { HIGH: 0, MEDIUM: 1, LOW: 2 } as const;
-function DayRing({ plans, on }: { plans: Plan[]; on: boolean }) {
+function DayRing({ plans, on, dim }: { plans: Plan[]; on: boolean; dim?: boolean }) {
   const items = [...plans].sort((a, b) => (a.priority ? PRIORITY_RANK[a.priority] : 3) - (b.priority ? PRIORITY_RANK[b.priority] : 3)).slice(0, 12);
   const n = items.length;
   // O'rinlar markazdan uzoqlashish tartibida: 1-chi o'rtada, keyin o'ng/chap.
   const slots = Array.from({ length: n }, (_, j) => j - (n - 1) / 2).sort((x, y) => Math.abs(x) - Math.abs(y) || x - y);
   return (
-    <svg viewBox="0 0 44 44" aria-label={`${plans.length} ta reja`} className="pointer-events-none absolute inset-0 rotate-90">
+    <svg viewBox="0 0 44 44" aria-label={`${plans.length} ta reja`} className={cn("pointer-events-none absolute inset-0 rotate-90", dim && "opacity-50")}>
       {items.map((p, i) => (
         <circle
           key={p.id}
@@ -281,8 +284,10 @@ function PlanLine({ p, onOpen, onToggle }: { p: Plan; onOpen: (id: string) => vo
 }
 
 function DayList({ date, today, list, onOpen, onToggle, onAdd, onClear }: { date: Date; today: Date; list: Plan[]; onOpen: (id: string) => void; onToggle: (id: string) => void; onAdd: () => void; onClear: () => void }) {
-  const active = list.filter((p) => p.status !== "DONE");
-  const done = list.filter((p) => p.status === "DONE");
+  // O'tgan kun: hamma rejalar bitta ro'yxatda, xira (50%) — tarix sifatida ko'rinadi.
+  const past = date < today;
+  const active = past ? list : list.filter((p) => p.status !== "DONE");
+  const done = past ? [] : list.filter((p) => p.status === "DONE");
   return (
     <>
       <div className="mb-1.5 mt-4 flex items-center justify-between px-1">
@@ -293,7 +298,7 @@ function DayList({ date, today, list, onOpen, onToggle, onAdd, onClear }: { date
         </span>
       </div>
       {active.length > 0 && (
-        <div className="overflow-hidden rounded-[22px] border border-border bg-surface [&>*+*]:border-t [&>*+*]:border-border">
+        <div className={cn("overflow-hidden rounded-[22px] border border-border bg-surface transition-opacity [&>*+*]:border-t [&>*+*]:border-border", past && "opacity-50")}>
           <AnimatePresence initial={false}>
             {active.map((p) => (
               <motion.div key={p.id} {...ROW_MOTION}>
@@ -303,7 +308,7 @@ function DayList({ date, today, list, onOpen, onToggle, onAdd, onClear }: { date
           </AnimatePresence>
         </div>
       )}
-      {list.length > 0 && active.length === 0 && (
+      {!past && list.length > 0 && active.length === 0 && (
         <p className="rounded-[18px] border border-dashed border-border px-4 py-4 text-center text-[13.5px] text-faint">Bu kunning hamma rejalari bajarildi</p>
       )}
       {/* Bajarilganlar — pastda yopiq, belgini olib tashlasa ro'yxatga qaytadi */}

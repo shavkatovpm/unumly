@@ -15,6 +15,7 @@ import { useMobileAdd } from "@/lib/mobile-add";
 import { usePlans } from "@/lib/plans-store";
 import { MonoHeader, MonoSave, MonoSheet } from "../widgets/mono-sheet";
 import { MAX_MIN, MIN_MIN, MODE_LABEL, STEP_MIN, formatClock, setFocusTask, usePomodoroLog, type Mode, type Pomodoro } from "./use-pomodoro";
+import { useHideNav } from "@/lib/nav-hidden";
 
 const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
 const hm = (t: number) => {
@@ -37,6 +38,10 @@ export function PomodoroMobile({ p }: { p: Pomodoro }) {
   const progress = Math.max(0, Math.min(1, (total - secondsLeft) / total));
   const paused = !running && secondsLeft < total;
   const focusMin = log.sessions.reduce((s, x) => s + x.minutes, 0);
+  // Ishlayotganda faqat taymer va pauza tugmasi qoladi: qolgani (pastki nav ham)
+  // sekin so'nadi; pauza bosilsa hammasi qaytadi.
+  useHideNav(running);
+  const fade = cn("transition-opacity duration-500 ease-out", running && "pointer-events-none opacity-0");
 
   return (
     <div
@@ -44,7 +49,7 @@ export function PomodoroMobile({ p }: { p: Pomodoro }) {
       className="flex flex-col overflow-y-auto md:hidden"
       style={{ height: "calc(var(--tg-vh, 100vh) - var(--tg-safe-top, 0px))" }}
     >
-      <div className="flex items-center justify-between gap-3 px-4 pt-1">
+      <div aria-hidden={running} className={cn("flex items-center justify-between gap-3 px-4 pt-1", fade)}>
         <div className="flex min-w-0 items-baseline gap-2">
           <h1 className="shrink-0 text-[22px] font-bold tracking-[-0.025em]">Pomodoro</h1>
           <p className="truncate text-[13px] text-muted">
@@ -57,7 +62,7 @@ export function PomodoroMobile({ p }: { p: Pomodoro }) {
       </div>
 
       <div className="px-4 pb-32 pt-2">
-        <div role="radiogroup" aria-label="Rejim" className="grid grid-cols-2 gap-2">
+        <div role="radiogroup" aria-label="Rejim" aria-hidden={running} className={cn("grid grid-cols-2 gap-2", fade)}>
           {(["focus", "break"] as Mode[]).map((m) => (
             <button
               key={m}
@@ -90,21 +95,22 @@ export function PomodoroMobile({ p }: { p: Pomodoro }) {
         </div>
 
         <div className="mt-4 flex items-center justify-center gap-5">
-          <button type="button" onClick={p.reset} aria-label="Qayta boshlash" className="grid size-14 place-items-center rounded-full bg-subtle text-foreground active:scale-95">
+          <button type="button" onClick={p.reset} aria-label="Qayta boshlash" tabIndex={running ? -1 : 0} className={cn("grid size-14 place-items-center rounded-full bg-subtle text-foreground active:scale-95", fade)}>
             <RotateCcw className="size-5" />
           </button>
-          <button type="button" onClick={p.toggleRunning} aria-label={running ? "To'xtatish" : "Boshlash"} className="grid size-20 place-items-center rounded-full bg-accent text-accent-ink shadow-lg transition-transform active:scale-95">
+          <button type="button" onClick={p.toggleRunning} aria-label={running ? "To'xtatish" : "Boshlash"} className={cn("grid size-20 place-items-center rounded-full bg-accent text-accent-ink shadow-lg transition-[transform,opacity] duration-500 active:scale-95", running && "opacity-50")}>
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.span key={running ? "pause" : "play"} initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} transition={{ duration: 0.15 }} className="grid">
                 {running ? <Pause className="size-8" strokeWidth={2.4} fill="currentColor" /> : <Play className="ml-1 size-8" strokeWidth={2.4} fill="currentColor" />}
               </motion.span>
             </AnimatePresence>
           </button>
-          <button type="button" onClick={p.skip} aria-label="Keyingisiga o'tish" className="grid size-14 place-items-center rounded-full bg-subtle text-foreground active:scale-95">
+          <button type="button" onClick={p.skip} aria-label="Keyingisiga o'tish" tabIndex={running ? -1 : 0} className={cn("grid size-14 place-items-center rounded-full bg-subtle text-foreground active:scale-95", fade)}>
             <SkipForward className="size-5" />
           </button>
         </div>
 
+        <div aria-hidden={running} className={fade}>
         <button type="button" onClick={() => setTaskSheet(true)} className="mt-5 flex min-h-[64px] w-full items-center gap-3 rounded-[22px] border border-border bg-surface px-3.5 py-3 text-left active:bg-hover">
           <span className="grid size-10 shrink-0 place-items-center rounded-full bg-subtle"><Target className="size-5" /></span>
           <span className="min-w-0 flex-1">
@@ -136,6 +142,7 @@ export function PomodoroMobile({ p }: { p: Pomodoro }) {
             ))}
           </div>
         )}
+        </div>
       </div>
 
       <MonoSheet open={taskSheet} onClose={() => setTaskSheet(false)} label="Fokus vazifasi">

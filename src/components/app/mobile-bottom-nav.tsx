@@ -45,6 +45,7 @@ import { SettingsDialog } from "./widgets/settings-dialog";
 import { Avatar } from "./widgets/avatar";
 import { TodayPanelSettings } from "./bugun/today-panel";
 import { PANEL_TABS, useTodayPanel } from "@/lib/today-panel";
+import { useNavHiddenValue } from "@/lib/nav-hidden";
 
 const STORAGE_HIDDEN = "unumly:sidebar:hidden";
 
@@ -113,6 +114,8 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
     );
 
   const keyboardOpen = useKeyboardOpen();
+  // Masalan, Pomodoro ishlayotganda — faqat taymer ko'rinsin.
+  const navHidden = useNavHiddenValue();
 
   const sheetClose = useMobileSheetCloseValue();
 
@@ -154,7 +157,7 @@ export function MobileBottomNav({ todayCount }: { todayCount: number }) {
   };
   return (
     <>
-      <GlassDockNav entries={entries} hidden={keyboardOpen} plusOpen={!!sheetClose} onPlus={onPlus} />
+      <GlassDockNav entries={entries} hidden={keyboardOpen || navHidden} plusOpen={!!sheetClose} onPlus={onPlus} />
       {sheet}
     </>
   );
