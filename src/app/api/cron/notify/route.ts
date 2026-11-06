@@ -32,8 +32,9 @@ const TEZKOR_IDLE_MS = 20 * 1000;
 /**
  * GET /api/cron/notify
  *
- * Called by an external scheduler (cron-job.org) every 10 minutes.
- * Requires Authorization: Bearer ${CRON_SECRET}.
+ * Called every minute by our own server (systemd timer `unumly-notify.timer`
+ * on the DB droplet → /usr/local/bin/unumly-notify). No third-party scheduler.
+ * Requires Authorization: Bearer ${CRON_SECRET} (/etc/unumly/notify.env).
  *
  * Scans plans whose notifyAt fell within [now-21min, now], filters by
  * user preferences and priority, sends the reminder via the bot, and
