@@ -3,7 +3,7 @@
 /* Odat toifalari uchun ikonalar — desktop va mobil ko'rinishda umumiy. */
 
 import {
-  Activity, Apple, Bath, Bed, Bike, BookOpen, Brain, Briefcase, Cake, Camera, Car, Cat, Code, Coffee, Dog, DollarSign, Droplet, Dumbbell, Feather, Flame, Folder, Footprints, Gamepad2, Gift, Glasses, GraduationCap, Guitar, Hammer, Headphones, Heart, Home, Languages, Laptop, Leaf, MapPin, Medal, Moon, Mountain, Music, Notebook, Paintbrush, Palette, PawPrint, Pencil, Phone, PiggyBank, Pill, Plane, Puzzle, Rocket, Salad, ShoppingCart, ShowerHead, Smile, Sparkles, Sprout, Star, Sun, Target, TreePine, Umbrella, Users, Utensils, Wallet, Wind, Wrench, Zap,
+  Activity, Apple, Bath, Bed, Bike, BookOpen, Brain, Briefcase, Cake, Camera, Car, Cat, Code, Coffee, Dog, DollarSign, Droplet, Dumbbell, Feather, Flame, Folder, Footprints, Gamepad2, Gift, Glasses, GraduationCap, Guitar, Hammer, Headphones, Heart, Home, Languages, Laptop, Leaf, MapPin, Medal, Moon, Mountain, Music, Notebook, Paintbrush, Palette, PawPrint, Pencil, Phone, Vault, Pill, Plane, Puzzle, Rocket, Salad, ShoppingCart, ShowerHead, Smile, Sparkles, Sprout, Star, Sun, Target, TreePine, Umbrella, Users, Utensils, Wallet, Wind, Wrench, Zap,
 } from "lucide-react";
 
 export const ICONS = {
@@ -17,7 +17,7 @@ export const ICONS = {
   bath: Bath, cake: Cake, camera: Camera, car: Car, cat: Cat, dog: Dog, feather: Feather,
   gamepad: Gamepad2, gift: Gift, glasses: Glasses, guitar: Guitar, laptop: Laptop, mappin: MapPin,
   medal: Medal, notebook: Notebook, paintbrush: Paintbrush, pawprint: PawPrint, phone: Phone,
-  piggybank: PiggyBank, plane: Plane, puzzle: Puzzle, shower: ShowerHead, tree: TreePine,
+  piggybank: Vault, plane: Plane, puzzle: Puzzle, shower: ShowerHead, tree: TreePine,
   umbrella: Umbrella, utensils: Utensils, wind: Wind, wrench: Wrench,
 } as const;
 export type IconKey = keyof typeof ICONS;

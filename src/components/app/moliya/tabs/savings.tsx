@@ -4,7 +4,7 @@
    hissa qo'shish/yechish, tarixni tahrirlash/o'chirish; maqsad formasi. */
 
 import { createElement, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Check, Minus, Pencil, PiggyBank, Plus, Target, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, Minus, Pencil, Vault, Plus, Target, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { FinancialGoal, GoalContribution } from "@/lib/types";
 import { listGoalContributions, removeGoalContribution, updateGoalContribution } from "@/lib/finance-store";
@@ -33,7 +33,7 @@ export function SavingsTab() {
   if (sorted.length === 0) {
     return (
       <div className="px-6 py-12 text-center">
-        <span className="mx-auto grid size-14 place-items-center rounded-full bg-subtle text-faint"><PiggyBank className="size-6" /></span>
+        <span className="mx-auto grid size-14 place-items-center rounded-full bg-subtle text-faint"><Vault className="size-6" /></span>
         <p className="mt-3 text-[17px] font-semibold">Hali yig&apos;im maqsadi yo&apos;q</p>
         <p className="mx-auto mt-1 max-w-[260px] text-[14px] leading-relaxed text-muted">Mashina, safar yoki zaxira — nimaga pul yig&apos;yapsiz?</p>
         <button type="button" onClick={newGoal} className="mx-auto mt-5 flex h-11 items-center gap-1.5 rounded-full bg-accent px-5 text-[14px] font-semibold text-accent-ink">

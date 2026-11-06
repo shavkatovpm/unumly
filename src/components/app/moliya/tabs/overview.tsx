@@ -4,7 +4,7 @@
    Yig'im va Qarz kartalari, byudjet limitlari va so'nggi yozuvlar. */
 
 import { useMemo, useState } from "react";
-import { ChevronRight, HandCoins, PiggyBank } from "lucide-react";
+import { ChevronRight, HandCoins, Vault } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TransactionType } from "@/lib/types";
 import { formatMoney, formatMonthLabel, monthKey } from "@/lib/money";
@@ -121,7 +121,7 @@ function SideCards() {
   return (
     <div className="mt-3 grid grid-cols-2 gap-2">
       <button type="button" onClick={() => selectTab("yigim")} className="rounded-[20px] border border-border bg-surface p-3.5 text-left active:bg-hover">
-        <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-muted"><PiggyBank className="size-4" />Yig&apos;im</span>
+        <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-muted"><Vault className="size-4" />Yig&apos;im</span>
         <span className="mt-1.5 block text-[17px] font-bold tabular-nums">{short(saved)}</span>
         <span className="mt-2 block h-1 overflow-hidden rounded-full bg-subtle">
           <span className="block h-full rounded-full bg-foreground" style={{ width: `${target ? Math.min(100, (saved / target) * 100) : 0}%` }} />
