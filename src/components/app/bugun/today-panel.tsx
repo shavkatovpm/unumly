@@ -18,7 +18,7 @@ import { useHabits } from "@/lib/habits-store";
 import { CATEGORY_PALETTE } from "@/lib/category-palette";
 import { fromDateInputValue, formatUzDate } from "@/lib/dates";
 import { TaskAnalyticsMobile } from "../widgets/task-analytics";
-import { Tick, ROW_MOTION } from "./mobile-ui";
+import { ROW_MOTION, Tick, usePendingDone } from "./mobile-ui";
 
 const SPRING = { type: "spring", stiffness: 460, damping: 38 } as const;
 const ICONS: Record<PanelTab, LucideIcon> = { analitika: BarChart3, maqsad: Target, reja: ClipboardList, agenda: ListChecks };
@@ -103,11 +103,13 @@ function ToTodayButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-/* Shu haftaning maqsadlari: bugunga o'tkazish va belgilash. */
+/* Shu haftaning bajarilmagan maqsadlari: bugunga o'tkazish va belgilash.
+   Belgilangan maqsad belgisi ko'rinib turadi, so'ng ro'yxatdan silliq chiqadi. */
 function GoalsTab({ todayIso }: { todayIso: string }) {
   const { goals, ready } = useHorizonGoals();
   const list = usePeriodGoals(goals, "WEEK", periodStartOf("WEEK", todayIso));
   const done = list.filter((g) => g.done).length;
+  const open = list.filter((g) => !g.done);
   return (
     <div className="px-3.5 pb-1 pt-3">
       <div className="flex items-baseline justify-between px-0.5">
@@ -115,30 +117,40 @@ function GoalsTab({ todayIso }: { todayIso: string }) {
         {list.length > 0 && <p className="text-[12.5px] tabular-nums text-faint">{done}/{list.length} bajarildi</p>}
       </div>
       {ready && list.length === 0 && <p className="py-5 text-center text-[13.5px] text-faint">Bu hafta uchun maqsad yo&apos;q</p>}
+      {ready && list.length > 0 && open.length === 0 && <p className="py-5 text-center text-[13.5px] text-faint">Bu haftaning hamma maqsadlari bajarildi</p>}
       <div className="mt-1.5">
-        {list.map((g) => {
-          const sd = g.steps.filter((s) => s.done).length;
-          const moved = g.scheduledFor === todayIso;
-          return (
-            <div key={g.id} className="flex min-h-[54px] items-center gap-3 border-b border-border/70 last:border-b-0">
-              <span className="min-w-0 flex-1">
-                <span className={cn("block truncate text-[15px] font-semibold", g.done && "text-faint line-through decoration-faint/60")}>{g.title}</span>
-                {g.steps.length > 0 && (
-                  <span className="mt-1 flex items-center gap-2">
-                    <span className="block h-1 flex-1 overflow-hidden rounded-full bg-subtle"><span className="block h-full rounded-full bg-foreground" style={{ width: `${(sd / g.steps.length) * 100}%` }} /></span>
-                    <span className="text-[11.5px] tabular-nums text-faint">{sd}/{g.steps.length}</span>
-                  </span>
-                )}
-              </span>
-              {!g.done && (moved
-                ? <span className="flex shrink-0 items-center gap-1 text-[12px] text-faint"><Check className="size-3" strokeWidth={3} />Bugunda</span>
-                : <ToTodayButton onClick={() => horizonGoalsApi.moveGoal(g, todayIso)} />)}
-              <Tick on={g.done} onClick={() => horizonGoalsApi.setDone(g.id, !g.done)} size={24} />
-            </div>
-          );
-        })}
+        <AnimatePresence initial={false}>
+          {open.map((g) => (
+            <motion.div key={g.id} {...ROW_MOTION} className="border-b border-border/70 last:border-b-0">
+              <GoalRow goal={g} todayIso={todayIso} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
       <MoreLink href="/maqsad">Barcha maqsadlar</MoreLink>
+    </div>
+  );
+}
+
+function GoalRow({ goal: g, todayIso }: { goal: ReturnType<typeof useHorizonGoals>["goals"][number]; todayIso: string }) {
+  const { visual, toggle } = usePendingDone(false, () => horizonGoalsApi.setDone(g.id, true));
+  const sd = g.steps.filter((s) => s.done).length;
+  const moved = g.scheduledFor === todayIso;
+  return (
+    <div className="flex min-h-[54px] items-center gap-3">
+      <span className="min-w-0 flex-1">
+        <span className={cn("block truncate text-[15px] font-semibold transition-colors", visual && "text-faint line-through decoration-faint/60")}>{g.title}</span>
+        {g.steps.length > 0 && (
+          <span className="mt-1 flex items-center gap-2">
+            <span className="block h-1 flex-1 overflow-hidden rounded-full bg-subtle"><span className="block h-full rounded-full bg-foreground" style={{ width: `${(sd / g.steps.length) * 100}%` }} /></span>
+            <span className="text-[11.5px] tabular-nums text-faint">{sd}/{g.steps.length}</span>
+          </span>
+        )}
+      </span>
+      {!visual && (moved
+        ? <span className="flex shrink-0 items-center gap-1 text-[12px] text-faint"><Check className="size-3" strokeWidth={3} />Bugunda</span>
+        : <ToTodayButton onClick={() => horizonGoalsApi.moveGoal(g, todayIso)} />)}
+      <Tick on={visual} onClick={toggle} size={24} />
     </div>
   );
 }
@@ -204,16 +216,28 @@ function AgendaTab({ plans, todayIso, onToggle, onOpen }: { plans: Plan[]; today
       {days.map((d) => (
         <div key={d} className="mt-1">
           <p className="px-0.5 pb-0.5 pt-1.5 text-[12.5px] font-semibold text-muted">{label(d)}</p>
-          {upcoming.filter((p) => p.scheduledFor === d).slice(0, 4).map((p) => (
-            <div key={p.id} role="button" tabIndex={0} onClick={() => onOpen(p.id)} className="flex min-h-[48px] cursor-pointer items-center gap-3 border-b border-border/70 last:border-b-0">
-              <span className="w-11 shrink-0 text-[13px] font-semibold tabular-nums text-muted">{p.time ?? "—"}</span>
-              <span className="min-w-0 flex-1 truncate text-[15px]">{p.title}</span>
-              <Tick on={false} onClick={() => onToggle(p.id)} size={24} />
-            </div>
-          ))}
+          <AnimatePresence initial={false}>
+            {upcoming.filter((p) => p.scheduledFor === d).slice(0, 4).map((p) => (
+              <motion.div key={p.id} {...ROW_MOTION} className="border-b border-border/70 last:border-b-0">
+                <AgendaLine plan={p} onToggle={() => onToggle(p.id)} onOpen={() => onOpen(p.id)} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       ))}
       <MoreLink href="/agenda">Butun Agenda</MoreLink>
+    </div>
+  );
+}
+
+/* Faqat bajarilmaganlar: belgilansa belgi ko'rinib turadi, so'ng qator silliq chiqadi. */
+function AgendaLine({ plan: p, onToggle, onOpen }: { plan: Plan; onToggle: () => void; onOpen: () => void }) {
+  const { visual, toggle } = usePendingDone(false, onToggle);
+  return (
+    <div role="button" tabIndex={0} onClick={onOpen} className="flex min-h-[48px] cursor-pointer items-center gap-3">
+      <span className="w-11 shrink-0 text-[13px] font-semibold tabular-nums text-muted">{p.time ?? "—"}</span>
+      <span className={cn("min-w-0 flex-1 truncate text-[15px] transition-colors", visual && "text-faint line-through decoration-faint/60")}>{p.title}</span>
+      <Tick on={visual} onClick={toggle} size={24} />
     </div>
   );
 }
