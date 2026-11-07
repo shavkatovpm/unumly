@@ -7,7 +7,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
-  AlertCircle, Ban, CalendarPlus, Check, ChevronRight, Clock, Coffee, HandCoins, Inbox,
+  AlertCircle, Ban, CalendarPlus, Check, ChevronRight, Coffee, HandCoins, Inbox,
   Moon, Plus, Sun, Sunrise, Sunset, Wallet, X, type LucideIcon,
 } from "lucide-react";
 import type { Plan } from "@/lib/types";
@@ -22,7 +22,7 @@ import { TodayPanel } from "./today-panel";
 import { MonoSheet } from "../widgets/mono-sheet";
 import { ListLoader } from "../widgets/list-loader";
 import {
-  Collapsed, DoneList, Glide, MobileHeader, MoveCard, PriorityDot, ROW_MOTION, Ring, TaskBadges, Tick, byCompletedDesc, groupCls,
+  Collapsed, DoneList, Glide, MobileHeader, MoveCard, PRIORITY_COLOR, PriorityDot, ROW_MOTION, Ring, TaskBadges, Tick, byCompletedDesc, groupCls,
   hasBadges, usePendingDone,
 } from "./mobile-ui";
 
@@ -197,25 +197,35 @@ function TaskRow({ plan, reja, overdue, activeNow, onToggle, onOpen, handle }: {
 }) {
   const { visual, toggle } = usePendingDone(plan.status === "DONE", onToggle);
   const end = plan.time && plan.duration ? minToHm(parseTimeToMinutes(plan.time) + plan.duration) : null;
+  const late = overdue && !visual;
+  const now = activeNow && !visual;
   return (
-    <div role="button" tabIndex={0} onClick={onOpen} className={cn("flex min-h-[64px] cursor-pointer items-center gap-3 bg-surface px-3.5 py-2.5 transition-colors active:bg-hover", handle && "pl-1.5")}>
+    <div role="button" tabIndex={0} onClick={onOpen} className={cn("flex min-h-[68px] cursor-pointer items-stretch gap-3 bg-surface py-3 pl-3.5 pr-4 transition-colors active:bg-hover", handle && "pl-1.5")}>
       {handle}
-      <PriorityDot p={plan.priority} dim={visual} />
-      <span className="min-w-0 flex-1">
-        <span className={cn("block truncate text-[15.5px] font-semibold leading-snug transition-colors", visual && "text-faint line-through decoration-faint/60")}>{plan.title}</span>
-        {(plan.time || hasBadges(plan, reja)) && (
+      {/* Vaqt — chapda katta; ostida tugash vaqti yoki "kechikdi" */}
+      <span className="flex w-[52px] shrink-0 flex-col justify-center leading-none">
+        {plan.time ? (
+          <>
+            <span className={cn("text-[18px] font-bold tabular-nums tracking-[-0.02em] transition-colors", visual ? "text-faint" : late ? "text-danger" : "text-foreground")}>{plan.time}</span>
+            {end ? <span className="mt-1 text-[12px] tabular-nums text-faint">{end}</span>
+              : late ? <span className="mt-1 text-[11.5px] font-semibold text-danger">kechikdi</span> : null}
+          </>
+        ) : (
+          <span className="text-[12.5px] font-medium text-faint">vaqtsiz</span>
+        )}
+      </span>
+      {/* Muhimlik — rangli chiziq */}
+      <span aria-hidden className="w-[3px] shrink-0 rounded-full transition-colors" style={{ background: visual ? "var(--border)" : plan.priority ? PRIORITY_COLOR[plan.priority] : "var(--border-strong)" }} />
+      <span className="flex min-w-0 flex-1 flex-col justify-center">
+        <span className={cn("block truncate text-[16.5px] font-semibold leading-snug tracking-[-0.01em] transition-colors", visual && "text-faint line-through decoration-faint/60")}>{plan.title}</span>
+        {(now || hasBadges(plan, reja)) && (
           <span className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-faint">
-            {plan.time && (
-              <span className={cn("flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold tabular-nums", visual ? "bg-subtle text-faint" : overdue ? "bg-danger-soft text-danger" : activeNow ? "bg-accent text-accent-ink" : "bg-subtle text-foreground")}>
-                <Clock className="size-3" /> {plan.time}{end ? `–${end}` : ""}
-              </span>
-            )}
-            {activeNow && !visual && <span className="font-semibold text-foreground">Hozir</span>}
+            {now && <span className="font-semibold text-foreground">● Hozir</span>}
             <TaskBadges plan={plan} reja={reja} />
           </span>
         )}
       </span>
-      <Tick on={visual} onClick={toggle} />
+      <span className="flex items-center"><Tick on={visual} onClick={toggle} /></span>
     </div>
   );
 }
