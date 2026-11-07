@@ -5,9 +5,9 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
-  AlertCircle, Ban, CalendarPlus, Check, ChevronDown, ChevronRight, Clock, Coffee, HandCoins, Inbox,
+  AlertCircle, Ban, CalendarPlus, Check, ChevronRight, Clock, Coffee, HandCoins, Inbox,
   Moon, Plus, Sun, Sunrise, Sunset, Wallet, X, type LucideIcon,
 } from "lucide-react";
 import type { Plan } from "@/lib/types";
@@ -22,7 +22,8 @@ import { TodayPanel } from "./today-panel";
 import { MonoSheet } from "../widgets/mono-sheet";
 import { ListLoader } from "../widgets/list-loader";
 import {
-  Collapsed, Expand, MobileHeader, PriorityDot, ROW_MOTION, Ring, TaskBadges, Tick, groupCls, hasBadges, usePendingDone,
+  Collapsed, DoneList, Glide, MobileHeader, MoveCard, PriorityDot, ROW_MOTION, Ring, TaskBadges, Tick, byCompletedDesc, groupCls,
+  hasBadges, usePendingDone,
 } from "./mobile-ui";
 
 export type BucketKey = "overdue" | "midnight" | "morning" | "noon" | "evening" | "anytime";
@@ -97,7 +98,8 @@ export function BugunMobile({
           </>
         )}
 
-        {/* Bugungi ro'yxat */}
+        {/* Bugungi ro'yxat — bitta LayoutGroup: kartochkalar "Bajarilgan"ga suzib o'tadi */}
+        <LayoutGroup>
         {total === 0 && !hydrated ? (
           <ListLoader />
         ) : total === 0 ? (
@@ -119,43 +121,41 @@ export function BugunMobile({
             if (b.items.length === 0) return null;
             const Icon = ICONS[b.key];
             return (
-              <section key={b.key}>
+              <Glide key={b.key}>
                 <SectionLabel label={b.label} count={b.items.length} icon={Icon} danger={b.danger} />
                 {b.key === "anytime" ? (
                   <UntimedList items={b.items} rejaCatMap={rejaCatMap} onToggle={onToggle} onOpen={onOpen} onMove={onMoveUntimed} />
                 ) : (
-                  <div className={cn(groupCls, b.danger && "border-danger/40")}>
-                    <AnimatePresence initial={false}>
-                      {b.items.map((p) => {
-                        // Vaqti kelgan, davomiyligi tugamagan — "Hozir".
-                        const activeNow = !!p.time && nowMin !== null && parseTimeToMinutes(p.time) <= nowMin && nowMin <= parseTimeToMinutes(p.time) + (p.duration ?? 0);
-                        return (
-                          <motion.div key={p.id} {...ROW_MOTION}>
-                            <TaskRow plan={p} reja={rejaCatMap.get(p.id)} overdue={b.danger} activeNow={activeNow} onToggle={() => onToggle(p.id)} onOpen={() => onOpen(p.id)} />
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
+                  <div className="space-y-1.5">
+                    {b.items.map((p) => {
+                      // Vaqti kelgan, davomiyligi tugamagan — "Hozir".
+                      const activeNow = !!p.time && nowMin !== null && parseTimeToMinutes(p.time) <= nowMin && nowMin <= parseTimeToMinutes(p.time) + (p.duration ?? 0);
+                      return (
+                        <MoveCard key={p.id} id={p.id} className={cn(b.danger && "border-danger/40")}>
+                          <TaskRow plan={p} reja={rejaCatMap.get(p.id)} overdue={b.danger} activeNow={activeNow} onToggle={() => onToggle(p.id)} onOpen={() => onOpen(p.id)} />
+                        </MoveCard>
+                      );
+                    })}
                   </div>
                 )}
-              </section>
+              </Glide>
             );
           })
         )}
 
-        {/* Bugun bajarilganlar — yopiq, belgini olib tashlab qaytarish mumkin */}
-        {done > 0 && (
-          <Collapsed label="Bugun bajarilgan" count={done} className="mt-4">
-            <div className={groupCls}>
-              {doneList.map((p) => (
-                <TaskRow key={p.id} plan={p} reja={rejaCatMap.get(p.id)} onToggle={() => onToggle(p.id)} onOpen={() => onOpen(p.id)} />
-              ))}
-            </div>
-          </Collapsed>
-        )}
+        {/* Bugun bajarilganlar — belgilangan reja shu yerga suzib tushadi, belgini
+            olib tashlasa joyiga qaytadi. Ochiq/yopiqligi eslab qolinadi. */}
+        <DoneList label="Bugun bajarilgan" count={done} storageKey="bugun" className="mt-4">
+          {[...doneList].sort(byCompletedDesc).map((p) => (
+            <MoveCard key={p.id} id={p.id}>
+              <TaskRow plan={p} reja={rejaCatMap.get(p.id)} onToggle={() => onToggle(p.id)} onOpen={() => onOpen(p.id)} />
+            </MoveCard>
+          ))}
+        </DoneList>
 
         {/* Muddati o'tgan, 7 kundan kam */}
         {missed.length > 0 && (
+          <Glide>
           <Collapsed label="Bajarilmagan" count={missed.length} hint="O'tgan 7 kun" className="mt-2.5">
             <div className={groupCls}>
               <AnimatePresence initial={false}>
@@ -167,7 +167,9 @@ export function BugunMobile({
               </AnimatePresence>
             </div>
           </Collapsed>
+          </Glide>
         )}
+        </LayoutGroup>
       </div>
 
       <DebtSheet
@@ -227,28 +229,26 @@ function UntimedList({ items, rejaCatMap, onToggle, onOpen, onMove }: {
   const listRef = useRef<HTMLDivElement>(null);
   const { dragId, overId } = useLongPressReorder(listRef, onMove);
   return (
-    <div ref={listRef} className={cn(groupCls, dragId && "touch-none")}>
-      <AnimatePresence initial={false}>
-        {items.map((p) => (
-          <motion.div
-            key={p.id}
-            {...ROW_MOTION}
-            data-reorder-id={p.id}
-            className={cn(
-              "relative select-none transition-[box-shadow,transform] [-webkit-touch-callout:none]",
-              dragId === p.id && "z-10 scale-[1.02] shadow-lg",
-              overId === p.id && dragId !== p.id && "shadow-[inset_0_2px_0_var(--foreground)]",
-            )}
-          >
-            <TaskRow
-              plan={p}
-              reja={rejaCatMap.get(p.id)}
-              onToggle={() => onToggle(p.id)}
-              onOpen={() => onOpen(p.id)}
-            />
-          </motion.div>
-        ))}
-      </AnimatePresence>
+    <div ref={listRef} className={cn("space-y-1.5", dragId && "touch-none")}>
+      {items.map((p) => (
+        <MoveCard
+          key={p.id}
+          id={p.id}
+          data-reorder-id={p.id}
+          className={cn(
+            "relative select-none transition-[box-shadow] [-webkit-touch-callout:none]",
+            dragId === p.id && "z-10 shadow-lg",
+            overId === p.id && dragId !== p.id && "shadow-[inset_0_2px_0_var(--foreground)]",
+          )}
+        >
+          <TaskRow
+            plan={p}
+            reja={rejaCatMap.get(p.id)}
+            onToggle={() => onToggle(p.id)}
+            onOpen={() => onOpen(p.id)}
+          />
+        </MoveCard>
+      ))}
     </div>
   );
 }

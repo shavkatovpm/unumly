@@ -91,7 +91,7 @@ export function AgendaMobile({ hydrated, upcoming, todayIso, rejaCatMap, onToggl
               const timed = items.filter((p) => p.time);
               const untimed = items.filter((p) => !p.time);
               return (
-                <motion.section key={iso} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                <motion.section key={iso} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ height: { duration: 0.34, ease: [0.32, 0.72, 0, 1] }, opacity: { duration: 0.2 } }} className="overflow-hidden">
                   <div className="mb-1.5 mt-4 flex items-baseline gap-2 px-1">
                     <h2 className="text-[15px] font-bold tracking-[-0.01em]">{heading(iso)}</h2>
                     <span className="truncate text-[12.5px] text-faint">{sub(iso)}</span>

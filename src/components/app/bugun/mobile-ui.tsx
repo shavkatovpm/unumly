@@ -3,8 +3,8 @@
 /* Bugun va Agenda mobil ko'rinishi uchun umumiy bo'laklar: ixcham sarlavha,
    dumaloq belgi, halqa, yig'iladigan bo'lim, task belgilari. */
 
-import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, type Transition } from "framer-motion";
 import { ChevronDown, ListChecks, Repeat, Tag, Target } from "lucide-react";
 import type { Plan } from "@/lib/types";
 import { playOnComplete } from "@/lib/sounds";
@@ -102,14 +102,15 @@ export function usePendingDone(done: boolean, onToggle: () => void) {
   return { visual: done || pending, toggle };
 }
 
-/** Ro'yxatga kirish/chiqish animatsiyasi. */
+/** Ro'yxatga kirish/chiqish animatsiyasi. Prujina va `layout` yo'q: qator avval
+ *  so'nadi, keyin joyi bir tekis yig'iladi — pastdagilar shu bilan birga silliq
+ *  ko'tariladi (sakrash bo'lmaydi). */
+const SMOOTH = [0.32, 0.72, 0, 1] as const;
 export const ROW_MOTION = {
-  layout: true,
   initial: { opacity: 0, height: 0 },
-  animate: { opacity: 1, height: "auto" },
-  // Bajarilgan qator o'ngga chiqib ketadi, keyin joyi yig'iladi.
-  exit: { opacity: 0, x: 80, height: 0, transition: { x: { duration: 0.22 }, opacity: { duration: 0.2 }, height: { duration: 0.22, delay: 0.16 } } },
-  transition: { type: "spring", stiffness: 460, damping: 38, opacity: { duration: 0.18 } },
+  animate: { opacity: 1, height: "auto", x: 0, transition: { height: { duration: 0.32, ease: SMOOTH }, opacity: { duration: 0.24, delay: 0.08 } } },
+  exit: { opacity: 0, x: 24, height: 0, transition: { opacity: { duration: 0.18 }, x: { duration: 0.22, ease: SMOOTH }, height: { duration: 0.32, ease: SMOOTH, delay: 0.12 } } },
+  style: { overflow: "hidden" },
 } as const;
 
 export function Expand({ open, children }: { open: boolean; children: React.ReactNode }) {
@@ -142,3 +143,82 @@ export function Collapsed({ label, count, hint, className, children }: { label: 
 }
 
 export const groupCls = "overflow-hidden rounded-[22px] border border-border bg-surface [&>*+*]:border-t [&>*+*]:border-border";
+
+/* ─── Bajarilganda "pastga ko'chish" ───────────────────────────────────────
+   Qator alohida kartochka (MoveCard, layoutId = reja id). Belgilanganda u faol
+   ro'yxatdan chiqib, pastdagi DoneList'ga suzib tushadi; qaytarilsa — joyiga
+   suzib chiqadi. Atrofdagi bo'limlar (Glide) ham bir xil sur'atda suriladi.
+   Hammasi bitta <LayoutGroup> ichida bo'lishi kerak. */
+
+/** iOS'dagidek: tez boshlanib, yumshoq to'xtaydi. Prujina yo'q — sakramaydi. */
+export const GLIDE: Transition = { type: "tween", duration: 0.5, ease: [0.32, 0.72, 0, 1] };
+
+export const cardCls = "overflow-hidden rounded-[18px] border border-border bg-surface";
+
+// DoneList ichidagi kartochkalar yopiq bo'limda ko'rinmasin (balandligi 0).
+const DoneOpen = createContext<boolean | null>(null);
+
+export function MoveCard({ id, className, children, ...rest }: { id: string; className?: string; children: React.ReactNode } & Omit<React.ComponentProps<typeof motion.div>, "children" | "layoutId">) {
+  const open = useContext(DoneOpen);
+  const hidden = open === false;
+  return (
+    <motion.div
+      layoutId={id}
+      transition={GLIDE}
+      animate={{ opacity: hidden ? 0 : 1, scale: hidden ? 0.94 : 1 }}
+      style={hidden ? { height: 0, borderWidth: 0 } : undefined}
+      className={cn(cardCls, className)}
+      {...rest}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/** Bo'lim yoki blok: ro'yxat o'zgarganda joyiga silliq suriladi. */
+export function Glide({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <motion.div layout="position" transition={GLIDE} className={className}>{children}</motion.div>;
+}
+
+/** Pastdagi "Bajarilgan" ro'yxati. Ochiq/yopiqligi eslab qolinadi (storageKey). */
+export function DoneList({ label, count, storageKey, defaultOpen = true, className, children }: {
+  label: string; count: number; storageKey: string; defaultOpen?: boolean; className?: string; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(`unumly:done-open:${storageKey}`);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- saqlangan holat faqat mount'da o'qiladi
+      if (v === "0" || v === "1") setOpen(v === "1");
+    } catch { /* */ }
+  }, [storageKey]);
+  function toggle() {
+    setOpen((o) => {
+      try { localStorage.setItem(`unumly:done-open:${storageKey}`, o ? "0" : "1"); } catch { /* */ }
+      return !o;
+    });
+  }
+  return (
+    <>
+      {count > 0 && (
+        <Glide className={className}>
+          <button type="button" onClick={toggle} aria-expanded={open} className="flex h-[52px] w-full items-center justify-between rounded-[18px] border border-border bg-subtle/40 px-4 text-left">
+            <span className="flex items-center gap-2 text-[14px] font-semibold text-muted">
+              {label}
+              <motion.span key={count} initial={{ scale: 1.5 }} animate={{ scale: 1 }} transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }} className="tabular-nums text-faint">{count}</motion.span>
+            </span>
+            <ChevronDown className={cn("size-5 text-faint transition-transform duration-200", open && "rotate-180")} />
+          </button>
+        </Glide>
+      )}
+      <DoneOpen.Provider value={open}>
+        <div className={cn("space-y-1.5", open && count > 0 && "mt-2")}>{children}</div>
+      </DoneOpen.Provider>
+    </>
+  );
+}
+
+/** Bajarilganlar: oxirgi belgilangan tepada. */
+export function byCompletedDesc<T extends { completedAt?: string }>(a: T, b: T) {
+  return (b.completedAt ?? "").localeCompare(a.completedAt ?? "");
+}

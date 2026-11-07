@@ -5,13 +5,13 @@
    Desktop ko'rinishi KalendarView'da o'zgarmagan. */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { LayoutGroup, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Eraser, Plus } from "lucide-react";
 import type { Plan, PlanPriority, PlanScope } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useMobileAdd } from "@/lib/mobile-add";
 import { getCalendarGrid, isSameDay, parseTimeToMinutes, startOfDay, startOfMonth, startOfWeek, toDateInputValue } from "@/lib/dates";
-import { Collapsed, PRIORITY_COLOR, ROW_MOTION, Tick, usePendingDone } from "../bugun/mobile-ui";
+import { DoneList, Glide, MoveCard, PRIORITY_COLOR, Tick, byCompletedDesc, usePendingDone } from "../bugun/mobile-ui";
 import { TaskAddSheet } from "../widgets/task-add-sheet";
 import { TaskDetail } from "../widgets/task-detail";
 import { ConfirmDialog } from "../widgets/confirm-dialog";
@@ -297,31 +297,35 @@ function DayList({ date, today, list, onOpen, onToggle, onAdd, onClear }: { date
           {list.length > 0 && <button type="button" onClick={onClear} aria-label="Kunni tozalash" className="ml-1 grid size-8 place-items-center rounded-full text-faint active:bg-hover"><Eraser className="size-4" /></button>}
         </span>
       </div>
-      {active.length > 0 && (
-        <div className={cn("overflow-hidden rounded-[22px] border border-border bg-surface transition-opacity [&>*+*]:border-t [&>*+*]:border-border", past && "opacity-50")}>
-          <AnimatePresence initial={false}>
+      <LayoutGroup>
+        {active.length > 0 && (
+          <div className={cn("space-y-1.5 transition-opacity", past && "opacity-50")}>
             {active.map((p) => (
-              <motion.div key={p.id} {...ROW_MOTION}>
+              <MoveCard key={p.id} id={p.id}>
                 <PlanLine p={p} onOpen={onOpen} onToggle={onToggle} />
-              </motion.div>
+              </MoveCard>
             ))}
-          </AnimatePresence>
-        </div>
-      )}
-      {!past && list.length > 0 && active.length === 0 && (
-        <p className="rounded-[18px] border border-dashed border-border px-4 py-4 text-center text-[13.5px] text-faint">Bu kunning hamma rejalari bajarildi</p>
-      )}
-      {/* Bajarilganlar — pastda yopiq, belgini olib tashlasa ro'yxatga qaytadi */}
-      {done.length > 0 && (
-        <Collapsed label="Bajarilgan" count={done.length} className="mt-2">
-          <div className="overflow-hidden rounded-[22px] border border-border bg-surface [&>*+*]:border-t [&>*+*]:border-border">
-            {done.map((p) => <PlanLine key={p.id} p={p} onOpen={onOpen} onToggle={onToggle} />)}
           </div>
-        </Collapsed>
-      )}
+        )}
+        {!past && list.length > 0 && active.length === 0 && (
+          <Glide>
+            <p className="rounded-[18px] border border-dashed border-border px-4 py-4 text-center text-[13.5px] text-faint">Bu kunning hamma rejalari bajarildi</p>
+          </Glide>
+        )}
+        {/* Bajarilganlar — belgilangan reja shu yerga suzib tushadi, belgini olib tashlasa joyiga qaytadi */}
+        <DoneList label="Bajarilgan" count={done.length} storageKey="kalendar" className="mt-2">
+          {[...done].sort(byCompletedDesc).map((p) => (
+            <MoveCard key={p.id} id={p.id}>
+              <PlanLine p={p} onOpen={onOpen} onToggle={onToggle} />
+            </MoveCard>
+          ))}
+        </DoneList>
+      </LayoutGroup>
+      <Glide>
       <button type="button" onClick={onAdd} className="mt-2 flex h-11 w-full items-center justify-center gap-1.5 rounded-[18px] border border-dashed border-border text-[14px] font-medium text-muted">
         <Plus className="size-4" /> {list.length ? "Shu kunga qo'shish" : "Bu kun bo'sh — reja qo'shish"}
       </button>
+      </Glide>
     </>
   );
 }

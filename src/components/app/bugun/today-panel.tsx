@@ -18,7 +18,7 @@ import { useHabits } from "@/lib/habits-store";
 import { CATEGORY_PALETTE } from "@/lib/category-palette";
 import { fromDateInputValue, formatUzDate } from "@/lib/dates";
 import { TaskAnalyticsMobile } from "../widgets/task-analytics";
-import { Tick } from "./mobile-ui";
+import { Tick, ROW_MOTION } from "./mobile-ui";
 
 const SPRING = { type: "spring", stiffness: 460, damping: 38 } as const;
 const ICONS: Record<PanelTab, LucideIcon> = { analitika: BarChart3, maqsad: Target, reja: ClipboardList, agenda: ListChecks };
@@ -166,13 +166,15 @@ function IdeasTab({ todayIso }: { todayIso: string }) {
           {list.slice(0, 6).map((i) => {
             const c = categories.find((x) => x.id === i.categoryId);
             return (
-              <motion.div key={i.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, height: 0 }} className="flex min-h-[52px] items-center gap-3 overflow-hidden border-b border-border/70 last:border-b-0">
-                <span className="size-2 shrink-0 rounded-full" style={{ background: c ? CATEGORY_PALETTE[c.color].oklch : "var(--faint)" }} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium">{i.title}</span>
-                  {c && <span className="block text-[12px] text-faint">{c.label}</span>}
-                </span>
-                <ToTodayButton onClick={() => update(i.id, { scheduledFor: todayIso })} />
+              <motion.div key={i.id} {...ROW_MOTION} className="border-b border-border/70 last:border-b-0">
+                <div className="flex min-h-[52px] items-center gap-3">
+                  <span className="size-2 shrink-0 rounded-full" style={{ background: c ? CATEGORY_PALETTE[c.color].oklch : "var(--faint)" }} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-medium">{i.title}</span>
+                    {c && <span className="block text-[12px] text-faint">{c.label}</span>}
+                  </span>
+                  <ToTodayButton onClick={() => update(i.id, { scheduledFor: todayIso })} />
+                </div>
               </motion.div>
             );
           })}

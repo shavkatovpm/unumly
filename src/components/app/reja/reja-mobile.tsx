@@ -25,6 +25,7 @@ import { CollapseHead, EmptyCard, Expand, MenuRow, MobileTitle, RoundButton, Tic
 import { DONE_VISIBLE_DAYS, SORT_KEY, beforeIdForMove, isOnBoard, isRecentlyDone, reorderCategories, sortIdeas, type SortOrder } from "./reja-logic";
 import { CategoryChips, IdeaDetailMobile, PRIORITIES } from "./idea-detail-mobile";
 import { relAgo } from "./reja-format";
+import { ROW_MOTION } from "../bugun/mobile-ui";
 
 const DONE_DELAY_MS = 700;
 const SWIPE = 56;
@@ -386,10 +387,7 @@ function IdeaRow({ idea, selecting, selected, onSelect, onOpen, onToggle }: { id
   const prio = PRIORITIES.find((p) => p.value === idea.priority);
   return (
     <motion.div
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: "auto" }}
-      exit={{ opacity: 0, height: 0, transition: { duration: 0.22 } }}
-      transition={{ duration: 0.2 }}
+      {...ROW_MOTION}
       className={cn("overflow-hidden transition-colors", selecting && selected && "bg-subtle")}
     >
       <div className="flex min-h-[64px] items-center gap-3 px-3.5">
